@@ -1,0 +1,5 @@
+#Git ignore file for Chaff
+bin/
+obj/
+*.lnk
+.settings
