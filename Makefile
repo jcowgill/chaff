@@ -5,8 +5,11 @@
 #	.c - C Source, compiled with GCC
 #	.s - Assembly Source, compiled with NASM
 
-SOURCES = $(wildcard src/*.c)
-SOURCES += $(wildcard src/*.s)
+VPATH = src
+DIRS = src src/include
+
+SOURCES = $(foreach DIR, $(DIRS), $(wildcard $(DIR)/*.cpp))
+SOURCES += $(foreach DIR, $(DIRS), $(wildcard $(DIR)/*.s))
 
 BINFILE = chaff.elf
 
@@ -15,16 +18,11 @@ LINK = ld
 CC = gcc
 ASM = nasm
 
-#	For some gay reason, using stabs seems to crash gdb at random moments
-#	(at least on my compiler)
-CFLAGS = -c -std=gnu99 -fgnu89-inline -gdwarf-2 -Wall -Wextra -Werror -Isrc/include -DDEBUG -nostdlib -fno-builtin -nostartfiles -nodefaultlibs -fno-exceptions -fno-rtti -fno-stack-protector
+CFLAGS = -c -gdwarf-2 -Wall -Wextra -Isrc/include -DDEBUG -nostdlib -fno-builtin -nostartfiles -nodefaultlibs -fno-exceptions -fno-rtti -fno-stack-protector
 ASMFLAGS = -Xgnu -f elf -F dwarf
 
 #Calculate objects (changes to .obj and uses obj directory)
 OBJS = $(subst src/,obj/,$(addsuffix .obj,$(basename $(SOURCES))))
-
-#Set source file path
-VPATH = src
 
 #AUTO-DEPENDANCIES
 -include $(OBJS:.obj=.dep)
@@ -47,7 +45,7 @@ clean:
 $(BINFILE): $(OBJS)
 	$(LINK) -o bin/$@ -T src/linker.ld $(OBJS)
 
-obj/%.obj : %.c
+obj/%.obj : %.cpp
 	$(CC) $(CFLAGS) -o $@ -c $<
 	cmd /c $(CC) -MM $(CFLAGS) $< \> obj/$*.d
 
