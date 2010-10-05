@@ -106,6 +106,9 @@ highLoader:
 	;Setup the stack pointer
 	mov esp, startupStack + STACK_SIZE
 
+	;Correct the multiboot info pointer
+	add ebx, KERNEL_VIRTUAL_BASE
+
 	;Call the main procedure
 	push eax
 	push ebx
