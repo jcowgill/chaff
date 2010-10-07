@@ -35,7 +35,7 @@ namespace Chaff
 		public:
 		    //Initializes the physical memory manager using the memory info
 		    // in the multiboot information structure
-			static void Init(multiboot_info_t bootInfo);
+			static void Init(multiboot_info_t * bootInfo);
 			
 			//Allocates physical pages
 			// If lower16Meg is true, only pages in the lower 16M of memory will be returned
@@ -43,7 +43,7 @@ namespace Chaff
 
 			static PhysPage AllocatePages(bool lower16Meg)
 			{
-				return AllocatePage(1, lower16Meg);
+				return AllocatePages(1, lower16Meg);
 			}
 			
 			//Frees 1 physical page allocated by AllocatePage

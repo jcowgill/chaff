@@ -28,7 +28,24 @@
 //General functions
 namespace Chaff
 {
-	void NORETURN Panic(const char * msg);
+	//Run when an unrecoverable error occurs.
+	// Notifies the user of the error (as fatal log) and promptly hangs
+	void NORETURN Panic(const char * msg, ...);
+
+	//Logging levels
+	enum LogLevel
+	{
+		Fatal,			//Fatal / unrecoverable errors (concider using Panic)
+		Critical,		//Critical errors (could crash at any time)
+		Error,			//An error in a specific area
+		Warning,		//A significant abnormal condition
+		Notice,			//A significant (but normal) condition
+		Info,			//Informational
+		Debug,			//Debugging logs
+	};
+
+	//Prints something to the kernel log
+	void PrintLog(LogLevel level, const char * msg, ...);
 }
 
 #endif /* CHAFF_H_ */

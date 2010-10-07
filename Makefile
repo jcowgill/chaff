@@ -6,7 +6,7 @@
 #	.s - Assembly Source, compiled with NASM
 
 VPATH = src
-DIRS = src src/include
+DIRS = src src/memmgr
 
 SOURCES = $(foreach DIR, $(DIRS), $(wildcard $(DIR)/*.cpp))
 SOURCES += $(foreach DIR, $(DIRS), $(wildcard $(DIR)/*.s))

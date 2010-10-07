@@ -110,8 +110,8 @@ highLoader:
 	add ebx, KERNEL_VIRTUAL_BASE
 
 	;Call the main procedure
-	push eax
 	push ebx
+	push eax
 	call kMain
 
 	;If we get here, something bad has happened...

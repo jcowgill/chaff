@@ -41,7 +41,7 @@ void Chaff::CppUtils::TermGlobalObjects()
 }
 
 //GCC stuff to get certain C++ features to work
-extern "C" void __cxa_pure_virtual()
+void __cxa_pure_virtual()
 {
 	Chaff::Panic("__cxa_pure_virtual called (this should never happen)");
 }

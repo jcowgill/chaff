@@ -7,27 +7,18 @@
 
 #include "chaff.h"
 #include "cppUtils.h"
+#include "multiboot.h"
 
-struct TestCls
-{
-	TestCls();
-};
+extern "C" void NORETURN kMain(unsigned int mBootCode, multiboot_info_t * mBootInfo);
 
-TestCls::TestCls()
-{
-	return;
-}
-
-TestCls test;
-
-extern "C" void NORETURN kMain()
+void NORETURN kMain(unsigned int mBootCode, multiboot_info_t * mBootInfo)
 {
 	Chaff::CppUtils::InitGlobalObjects();
 	//
 	for(;;);
 }
 
-void NORETURN Chaff::Panic(const char * msg)
+void NORETURN Chaff::Panic(const char * msg, ...)
 {
 	//
 	char * testChar = (char *) 0xC00B8000;
