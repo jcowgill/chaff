@@ -31,7 +31,7 @@ namespace Chaff
 	    {
 	    private:
 			PhysicalMgr() {}
-			
+
 		public:
 		    //Initializes the physical memory manager using the memory info
 		    // in the multiboot information structure
@@ -39,15 +39,16 @@ namespace Chaff
 			
 			//Allocates physical pages
 			// If lower16Meg is true, only pages in the lower 16M of memory will be returned
-			static PhysPage AllocatePages(unsigned int number = 1, bool lower16Meg = false);
-
-			static PhysPage AllocatePages(bool lower16Meg)
-			{
-				return AllocatePages(1, lower16Meg);
-			}
+			static PhysPage AllocatePages(bool lower16Meg = false);
 			
 			//Frees 1 physical page allocated by AllocatePage
-			static void FreePages(PhysPage page, unsigned int number = 1);
+			static void FreePages(PhysPage page);
+
+			//Returns the number of pages in memory
+			static unsigned int GetTotalPages();
+
+			//Returns the number of free pages available
+			static unsigned int GetFreePages();
 		};
 		
 	    //The structure for a x86 page directory

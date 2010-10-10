@@ -46,6 +46,39 @@ namespace Chaff
 
 	//Prints something to the kernel log
 	void PrintLog(LogLevel level, const char * msg, ...);
+
+	//Sets the specified number of bytes after the given pointer with the given value
+	// Returns ptr
+	inline void * MemSet(void * ptr, unsigned char value, unsigned int length)
+	{
+		__builtin_memset(ptr, value, length);
+		return ptr;
+	}
+
+	//Copies the region of memory with the given length from src to dst
+	// src and dst must not overlap
+	// Returns ptr
+	inline void * MemCpy(void * ptr, const void * src, unsigned int length)
+	{
+		__builtin_memcpy(ptr, src, length);
+		return ptr;
+	}
+
+	//Moves the region of memory with the given length from src to dst
+	// src and dst are allowed to overlap
+	// Returns ptr
+	inline void * MemMove(void * ptr, const void * src, unsigned int length)
+	{
+		__builtin_memmove(ptr, src, length);
+		return ptr;
+	}
+
+	//Returns the offset of the first 1 bit in the given data
+	// If data == 0, the result is undefined
+	inline int BitScanReverse(unsigned int data)
+	{
+		return __builting_clz(data);
+	}
 }
 
 #endif /* CHAFF_H_ */
