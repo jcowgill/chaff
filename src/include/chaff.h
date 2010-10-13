@@ -77,7 +77,7 @@ namespace Chaff
 	// If data == 0, the result is undefined
 	inline int BitScanReverse(unsigned int data)
 	{
-		return __builting_clz(data);
+		return __builtin_clz(data);
 	}
 }
 
