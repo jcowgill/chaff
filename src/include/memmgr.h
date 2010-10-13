@@ -38,11 +38,15 @@ namespace Chaff
 			static void Init(multiboot_info_t * bootInfo);
 			
 			//Allocates physical pages
-			// If lower16Meg is true, only pages in the lower 16M of memory will be returned
-			static PhysPage AllocatePages(bool lower16Meg = false);
+			// This function can return any free page
+			static PhysPage AllocatePages(unsigned int number = 1);
+
+			//Allocates physical pages
+			// This function will never return any page with an offset > 16M
+			static PhysPage AllocateISAPages(unsigned int number = 1);
 			
-			//Frees 1 physical page allocated by AllocatePage
-			static void FreePages(PhysPage page);
+			//Frees 1 physical page allocated by AllocatePages or AllocateISAPages
+			static void FreePages(PhysPage page, unsigned int number = 1);
 
 			//Returns the number of pages in memory
 			static unsigned int GetTotalPages();
