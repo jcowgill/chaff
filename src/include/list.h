@@ -10,29 +10,12 @@
 
 //The linked list class
 
-#include "pool.h"
-
 namespace Chaff
 {
-	//List base class without a type parameter
-	class ListBase
-	{
-	protected:
-		//Base class for nodes without a type parameter.
-		struct NodeBase
-		{
-			NodeBase * next;
-			NodeBase * prev;
-			void * data;
-		};
-
-		static MemPool<NodeBase> nodePool;
-	};
-
 	//A linked list for use in the kernel
 	// Unlike the STL list, this list works with pointers and does not own the objects
 	// The destructor just destroys the list - but YOU need to destroy the items in it!
-	template <class T> class List : public ListBase
+	template <class T> class List
 	{
 	private:
 		//A list node structure
@@ -43,20 +26,10 @@ namespace Chaff
 			Node * prev;
 			T * data;
 
-			//Creates and allocates a new node
-			static Node * Create(Node * next, Node * prev, T * data)
+			//Constructor
+			Node(Node * next, Node * prev, T * data)
+				:next(next), prev(prev), data(data)
 			{
-				Node * basePtr = reinterpret_cast<Node *>(nodePool.Allocate());
-				basePtr->next = next;
-				basePtr->prev = prev;
-				basePtr->data = data;
-				return basePtr;
-			}
-
-			//Frees this node
-			void Free()
-			{
-				nodePool.Free(reinterpret_cast<NodeBase *>(this));
 			}
 		};
 
@@ -352,7 +325,7 @@ namespace Chaff
 			while(currNode)
 			{
 				nextNode = currNode->next;
-				nodePool.Free(currNode);
+				delete currNode;
 				currNode = nextNode;
 			}
 
@@ -366,7 +339,7 @@ namespace Chaff
 		Iterator InsertAfter(const Iterator position, T * data)
 		{
 			//Create a new node
-			Node * newNode = Node::Create(position.node->next, position.node, data);
+			Node * newNode = new Node(position.node->next, position.node, data);
 
 			//Update position pointers
 			position.node->next->prev = newNode;
@@ -389,7 +362,7 @@ namespace Chaff
 		Iterator InsertBefore(const Iterator position, T * data)
 		{
 			//Create a new node
-			Node * newNode = Node::Create(position.node, position.node->prev, data);
+			Node * newNode = new Node(position.node, position.node->prev, data);
 
 			//Update position pointers
 			position.node->prev->next = newNode;
@@ -431,7 +404,7 @@ namespace Chaff
 			}
 
 			//Free node
-			position.node->Free();
+			delete position.node;
 		}
 
 		//Inserts the data at the beginning of the list
@@ -444,7 +417,7 @@ namespace Chaff
 			}
 			else
 			{
-				first = last = Node::Create(NULL, NULL, data);
+				first = last = new Node(NULL, NULL, data);
 				size = 1;
 			}
 		}
@@ -459,7 +432,7 @@ namespace Chaff
 			}
 			else
 			{
-				first = last = Node::Create(NULL, NULL, data);
+				first = last = new Node(NULL, NULL, data);
 				size = 1;
 			}
 		}
