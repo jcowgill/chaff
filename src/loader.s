@@ -75,15 +75,25 @@ _loader:
 	; Load boot page directory
 	mov cr3, ecx
 
-	; Set PSE bit to enable 4MB paging
-	mov ecx, cr4
-	or ecx, 0x00000010
+	; Set PSE bit to enable 4MB paging + other bits for later
+	;  MCE - 6	Machine Check Enable
+	;  PSE - 4	Page Size Extensions
+	mov ecx, 0x50
 	mov cr4, ecx
 
-	; Set PG bit to enable paging (this must be done last)
-	mov ecx, cr0
-	or ecx, 0x80000000
+	; Set PG bit to enable paging + other bits for later (this must be done last)
+	;  PG - 31	Enable Paging
+	;  AM - 18	Alignment Check
+	;  WP - 16	Write Protect
+	;  NE - 5	Numeric Error
+	;  EM - 2	No math coprocessor
+	;  PE - 0	Protection Enable
+	mov ecx, 0x80050025
 	mov cr0, ecx
+
+	; Now we can set the PGE - 7 Page Global Flag
+	mov ecx, 0x140
+	mov cr4, ecx
 
 	;WE HAVE NOW SETUP PAGING
 	; Load our GDT
