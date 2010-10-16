@@ -133,12 +133,14 @@ namespace Chaff
 	    };
 
 	    //Bitmask containing the flags for memory regions
+	    // Note that restrictions only apply to user mode
 	    enum RegionFlags
 	    {
 	    	NoAccess = 0,
 	    	Readable = 1,
 	    	Writable = 2,
 	    	Executable = 4,
+	    	Fixed = 8,
 	    };
 
 	    class MContext;
@@ -149,12 +151,15 @@ namespace Chaff
 		class MRegion
 		{
 		private:
+	    	friend class MContext;
+
 	    	MContext * myContext;		//Context this region is assigned to
 
 	    	RegionFlags flags;				//The properties of the region
 
 	    	void * start;					//Pointer to start of region
-	    	unsigned int length;			//Length of region
+	    	unsigned int length;			//Length of region in pages
+	    	PhysPage firstPage;				//First page - used only for fixed regions
 
 	    	IO::FileHandle file;			//File used to read data into memory from
 	    	unsigned int fileOffset;		//The offset of file to read (ignored if file is null)
@@ -177,23 +182,34 @@ namespace Chaff
 	    	//Deletes this memory region
 	    	void Delete();
 		};
-		
+
 		//A group of memory regions which make up the virtual memory space for a process
 		class MContext
 		{
 		private:
+			friend class MRegion;
+
 			//The regions of memory in this context
 			List<MRegion> regions;	//Regions in the context
 			int kernelVersion;			//Version of the kernel page directory in this context
 			PageDirectory * directory;	//The 4KB page directory owned by this memory context
 
 			//Constructor and destructor
-			MContext();
-			~MContext();
+			MContext()
+				: kernelVersion(0), directory(NULL)
+			{
+			}
+
+			~MContext()
+			{
+			}
 
 		public:
 			//The kernel memory context is handled separately
 			static MContext kernelContext;
+
+			//Initialises the kernel memory context
+			static void InitKernelContext();
 
 			//Creates a new blank memory context
 			static MContext * InitBlank();

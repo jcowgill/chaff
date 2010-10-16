@@ -34,3 +34,8 @@ void NORETURN Chaff::Panic(const char * msg, ...)
 
 	for(;;);
 }
+
+void Chaff::PrintLog(LogLevel level, const char * msg, ...)
+{
+	//
+}
