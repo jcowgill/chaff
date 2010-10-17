@@ -153,6 +153,8 @@ namespace Chaff
 		private:
 	    	friend class MContext;
 
+	    	DECLARE_LISTENTRY(MRegion, listItem);		//List entry
+
 	    	MContext * myContext;		//Context this region is assigned to
 
 	    	RegionFlags flags;				//The properties of the region
@@ -190,7 +192,8 @@ namespace Chaff
 			friend class MRegion;
 
 			//The regions of memory in this context
-			List<MRegion> regions;	//Regions in the context
+			DECLARE_LISTHEAD(MRegion, listItem) regions;		//Regions in the context
+
 			int kernelVersion;			//Version of the kernel page directory in this context
 			PageDirectory * directory;	//The 4KB page directory owned by this memory context
 

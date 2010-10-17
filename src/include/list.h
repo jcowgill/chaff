@@ -1,454 +1,268 @@
 /*
- * chaff.h
+ * list.h
  *
- *  Created on: 30 Sep 2010
+ *  Created on: 16 Oct 2010
  *      Author: James
  */
 
 #ifndef LIST_H_
 #define LIST_H_
 
-//The linked list class
+//The linked list classes
+// These are based from the design at http://locklessinc.com/articles/flexible_lists_in_cpp/
 
 namespace Chaff
 {
-	//A linked list for use in the kernel
-	// Unlike the STL list, this list works with pointers and does not own the objects
-	// The destructor just destroys the list - but YOU need to destroy the items in it!
-	template <class T> class List
+	//A single entry in a list
+	// Use DECLARE_LISTENTRY instead of instantiating this class
+	class ListEntry
 	{
-	private:
-		//A list node structure
-		struct Node
-		{
-			//Note: this must have the same size as NodeBase
-			Node * next;
-			Node * prev;
-			T * data;
-
-			//Constructor
-			Node(Node * next, Node * prev, T * data)
-				:next(next), prev(prev), data(data)
-			{
-			}
-		};
-
-		//First and last nodes in the list
-		Node * first;
-		Node * last;
-
-		//The size of the list
-		int size;
-
 	public:
-		//A class used for iterating over the items in a list
-		class Iterator
-		{
-		private:
-			friend class List;
+		ListEntry * next;
+		ListEntry * prev;
 
-			//Pointer to the current node
-			Node * node;
-
-			//Create iterator from node
-			Iterator(Node * node)
-				: node(node)
-			{
-			}
-
-		public:
-			//Creates a new blank iterator
-			// Performing anything on this iterator will crash the kernel!
-			Iterator()
-				:node(NULL)
-			{
-			}
-
-			//Creates a new iterator based on another
-			Iterator(const Iterator& iterator)
-				: node(iterator.node)
-			{
-			}
-
-			//Assigns an iterator to this iterator
-			Iterator& operator= (const Iterator& iterator)
-			{
-				node = iterator.node;
-			}
-
-			//Increments the position of the iterator
-			Iterator& operator++ ()
-			{
-				node = node->next;
-			}
-
-			//Decrements the position of the iterator
-			Iterator& operator-- ()
-			{
-				node = node->prev;
-			}
-
-			//Increments the position of the iterator (postfix)
-			Iterator operator++ (int)
-			{
-				Iterator prevIter = *this;
-				node = node->next;
-				return prevIter;
-			}
-
-			//Decrements the position of the iterator (postfix)
-			Iterator operator-- (int)
-			{
-				Iterator prevIter = *this;
-				node = node->prev;
-				return prevIter;
-			}
-
-			//Dereferences the iterator to get the data
-			T *& operator* () const
-			{
-				return node->data;
-			}
-
-			//Dereferences the iterator to get the data
-			T& operator-> () const
-			{
-				return *node->data;
-			}
-
-			//Returns weather this iterator refers to a NULL position
-			// This happens after a default construction or being incremented
-			// or decremented off the end of the list
-			bool IsNull() const
-			{
-				return node == NULL;
-			}
-
-			//Compares this iterator with another
-			bool operator== (const Iterator& iterator) const
-			{
-				return node == iterator.node;
-			}
-
-			//Compares this iterator with another
-			bool operator!= (const Iterator& iterator) const
-			{
-				return node != iterator.node;
-			}
-		};
-
-		//A class used for iterating over the items in a constant list
-		class ConstIterator
-		{
-		private:
-			//Pointer to the current node
-			const Node * node;
-
-			//Create iterator from node
-			ConstIterator(const Node * node)
-				: node(node)
-			{
-			}
-
-		public:
-			//Creates a new blank iterator
-			// Performing anything on this iterator will crash the kernel!
-			ConstIterator()
-				:node(NULL)
-			{
-			}
-
-			//Creates a new iterator based on another
-			ConstIterator(const ConstIterator& iterator)
-				: node(iterator.node)
-			{
-			}
-
-			//Creates a new iterator based on another
-			ConstIterator(const Iterator& iterator)
-				: node(iterator.node)
-			{
-			}
-
-			//Assigns an iterator to this iterator
-			ConstIterator& operator= (const ConstIterator& iterator)
-			{
-				node = iterator.node;
-				return *this;
-			}
-
-			//Assigns an iterator to this iterator
-			ConstIterator& operator= (const Iterator& iterator)
-			{
-				node = iterator.node;
-				return *this;
-			}
-
-			//Increments the position of the iterator
-			ConstIterator& operator++ ()
-			{
-				node = node->next;
-				return *this;
-			}
-
-			//Decrements the position of the iterator
-			ConstIterator& operator-- ()
-			{
-				node = node->prev;
-				return *this;
-			}
-
-			//Increments the position of the iterator (postfix)
-			ConstIterator operator++ (int)
-			{
-				ConstIterator prevIter = *this;
-				node = node->next;
-				return prevIter;
-			}
-
-			//Decrements the position of the iterator (postfix)
-			ConstIterator operator-- (int)
-			{
-				ConstIterator prevIter = *this;
-				node = node->prev;
-				return prevIter;
-			}
-
-			//Dereferences the iterator to get the data
-			const T *& operator* () const
-			{
-				return node->data;
-			}
-
-			//Dereferences the iterator to get the data
-			const T& operator-> () const
-			{
-				return *node->data;
-			}
-
-			//Returns weather this iterator refers to a NULL position
-			// This happens after a default construction or being incremented
-			// or decremented off the end of the list
-			bool IsNull() const
-			{
-				return node == NULL;
-			}
-
-			//Compares this iterator with another
-			bool operator== (const Iterator& iterator) const
-			{
-				return node == iterator.node;
-			}
-
-			//Compares this iterator with another
-			bool operator!= (const Iterator& iterator) const
-			{
-				return node != iterator.node;
-			}
-
-			//Compares this iterator with another
-			bool operator== (const ConstIterator& iterator) const
-			{
-				return node == iterator.node;
-			}
-
-			//Compares this iterator with another
-			bool operator!= (const ConstIterator& iterator) const
-			{
-				return node != iterator.node;
-			}
-		};
-
-		//Initialises a new linked list
-		List()
-			:size(0), first(NULL), last(NULL)
+		//Creates a new list entry with this as the only item in the list
+		ListEntry()
+			:next(this), prev(this)
 		{
 		}
 
-		//Destructs the list and nodes
-		~List()
+		//Creates a new list entry which is inserted after the given entry in the list
+		ListEntry(ListEntry& entry)
 		{
-			Clear();
+			InsertAfter(entry);
 		}
 
-		//Iterator getters
-		Iterator First()
+		//Destroys this list entry (automatically detaches it)
+		~ListEntry()
 		{
-			return Iterator(first);
+			next->prev = prev;
+			prev->next = next;
 		}
 
-		Iterator Last()
+		//Inserts this entry after another entry
+		// Before inserting this entry into the list again, it must be detached
+		void InsertAfter(ListEntry& entry)
 		{
-			return Iterator(last);
+			prev = &entry;
+			next = entry.next;
+			entry.next->prev = this;
+			entry.next = this;
 		}
 
-		ConstIterator First() const
+		//Inserts this entry after another entry
+		// Before inserting this entry into the list again, it must be detached
+		void InsertBefore(ListEntry& entry)
 		{
-			return ConstIterator(first);
+			next = &entry;
+			prev = entry.prev;
+			entry.prev->next = this;
+			entry.prev = this;
 		}
 
-		ConstIterator Last() const
+		//Detaches this list entry from the list it is in and puts it in its own list
+		void Detach()
 		{
-			return ConstIterator(last);
-		}
-
-		//Value getters
-		T * FirstValue()
-		{
-			return first->data;
-		}
-
-		T * LastValue()
-		{
-			return last->data;
-		}
-
-		//Returns the number of items in the list
-		int Size() const
-		{
-			return size;
-		}
-
-		//True if this list has no items
-		bool Empty() const
-		{
-			return size == 0;
-		}
-
-		//Removes all the nodes from the list
-		void Clear()
-		{
-			Node * currNode = first;
-			Node * nextNode;
-
-			//Free all the nodes back to the pool
-			while(currNode)
-			{
-				nextNode = currNode->next;
-				delete currNode;
-				currNode = nextNode;
-			}
-
-			//Set pointers
-			first = NULL;
-			last = NULL;
-			size = 0;
-		}
-
-		//Inserts some data after the given position
-		Iterator InsertAfter(const Iterator position, T * data)
-		{
-			//Create a new node
-			Node * newNode = new Node(position.node->next, position.node, data);
-
-			//Update position pointers
-			position.node->next->prev = newNode;
-			position.node->next = newNode;
-
-			//Check if this should be the last pos now
-			if(newNode->next == NULL)
-			{
-				last = newNode;
-			}
-
-			//Increment size
-			++size;
-
-			//Return iterator to node
-			return Iterator(newNode);
-		}
-
-		//Inserts some data before the given position
-		Iterator InsertBefore(const Iterator position, T * data)
-		{
-			//Create a new node
-			Node * newNode = new Node(position.node, position.node->prev, data);
-
-			//Update position pointers
-			position.node->prev->next = newNode;
-			position.node->prev = newNode;
-
-			//Check if this should be the first pos now
-			if(newNode->prev == NULL)
-			{
-				first = newNode;
-			}
-
-			//Increment size
-			++size;
-
-			//Return iterator to node
-			return Iterator(newNode);
-		}
-
-		//Erases the item at the given position
-		void Erase(const Iterator position)
-		{
-			//Update surrounding nodes
-			if(position.node->next == NULL)
-			{
-				last = position.node->prev;
-			}
-			else
-			{
-				position.node->next->prev = position.node->prev;
-			}
-
-			if(position.node->prev == NULL)
-			{
-				first = position.node->next;
-			}
-			else
-			{
-				position.node->prev->next = position.node->next;
-			}
-
-			//Free node
-			delete position.node;
-		}
-
-		//Inserts the data at the beginning of the list
-		void InsertFirst(T * data)
-		{
-			//If this list is blank, handle separately
-			if(first)
-			{
-				InsertBefore(first, data);
-			}
-			else
-			{
-				first = last = new Node(NULL, NULL, data);
-				size = 1;
-			}
-		}
-
-		//Inserts the data at the end of the list
-		void InsertLast(T * data)
-		{
-			//If this list is blank, handle separately
-			if(last)
-			{
-				InsertAfter(last, data);
-			}
-			else
-			{
-				first = last = new Node(NULL, NULL, data);
-				size = 1;
-			}
-		}
-
-		//Erases the item at the beginning of the list
-		void EraseFirst()
-		{
-			Erase(first);
-		}
-
-		//Erases the item at the end of the list
-		void EraseLast()
-		{
-			Erase(last);
+			next->prev = prev;
+			prev->next = next;
+			next = this;
+			prev = this;
 		}
 	};
+
+	//An easy to use template which can be used to iterator over a list
+	// just like you would with the standard c++ containers
+	template <class T, unsigned int offset(void)> class ListIterator
+	{
+	private:
+		ListEntry * entry;
+
+		//Returns the object that this iterator is currently pointing to
+		T * Container() const
+		{
+			return reinterpret_cast<T *>(((unsigned int) entry) - offset());
+		}
+
+	public:
+		//Constructors
+		ListIterator(T * item)
+			:ListIterator(*item)
+		{
+		}
+
+		ListIterator(T& item)
+			:entry(reinterpret_cast<ListEntry *>(((unsigned int) item) + offset()))
+		{
+		}
+
+		ListIterator(ListEntry * entry)
+			:entry(entry)
+		{
+		}
+
+		ListIterator(ListEntry& entry)
+			:entry(&entry)
+		{
+		}
+
+		ListIterator(const ListIterator& iter)
+			:entry(iter.entry)
+		{
+		}
+
+		//Assignment operator
+		ListIterator& operator= (const ListIterator& iter)
+		{
+			entry = iter.entry;
+			return *this;
+		}
+
+		ListIterator& operator= (ListEntry& entry)
+		{
+			this->entry = &entry;
+			return *this;
+		}
+
+		ListIterator& operator= (ListEntry * entry)
+		{
+			this->entry = entry;
+			return *this;
+		}
+
+		//Container getters
+		const T& operator* () const
+		{
+			return *Container();
+		}
+
+		const T * operator-> () const
+		{
+			return Container();
+		}
+
+		T& operator* ()
+		{
+			return *Container();
+		}
+
+		T * operator-> ()
+		{
+			return Container();
+		}
+
+		//Moves the iterator to point to the next item in the list
+		ListIterator& operator++()
+		{
+			entry = entry->next;
+			return *this;
+		}
+
+		//Moves the iterator to point to the previous item in the list
+		ListIterator& operator--()
+		{
+			entry = entry->prev;
+			return *this;
+		}
+
+		//Moves the iterator to point to the next item in the list (post increment)
+		ListIterator operator++ (int)
+		{
+			ListIterator prevIter = *this;
+			entry = entry->next;
+			return prevIter;
+		}
+
+		//Moves the iterator to point to the previous item in the list (post increment)
+		ListIterator operator-- (int)
+		{
+			ListIterator prevIter = *this;
+			entry = entry->prev;
+			return prevIter;
+		}
+
+		//Comparisons
+		bool operator== (const ListIterator& iter) const
+		{
+			return entry == iter.enntry;
+		}
+
+		bool operator!= (const ListIterator& iter) const
+		{
+			return entry != iter.enntry;
+		}
+	};
+
+	//A helper class to store the first entry in a list
+	// This class adds a dummy entry to the list to act as the "head"
+	// This entry should NOT be dereferenced with the ListIterator class.
+	// This class does not free its children when it is destructed
+	template <class T, unsigned int offset(void)> class ListHead
+	{
+	private:
+		//List dummy entry
+		ListEntry headEntry;
+
+	public:
+		typedef ListIterator<T, offset> Iterator;
+
+		//Returns an iterator pointing to the first item or End if the list is empty
+		Iterator Begin()
+		{
+			return Iterator(headEntry.next);
+		}
+
+		//Returns an iterator pointing to the last item or End if the list is empty
+		Iterator Last()
+		{
+			return Iterator(headEntry.prev);
+		}
+
+		//Returns an iterator pointing to the dummy end item (between last and first)
+		Iterator End()
+		{
+			return Iterator(headEntry);
+		}
+
+		//Inserts an item at the beginning of the list
+		void InsertFirst(T& item)
+		{
+			headEntry.InsertAfter(*reinterpret_cast<ListEntry *>((unsigned int) &item + offset()));
+		}
+
+		//Inserts an item at the beginning of the list
+		void InsertLast(T& item)
+		{
+			headEntry.InsertBefore(*reinterpret_cast<ListEntry *>((unsigned int) &item + offset()));
+		}
+
+		//Empty checker
+		bool Empty() const
+		{
+			return headEntry.next == &headEntry;
+		}
+
+		//Clears the list (but doesn't deallocate any objects)
+		void Clear()
+		{
+			headEntry.Detach();
+		}
+	};
+
+	//Defines for automatically handling offset template function
+#define offsetof_hack(C, M) (reinterpret_cast<unsigned int>(\
+		&reinterpret_cast<char &>(reinterpret_cast<C *> (1)->M))\
+	 - 1)
+
+#define DECLARE_LISTENTRY(C, M)\
+	static unsigned int offset_##M() {return offsetof_hack(C, M);}\
+	ListEntry M
+
+#define DECLARE_LISTITERATOR(C, M)\
+	ListIterator<C, C::offset_##M>
+
+#define DECLARE_LISTHEAD(C, M)\
+	ListHead<C, C::offset_##M>
+
 }
 
-#endif
+#endif /* LIST_H_ */
