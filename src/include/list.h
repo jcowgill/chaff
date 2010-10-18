@@ -11,6 +11,8 @@
 //The linked list classes
 // These are based from the design at http://locklessinc.com/articles/flexible_lists_in_cpp/
 
+#include "chaff.h"
+
 namespace Chaff
 {
 	//A single entry in a list
@@ -72,7 +74,7 @@ namespace Chaff
 
 	//An easy to use template which can be used to iterator over a list
 	// just like you would with the standard c++ containers
-	template <class T, unsigned int offset(void)> class ListIterator
+	template <class T, size_t offset()> class ListIterator
 	{
 	private:
 		ListEntry * entry;
@@ -183,12 +185,12 @@ namespace Chaff
 		//Comparisons
 		bool operator== (const ListIterator& iter) const
 		{
-			return entry == iter.enntry;
+			return entry == iter.entry;
 		}
 
 		bool operator!= (const ListIterator& iter) const
 		{
-			return entry != iter.enntry;
+			return entry != iter.entry;
 		}
 	};
 
@@ -196,7 +198,7 @@ namespace Chaff
 	// This class adds a dummy entry to the list to act as the "head"
 	// This entry should NOT be dereferenced with the ListIterator class.
 	// This class does not free its children when it is destructed
-	template <class T, unsigned int offset(void)> class ListHead
+	template <class T, size_t offset()> class ListHead
 	{
 	private:
 		//List dummy entry
@@ -224,15 +226,25 @@ namespace Chaff
 		}
 
 		//Inserts an item at the beginning of the list
-		void InsertFirst(T& item)
+		void InsertFirst(T * item)
 		{
-			headEntry.InsertAfter(*reinterpret_cast<ListEntry *>((unsigned int) &item + offset()));
+			headEntry.InsertAfter(*reinterpret_cast<ListEntry *>((unsigned int) item + offset()));
 		}
 
 		//Inserts an item at the beginning of the list
+		void InsertLast(T * item)
+		{
+			headEntry.InsertBefore(*reinterpret_cast<ListEntry *>((unsigned int) item + offset()));
+		}
+
+		void InsertFirst(T& item)
+		{
+			InsertFirst(&item);
+		}
+
 		void InsertLast(T& item)
 		{
-			headEntry.InsertBefore(*reinterpret_cast<ListEntry *>((unsigned int) &item + offset()));
+			InsertLast(&item);
 		}
 
 		//Empty checker
@@ -249,19 +261,19 @@ namespace Chaff
 	};
 
 	//Defines for automatically handling offset template function
-#define offsetof_hack(C, M) (reinterpret_cast<unsigned int>(\
+#define offsetof_hack(C, M) (reinterpret_cast<size_t>(\
 		&reinterpret_cast<char &>(reinterpret_cast<C *> (1)->M))\
 	 - 1)
 
 #define DECLARE_LISTENTRY(C, M)\
-	static unsigned int offset_##M() {return offsetof_hack(C, M);}\
-	ListEntry M
+	static size_t offset_##M() {return offsetof_hack(C, M);}\
+	Chaff::ListEntry M
 
 #define DECLARE_LISTITERATOR(C, M)\
-	ListIterator<C, C::offset_##M>
+	Chaff::ListIterator<C, C::offset_##M>
 
 #define DECLARE_LISTHEAD(C, M)\
-	ListHead<C, C::offset_##M>
+	Chaff::ListHead<C, C::offset_##M>
 
 }
 

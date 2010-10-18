@@ -178,6 +178,7 @@ static inline bool RangeIsFree(PhysPage startPage, unsigned int length)
 
 //Initializes the physical memory manager using the memory info
 // in the multiboot information structure
+// PRE SLAB INIT - DO NOT USE NEW
 void PhysicalMgr::Init(multiboot_info_t * bootInfo)
 {
 	//Must have memory info avaliable

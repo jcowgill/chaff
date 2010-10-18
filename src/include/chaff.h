@@ -20,6 +20,9 @@
 //The null pointer
 #define NULL 0
 
+//C++ stuff
+typedef unsigned long size_t;
+
 //External symbol accessing
 #define DECLARE_SYMBOL(symb) extern char symb[];
 #define GET_SYMBOL(symb) ((void *) &symb)
@@ -49,7 +52,7 @@ namespace Chaff
 
 	//Sets the specified number of bytes after the given pointer with the given value
 	// Returns ptr
-	inline void * MemSet(void * ptr, unsigned char value, unsigned int length)
+	inline void * MemSet(void * ptr, unsigned char value, size_t length)
 	{
 		__builtin_memset(ptr, value, length);
 		return ptr;
@@ -58,7 +61,7 @@ namespace Chaff
 	//Copies the region of memory with the given length from src to dst
 	// src and dst must not overlap
 	// Returns ptr
-	inline void * MemCpy(void * ptr, const void * src, unsigned int length)
+	inline void * MemCpy(void * ptr, const void * src, size_t length)
 	{
 		__builtin_memcpy(ptr, src, length);
 		return ptr;
@@ -67,10 +70,15 @@ namespace Chaff
 	//Moves the region of memory with the given length from src to dst
 	// src and dst are allowed to overlap
 	// Returns ptr
-	inline void * MemMove(void * ptr, const void * src, unsigned int length)
+	inline void * MemMove(void * ptr, const void * src, size_t length)
 	{
 		__builtin_memmove(ptr, src, length);
 		return ptr;
+	}
+
+	inline int MemCmp(const void * ptr1, const void * ptr2, size_t length)
+	{
+		return __builtin_memcmp(ptr1, ptr2, length);
 	}
 
 	//Returns the offset of the first 1 bit in the given data
@@ -80,5 +88,11 @@ namespace Chaff
 		return __builtin_clz(data);
 	}
 }
+
+//Kernel SLAB allocator
+void * operator new(size_t amount);
+void * operator new[](size_t amount);
+void operator delete(void * data);
+void operator delete[](void * data);
 
 #endif /* CHAFF_H_ */
