@@ -178,6 +178,12 @@ namespace Chaff
 	    		return length;
 	    	}
 
+	    	//Returns the memory context associated with this region
+	    	MContext * GetContext()
+			{
+	    		return myContext;
+			}
+
 	    	//Resizes the region of allocated memory
 	    	void Resize(unsigned int newLength);
 
@@ -194,12 +200,12 @@ namespace Chaff
 			//The regions of memory in this context
 			DECLARE_LISTHEAD(MRegion, listItem) regions;		//Regions in the context
 
-			int kernelVersion;			//Version of the kernel page directory in this context
+			unsigned int kernelVersion;	//Version of the kernel page directory in this context
 			PageDirectory * directory;	//The 4KB page directory owned by this memory context
 
 			//Constructor and destructor
 			MContext()
-				: kernelVersion(0), directory(NULL)
+				:kernelVersion(0), directory(NULL)
 			{
 			}
 
@@ -209,7 +215,7 @@ namespace Chaff
 
 		public:
 			//The kernel memory context is handled separately
-			static MContext kernelContext;
+			static MContext * kernelContext;
 
 			//Initialises the kernel memory context
 			static void InitKernelContext();
@@ -230,6 +236,10 @@ namespace Chaff
 			//Finds the region which contains the given address
 			// or returns NULL if there isn't one
 			MRegion * FindRegion(void * address);
+
+			//Removes the pages in the given region from this context and frees
+			// their physical memory
+			void Erase(void * startAddress, unsigned int length);
 
 			//Switches to this memory context
 			void SwitchTo();

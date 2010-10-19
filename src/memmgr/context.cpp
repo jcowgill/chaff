@@ -11,26 +11,32 @@
 using namespace Chaff;
 using namespace Chaff::MemMgr;
 
-MContext MContext::kernelContext;
+static char kernelContextData[sizeof(MContext)];
+static PageDirectory kernelDirectoryData[256];
+MContext * MContext::kernelContext;
 
 //Initialises the kernel memory context
+// PRE SLAB INIT - DO NOT USE NEW
 void MContext::InitKernelContext()
 {
 	//Allocate directory
-	kernelContext.kernelVersion = 0;
-	kernelContext.directory = new PageDirectory[256];
-
-	//Wipe directory
-	MemSet(kernelContext.directory, 0, 256 * sizeof(PageDirectory));
+	kernelContext = new (kernelContextData) MContext();
+	kernelContext->directory = kernelDirectoryData;
 
 	//Setup basic pages
-	kernelContext.directory[0].present = 1;
-	kernelContext.directory[0].global = 1;
-	kernelContext.directory[0].hugePage = 1;
-	kernelContext.directory[0].writable = 1;
+	kernelContext->directory[0].present = 1;
+	kernelContext->directory[0].global = 1;
+	kernelContext->directory[0].hugePage = 1;
+	kernelContext->directory[0].writable = 1;
+
+	kernelContext->directory[255].present = 1;
+	kernelContext->directory[255].global = 1;
+	kernelContext->directory[255].writable = 1;
+	kernelContext->directory[255].pageID.writable = 1;
+
 
 	//Upgrade version
-	kernelContext.kernelVersion = 1;
+	kernelContext->kernelVersion = 1;
 }
 
 //Creates a new blank memory context
@@ -40,14 +46,15 @@ MContext * MContext::InitBlank()
 	MContext * newContext = new MContext();
 
 	//Create directory
+#warning The page directory must be page aligned
 	newContext->directory = new PageDirectory[1024];
 
 	//Setup with blank and kernel mode stuffs
 	MemSet(newContext->directory, 0, 768 * sizeof(PageDirectory));
-	MemCpy(newContext->directory + 768, kernelContext.directory, 256 * sizeof(PageDirectory));
+	MemCpy(newContext->directory + 768, kernelContext->directory, 256 * sizeof(PageDirectory));
 
 	//Set kernel version
-	newContext->kernelVersion = kernelContext.kernelVersion;
+	newContext->kernelVersion = kernelContext->kernelVersion;
 
 	return newContext;
 }
@@ -80,6 +87,13 @@ MRegion * MContext::FindRegion(void * address)
 	//
 }
 
+//Removes the pages in the given region from this context and frees
+// their physical memory
+void MContext::Erase(void * startAddress, unsigned int length)
+{
+	//
+}
+
 //Switches to this memory context
 void MContext::SwitchTo()
 {
@@ -90,5 +104,5 @@ void MContext::SwitchTo()
 // which is currently in use!
 void MContext::Delete()
 {
-	//
+	//Check deletion of current context
 }
