@@ -29,70 +29,63 @@ typedef unsigned long size_t;
 #define GET_SYMBOL_UINTPTR(symb) ((unsigned int *) &symb)
 
 //General functions
-namespace Chaff
+
+//Run when an unrecoverable error occurs.
+// Notifies the user of the error (as fatal log) and promptly hangs
+void NORETURN Panic(const char * msg, ...);
+
+//Logging levels
+typedef enum
 {
-	//Run when an unrecoverable error occurs.
-	// Notifies the user of the error (as fatal log) and promptly hangs
-	void NORETURN Panic(const char * msg, ...);
+	Fatal,			//Fatal / unrecoverable errors (consider using Panic)
+	Critical,		//Critical errors (could crash at any time)
+	Error,			//An error in a specific area
+	Warning,		//A significant abnormal condition
+	Notice,			//A significant (but normal) condition
+	Info,			//Informational
+	Debug,			//Debugging logs
 
-	//Logging levels
-	enum LogLevel
-	{
-		Fatal,			//Fatal / unrecoverable errors (concider using Panic)
-		Critical,		//Critical errors (could crash at any time)
-		Error,			//An error in a specific area
-		Warning,		//A significant abnormal condition
-		Notice,			//A significant (but normal) condition
-		Info,			//Informational
-		Debug,			//Debugging logs
-	};
+} LogLevel;
 
-	//Prints something to the kernel log
-	void PrintLog(LogLevel level, const char * msg, ...);
+//Prints something to the kernel log
+void PrintLog(LogLevel level, const char * msg, ...);
 
-	//Sets the specified number of bytes after the given pointer with the given value
-	// Returns ptr
-	inline void * MemSet(void * ptr, unsigned char value, size_t length)
-	{
-		__builtin_memset(ptr, value, length);
-		return ptr;
-	}
-
-	//Copies the region of memory with the given length from src to dst
-	// src and dst must not overlap
-	// Returns ptr
-	inline void * MemCpy(void * ptr, const void * src, size_t length)
-	{
-		__builtin_memcpy(ptr, src, length);
-		return ptr;
-	}
-
-	//Moves the region of memory with the given length from src to dst
-	// src and dst are allowed to overlap
-	// Returns ptr
-	inline void * MemMove(void * ptr, const void * src, size_t length)
-	{
-		__builtin_memmove(ptr, src, length);
-		return ptr;
-	}
-
-	inline int MemCmp(const void * ptr1, const void * ptr2, size_t length)
-	{
-		return __builtin_memcmp(ptr1, ptr2, length);
-	}
-
-	//Returns the offset of the first 1 bit in the given data
-	// If data == 0, the result is undefined
-	inline int BitScanReverse(unsigned int data)
-	{
-		return __builtin_clz(data);
-	}
+//Sets the specified number of bytes after the given pointer with the given value
+// Returns ptr
+inline void * MemSet(void * ptr, unsigned char value, size_t length)
+{
+	__builtin_memset(ptr, value, length);
+	return ptr;
 }
 
-//Kernel SLAB allocator
-void * operator new(size_t amount);
-void * operator new[](size_t amount);
-void operator delete(void * data);
-void operator delete[](void * data);
+//Copies the region of memory with the given length from src to dst
+// src and dst must not overlap
+// Returns ptr
+inline void * MemCpy(void * ptr, const void * src, size_t length)
+{
+	__builtin_memcpy(ptr, src, length);
+	return ptr;
+}
+
+//Moves the region of memory with the given length from src to dst
+// src and dst are allowed to overlap
+// Returns ptr
+inline void * MemMove(void * ptr, const void * src, size_t length)
+{
+	__builtin_memmove(ptr, src, length);
+	return ptr;
+}
+
+inline int MemCmp(const void * ptr1, const void * ptr2, size_t length)
+{
+	return __builtin_memcmp(ptr1, ptr2, length);
+}
+
+//Returns the offset of the first 1 bit in the given data
+// If data == 0, the result is undefined
+inline int BitScanReverse(unsigned int data)
+{
+	return __builtin_clz(data);
+}
 
 #endif /* CHAFF_H_ */

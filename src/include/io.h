@@ -8,13 +8,7 @@
 #ifndef IO_H_
 #define IO_H_
 
-namespace Chaff
-{
-	namespace IO
-	{
-		//File handle
-		typedef unsigned int FileHandle;
-	}
-}
+//File handle
+typedef unsigned int IO_FileHandle;
 
 #endif /* IO_H_ */

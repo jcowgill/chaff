@@ -8,7 +8,7 @@
 VPATH = src
 DIRS = src src/memmgr
 
-SOURCES = $(foreach DIR, $(DIRS), $(wildcard $(DIR)/*.cpp))
+SOURCES = $(foreach DIR, $(DIRS), $(wildcard $(DIR)/*.c))
 SOURCES += $(foreach DIR, $(DIRS), $(wildcard $(DIR)/*.s))
 
 BINFILE = chaff.elf
@@ -45,7 +45,7 @@ clean:
 $(BINFILE): $(OBJS)
 	$(LINK) -o bin/$@ -T src/linker.ld $(OBJS)
 
-obj/%.obj : %.cpp
+obj/%.obj : %.c
 	$(CC) $(CFLAGS) -o $@ -c $<
 	cmd /c $(CC) -MM $(CFLAGS) $< \> obj/$*.d
 
