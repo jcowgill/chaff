@@ -1,280 +1,88 @@
 /*
  * list.h
  *
- *  Created on: 16 Oct 2010
+ *  Created on: 19 Oct 2010
  *      Author: James
  */
 
 #ifndef LIST_H_
 #define LIST_H_
 
-//The linked list classes
-// These are based from the design at http://locklessinc.com/articles/flexible_lists_in_cpp/
+//Circular linked list implementation
+// Based on Linux linked lists
+//
 
-#include "chaff.h"
-
-namespace Chaff
+//List item type
+// Use in a struct so it can be added to a list
+typedef struct STagListItem
 {
-	//A single entry in a list
-	// Use DECLARE_LISTENTRY instead of instantiating this class
-	class ListEntry
-	{
-	public:
-		ListEntry * next;
-		ListEntry * prev;
+	struct STagListItem * next;
+	struct STagListItem * prev;
 
-		//Creates a new list entry with this as the only item in the list
-		ListEntry()
-			:next(this), prev(this)
-		{
-		}
+} ListItem;
 
-		//Creates a new list entry which is inserted after the given entry in the list
-		ListEntry(ListEntry& entry)
-		{
-			InsertAfter(entry);
-		}
+//Initialisers
+#define LIST_SINIT(name) { &(name), &(name) }
 
-		//Destroys this list entry (automatically detaches it)
-		~ListEntry()
-		{
-			next->prev = prev;
-			prev->next = next;
-		}
-
-		//Inserts this entry after another entry
-		// Before inserting this entry into the list again, it must be detached
-		void InsertAfter(ListEntry& entry)
-		{
-			prev = &entry;
-			next = entry.next;
-			entry.next->prev = this;
-			entry.next = this;
-		}
-
-		//Inserts this entry after another entry
-		// Before inserting this entry into the list again, it must be detached
-		void InsertBefore(ListEntry& entry)
-		{
-			next = &entry;
-			prev = entry.prev;
-			entry.prev->next = this;
-			entry.prev = this;
-		}
-
-		//Detaches this list entry from the list it is in and puts it in its own list
-		void Detach()
-		{
-			next->prev = prev;
-			prev->next = next;
-			next = this;
-			prev = this;
-		}
-	};
-
-	//An easy to use template which can be used to iterator over a list
-	// just like you would with the standard c++ containers
-	template <class T, size_t offset()> class ListIterator
-	{
-	private:
-		ListEntry * entry;
-
-		//Returns the object that this iterator is currently pointing to
-		T * Container() const
-		{
-			return reinterpret_cast<T *>(((unsigned int) entry) - offset());
-		}
-
-	public:
-		//Constructors
-		ListIterator(T * item)
-			:ListIterator(*item)
-		{
-		}
-
-		ListIterator(T& item)
-			:entry(reinterpret_cast<ListEntry *>(((unsigned int) item) + offset()))
-		{
-		}
-
-		ListIterator(ListEntry * entry)
-			:entry(entry)
-		{
-		}
-
-		ListIterator(ListEntry& entry)
-			:entry(&entry)
-		{
-		}
-
-		ListIterator(const ListIterator& iter)
-			:entry(iter.entry)
-		{
-		}
-
-		//Assignment operator
-		ListIterator& operator= (const ListIterator& iter)
-		{
-			entry = iter.entry;
-			return *this;
-		}
-
-		ListIterator& operator= (ListEntry& entry)
-		{
-			this->entry = &entry;
-			return *this;
-		}
-
-		ListIterator& operator= (ListEntry * entry)
-		{
-			this->entry = entry;
-			return *this;
-		}
-
-		//Container getters
-		const T& operator* () const
-		{
-			return *Container();
-		}
-
-		const T * operator-> () const
-		{
-			return Container();
-		}
-
-		T& operator* ()
-		{
-			return *Container();
-		}
-
-		T * operator-> ()
-		{
-			return Container();
-		}
-
-		//Moves the iterator to point to the next item in the list
-		ListIterator& operator++()
-		{
-			entry = entry->next;
-			return *this;
-		}
-
-		//Moves the iterator to point to the previous item in the list
-		ListIterator& operator--()
-		{
-			entry = entry->prev;
-			return *this;
-		}
-
-		//Moves the iterator to point to the next item in the list (post increment)
-		ListIterator operator++ (int)
-		{
-			ListIterator prevIter = *this;
-			entry = entry->next;
-			return prevIter;
-		}
-
-		//Moves the iterator to point to the previous item in the list (post increment)
-		ListIterator operator-- (int)
-		{
-			ListIterator prevIter = *this;
-			entry = entry->prev;
-			return prevIter;
-		}
-
-		//Comparisons
-		bool operator== (const ListIterator& iter) const
-		{
-			return entry == iter.entry;
-		}
-
-		bool operator!= (const ListIterator& iter) const
-		{
-			return entry != iter.entry;
-		}
-	};
-
-	//A helper class to store the first entry in a list
-	// This class adds a dummy entry to the list to act as the "head"
-	// This entry should NOT be dereferenced with the ListIterator class.
-	// This class does not free its children when it is destructed
-	template <class T, size_t offset()> class ListHead
-	{
-	private:
-		//List dummy entry
-		ListEntry headEntry;
-
-	public:
-		typedef ListIterator<T, offset> Iterator;
-
-		//Returns an iterator pointing to the first item or End if the list is empty
-		Iterator Begin()
-		{
-			return Iterator(headEntry.next);
-		}
-
-		//Returns an iterator pointing to the last item or End if the list is empty
-		Iterator Last()
-		{
-			return Iterator(headEntry.prev);
-		}
-
-		//Returns an iterator pointing to the dummy end item (between last and first)
-		Iterator End()
-		{
-			return Iterator(headEntry);
-		}
-
-		//Inserts an item at the beginning of the list
-		void InsertFirst(T * item)
-		{
-			headEntry.InsertAfter(*reinterpret_cast<ListEntry *>((unsigned int) item + offset()));
-		}
-
-		//Inserts an item at the beginning of the list
-		void InsertLast(T * item)
-		{
-			headEntry.InsertBefore(*reinterpret_cast<ListEntry *>((unsigned int) item + offset()));
-		}
-
-		void InsertFirst(T& item)
-		{
-			InsertFirst(&item);
-		}
-
-		void InsertLast(T& item)
-		{
-			InsertLast(&item);
-		}
-
-		//Empty checker
-		bool Empty() const
-		{
-			return headEntry.next == &headEntry;
-		}
-
-		//Clears the list (but doesn't deallocate any objects)
-		void Clear()
-		{
-			headEntry.Detach();
-		}
-	};
-
-	//Defines for automatically handling offset template function
-#define offsetof_hack(C, M) (reinterpret_cast<size_t>(\
-		&reinterpret_cast<char &>(reinterpret_cast<C *> (1)->M))\
-	 - 1)
-
-#define DECLARE_LISTENTRY(C, M)\
-	static size_t offset_##M() {return offsetof_hack(C, M);}\
-	Chaff::ListEntry M
-
-#define DECLARE_LISTITERATOR(C, M)\
-	Chaff::ListIterator<C, C::offset_##M>
-
-#define DECLARE_LISTHEAD(C, M)\
-	Chaff::ListHead<C, C::offset_##M>
-
+static inline void ListInit(ListItem * list)
+{
+	list->next = list;
+	list->prev = list;
 }
+
+//Adding
+// Adds toAdd after list
+//  toAdd does not need to be initialised
+static inline void ListAddAfter(ListItem * list, ListItem * toAdd)
+{
+	list->next->prev = toAdd;
+	toAdd->next = list->next;
+	toAdd->prev = list;
+	list->next = toAdd;
+}
+
+// Adds toAdd before list
+//  toAdd does not need to be initialised
+static inline void ListAddBefore(ListItem * list, ListItem * toAdd)
+{
+	list->prev = toAdd;
+	toAdd->next = list;
+	toAdd->prev = list->prev;
+	list->prev->next = toAdd;
+}
+
+//Detaches the list item from the rest of the list
+// This leaves the list in an undefined state
+// Must be reinitialised before reuse
+static inline void ListDetach(ListItem * list)
+{
+	list->next->prev = list->prev;
+	list->prev->next = list->next;
+}
+
+//Detaches the list item from the rest of the list
+// This "forms" a new list with it as the only item
+static inline void ListDetachInit(ListItem * list)
+{
+	ListDetach(list);
+	list->next = list;
+	list->prev = list;
+}
+
+//Gets the data from a list item
+#define LIST_DATA(list, type, member) \
+		(type *) ((char *) (list) - ((size_t) &((type *) 0)->member))
+
+//Test if a list HEAD is empty
+static inline bool ListEmpty(ListItem * item)
+{
+	return item == item->next;
+}
+
+//List Iteration
+#define LIST_FOREACH(listHead, dataVar, type, member) \
+	for(type * dataVar = LIST_DATA((listHead)->next); \
+		listHead != &(dataVar->member), \
+		dataVar = LIST_DATA(dataVar->member->next))
 
 #endif /* LIST_H_ */
