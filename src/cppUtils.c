@@ -100,8 +100,8 @@ void * memmove(void * dest, const void * src, size_t length)
 // Required by __builtin_memcmp
 int memcmp(const void * ptr1, const void * ptr2, size_t length)
 {
-	const char * cPtr1 = reinterpret_cast<const char *>(ptr1);
-	const char * cPtr2 = reinterpret_cast<const char *>(ptr2);
+	const char * cPtr1 = (const char *) ptr1;
+	const char * cPtr2 = (const char *) ptr2;
 
 	//Compare memory
 	for(; length > 0; --length)

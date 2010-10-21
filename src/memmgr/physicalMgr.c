@@ -8,15 +8,12 @@
 #include "chaff.h"
 #include "memmgr.h"
 
-using namespace Chaff;
-using namespace Chaff::MemMgr;
-
 //Bitmap pointers
 // In the bitmap - 1 is allocated, 0 is not allocated
 
 //Start of bitmap
-#define bitmapStart (reinterpret_cast<unsigned int *>(KERNEL_VIRTUAL_BASE))
-#define bitmapStartMain (reinterpret_cast<unsigned int *>(KERNEL_VIRTUAL_BASE) + (0x1000000 / 32))
+#define bitmapStart ((unsigned int *) KERNEL_VIRTUAL_BASE)
+#define bitmapStartMain ((unsigned int *) (KERNEL_VIRTUAL_BASE + (0x1000000 / 32)))
 
 //End of bitmap
 static unsigned int * bitmapEnd;
@@ -171,15 +168,15 @@ static inline bool RangeIsFree(PhysPage startPage, unsigned int length)
 // <entryVar> is a multiboot_memory_map_t
 // All other vars MUST be unsigned longs
 #define MMAP_FOREACH(entryVar, in, len) \
-	for(multiboot_memory_map_t * entryVar = reinterpret_cast<multiboot_memory_map_t *>(in); \
-		reinterpret_cast<unsigned long>(entryVar) < (in) + (len); \
-		entryVar = reinterpret_cast<multiboot_memory_map_t *>( \
-			reinterpret_cast<unsigned long>(entryVar) + entryVar->size + sizeof(entryVar->size)))
+	for(multiboot_memory_map_t * entryVar = (multiboot_memory_map_t *) in; \
+		((unsigned long) entryVar) < (in) + (len); \
+		entryVar = (multiboot_memory_map_t *)( \
+			((unsigned long) entryVar) + entryVar->size + sizeof(entryVar->size)))
 
 //Initializes the physical memory manager using the memory info
 // in the multiboot information structure
 // PRE SLAB INIT - DO NOT USE NEW
-void PhysicalMgr::Init(multiboot_info_t * bootInfo)
+void MemPhysicalInit(multiboot_info_t * bootInfo)
 {
 	//Must have memory info avaliable
 	if(bootInfo->flags & MULTIBOOT_INFO_MEM_MAP)
@@ -211,9 +208,9 @@ void PhysicalMgr::Init(multiboot_info_t * bootInfo)
 					else
 					{
 						//Update only if this is higher
-						if(static_cast<unsigned long>(mmapEntry->addr + mmapEntry->len) > highAddr)
+						if((unsigned long) (mmapEntry->addr + mmapEntry->len) > highAddr)
 						{
-							highAddr = static_cast<unsigned long>(mmapEntry->addr + mmapEntry->len);
+							highAddr = (unsigned long) (mmapEntry->addr + mmapEntry->len);
 						}
 					}
 				}
@@ -278,7 +275,7 @@ void PhysicalMgr::Init(multiboot_info_t * bootInfo)
 
 //Allocates physical pages
 // If lower16Meg is true, only pages in the lower 16M of memory will be returned
-PhysPage PhysicalMgr::AllocatePages(unsigned int number /* = 1 */)
+PhysPage MemPhysicalAllocate(unsigned int number /* = 1 */)
 {
 	//Save head at beginning
 	unsigned int * startHead = bitmapHeadMain;
@@ -335,12 +332,12 @@ PhysPage PhysicalMgr::AllocatePages(unsigned int number /* = 1 */)
 	while(bitmapHeadMain != startHead);
 
 	//Out of main memory - use ISA region
-	return AllocateISAPages(number);
+	return MemPhysicalAllocISA(number);
 }
 
 //Allocates physical pages
 // This function will never return any page with an offset > 16M
-PhysPage PhysicalMgr::AllocateISAPages(unsigned int number /* = 1 */)
+PhysPage MemPhysicalAllocateISA(unsigned int number /* = 1 */)
 {
 	//Save head at beginning
 	unsigned int * startHead = bitmapHeadISA;
@@ -401,7 +398,7 @@ PhysPage PhysicalMgr::AllocateISAPages(unsigned int number /* = 1 */)
 }
 
 //Frees 1 physical page allocated by AllocatePage
-void PhysicalMgr::FreePages(PhysPage page, unsigned int number /* = 1 */)
+void MemPhysicalFree(PhysPage page, unsigned int number /* = 1 */)
 {
 	//Free from bitmap
 	for(; number > 0; --number, ++page)
@@ -412,13 +409,13 @@ void PhysicalMgr::FreePages(PhysPage page, unsigned int number /* = 1 */)
 }
 
 //Returns the number of pages in memory
-unsigned int PhysicalMgr::GetTotalPages()
+unsigned int MemPhysicalGetTotal()
 {
 	return totalPages;
 }
 
 //Returns the number of free pages available
-unsigned int PhysicalMgr::GetFreePages()
+unsigned int MemPhysicalGetFree()
 {
 	return freePages;
 }
