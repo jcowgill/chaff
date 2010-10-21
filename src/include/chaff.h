@@ -20,7 +20,12 @@
 //The null pointer
 #define NULL 0
 
-//C++ stuff
+//Boolean type
+#define true 1
+#define false 0
+#define bool _Bool
+
+//Generic size (32 bits)
 typedef unsigned long size_t;
 
 //External symbol accessing

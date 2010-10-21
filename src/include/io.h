@@ -9,6 +9,6 @@
 #define IO_H_
 
 //File handle
-typedef unsigned int IO_FileHandle;
+typedef unsigned int FileHandle;
 
 #endif /* IO_H_ */

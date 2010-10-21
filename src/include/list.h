@@ -12,6 +12,8 @@
 // Based on Linux linked lists
 //
 
+#include "chaff.h"
+
 //List item type
 // Use in a struct so it can be added to a list
 typedef struct STagListItem
@@ -80,7 +82,14 @@ static inline bool ListEmpty(ListItem * item)
 }
 
 //List Iteration
+// This one iterates over every item in the list
 #define LIST_FOREACH(listHead, dataVar, type, member) \
+	for(type * dataVar = LIST_DATA(listHead); \
+		listHead != &(dataVar->member), \
+		dataVar = LIST_DATA(dataVar->member->next))
+
+// This one iterates over all but the first item in the list
+#define LISTHEAD_FOREACH(listHead, dataVar, type, member) \
 	for(type * dataVar = LIST_DATA((listHead)->next); \
 		listHead != &(dataVar->member), \
 		dataVar = LIST_DATA(dataVar->member->next))
