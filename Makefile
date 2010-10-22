@@ -8,7 +8,7 @@
 VPATH = src
 DIRS = src src/memmgr
 
-SOURCES = $(foreach DIR, $(DIRS), $(wildcard $(DIR)/*.cpp))
+SOURCES = $(foreach DIR, $(DIRS), $(wildcard $(DIR)/*.c))
 SOURCES += $(foreach DIR, $(DIRS), $(wildcard $(DIR)/*.s))
 
 BINFILE = chaff.elf
@@ -18,7 +18,7 @@ LINK = ld
 CC = gcc
 ASM = nasm
 
-CFLAGS = -c -gdwarf-2 -Wall -Wextra -Isrc/include -DDEBUG -nostdlib -fno-builtin -nostartfiles -nodefaultlibs -fno-exceptions -fno-rtti -fno-stack-protector -fno-threadsafe-statics
+CFLAGS = -c -gdwarf-2 -Wall -Wextra -Isrc/include -DDEBUG -std=gnu99 -nostdlib -fno-builtin -nostartfiles -nodefaultlibs -fno-stack-protector
 ASMFLAGS = -Xgnu -f elf -F dwarf
 
 #Calculate objects (changes to .obj and uses obj directory)
@@ -45,7 +45,7 @@ clean:
 $(BINFILE): $(OBJS)
 	$(LINK) -o bin/$@ -T src/linker.ld $(OBJS)
 
-obj/%.obj : %.cpp
+obj/%.obj : %.c
 	$(CC) $(CFLAGS) -o $@ -c $<
 	cmd /c $(CC) -MM $(CFLAGS) $< \> obj/$*.d
 
