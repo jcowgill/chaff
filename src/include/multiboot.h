@@ -217,6 +217,25 @@
    multiboot_uint32_t pad;
  };
  typedef struct multiboot_mod_list multiboot_module_t;
+
+ //Iterates over each mmap entry in <in> and stores them in <entryVar>
+ // The length of the memory map is passed in <len>
+ // <entryVar> is a multiboot_memory_map_t
+ // All other vars MUST be unsigned longs
+ #define MMAP_FOREACH(entryVar, in, len) \
+ 	for(multiboot_memory_map_t * entryVar = (multiboot_memory_map_t *) in; \
+ 		((unsigned long) entryVar) < (in) + (len); \
+ 		entryVar = (multiboot_memory_map_t *)( \
+ 			((unsigned long) entryVar) + entryVar->size + sizeof(entryVar->size)))
+
+ //Iterates over each boot module entry in <in> and stores them in <entryVar>
+ // The number of boot modules is passed in <len>
+ // <entryVar> is a multiboot_memory_map_t
+ // All other vars MUST be unsigned longs
+ #define MODULES_FOREACH(entryVar, in, len) \
+ 	for(multiboot_module_t * entryVar = (multiboot_module_t *) in; \
+ 		((unsigned long) entryVar) < (in) + ((len) * sizeof(multiboot_module_t)); \
+ 		++entryVar)
  
  #endif /* ! ASM_FILE */
  

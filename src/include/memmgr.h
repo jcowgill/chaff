@@ -14,8 +14,14 @@
 #include "list.h"
 #include "multiboot.h"
 
+//Memory manager initialisation
+void MemManagerInit(multiboot_info_t * bootInfo);
+
 //Physical page type
 typedef int PhysPage;
+
+//Page returned when an error occurs
+#define INVALID_PAGE (-1)
 
 //Page size
 #define PAGE_SIZE 4096
@@ -26,9 +32,17 @@ typedef int PhysPage;
 // Generally the physical memory manager doesn't need to be accessed
 // Use memory regions for allocating memory
 
-//Initializes the physical memory manager using the memory info
-// in the multiboot information structure
-void MemPhysicalInit(multiboot_info_t * bootInfo);
+typedef struct
+{
+	//The number of references to the page
+	unsigned int refCount;
+
+} MemPageStatus;
+
+//Page status area
+#define MemPageStateTable ((MemPageStatus *) 0xFFC00000)
+extern MemPageStatus * MemPageStateTableEnd;		//Address after page state table (this can be NULL)
+
 
 //Allocates physical pages
 // This function can return any free page
@@ -41,89 +55,97 @@ PhysPage MemPhysicalAllocISA(unsigned int number);
 //Frees 1 physical page allocated by AllocatePages or AllocateISAPages
 void MemPhysicalFree(PhysPage page, unsigned int number);
 
-//Returns the number of pages in memory
-unsigned int MemPhysicalGetTotal();
-
-//Returns the number of free pages available
-unsigned int MemPhysicalGetFree();
+//Number of pages in total and number of free pages of memory
+extern unsigned int MemPhysicalTotalPages;
+extern unsigned int MemPhysicalFreePages;
 
 
 //The structure for a x86 page directory
-typedef struct STagPageDirectory
+typedef union UTagPageDirectory
 {
-	//1 if page is in use
-	unsigned int present		: 1;
+	//Gets the raw value of the page directory
+	unsigned int rawValue;
 
-	//1 if page can be written to (otherwise writing causes a page fault)
-	unsigned int writable		: 1;
+	struct
+	{
+		//1 if page is in use
+		unsigned int present		: 1;
 
-	//1 if page is available from user mode
-	unsigned int userMode		: 1;
+		//1 if page can be written to (otherwise writing causes a page fault)
+		unsigned int writable		: 1;
 
-	//1 if all writes should bypass the cache
-	unsigned int writeThrough	: 1;
+		//1 if page is available from user mode
+		unsigned int userMode		: 1;
 
-	//1 if all reads should bypass the cache
-	unsigned int cacheDisable	: 1;
+		//1 if all writes should bypass the cache
+		unsigned int writeThrough	: 1;
 
-	//1 if the page has been accessed since this was last set to 0
-	unsigned int accessed		: 1;
+		//1 if all reads should bypass the cache
+		unsigned int cacheDisable	: 1;
 
-	//1 if the page has been written to since this was last set to 0
-	// Ignored if this is a page table entry
-	unsigned int dirty			: 1;
+		//1 if the page has been accessed since this was last set to 0
+		unsigned int accessed		: 1;
 
-	//1 if this entry references a 4MB page rather than a page table
-	unsigned int hugePage		: 1;
+		//1 if the page has been written to since this was last set to 0
+		// Ignored if this is a page table entry
+		unsigned int dirty			: 1;
 
-	//1 if this page should not be invalidated when changing CR3
-	// Must enable this feature in a CR4 bit first
-	// Ignored if this is a page table entry
-	unsigned int global			: 1;
+		//1 if this entry references a 4MB page rather than a page table
+		unsigned int hugePage		: 1;
 
-	unsigned int /* can be used by OS */	: 3;
+		//1 if this page should not be invalidated when changing CR3
+		// Must enable this feature in a CR4 bit first
+		// Ignored if this is a page table entry
+		unsigned int global			: 1;
 
-	//The page frame ID of the 4MB page or page table
-	// (as returned by pmem_allocpage)
-	// If this is a 4MB page, it MUST be aligned to 4MB (or we'll crash)
-	unsigned int pageID			: 20;
+		unsigned int /* can be used by OS */	: 3;
+
+		//The page frame ID of the 4MB page or page table
+		// If this is a 4MB page, it MUST be aligned to 4MB (or we'll crash)
+		PhysPage pageID				: 20;
+	};
 
 } PageDirectory;
 
 //The structure for a x86 page table
-struct STagPageTable
+typedef union UTagPageTable
 {
-	//1 if page is in use
-	unsigned int present		: 1;
+	//Gets the raw value of the page table
+	unsigned int rawValue;
 
-	//1 if page can be written to (otherwise writing causes a page fault)
-	unsigned int writable		: 1;
+	struct
+	{
+		//1 if page is in use
+		unsigned int present		: 1;
 
-	//1 if page is available from user mode
-	unsigned int userMode		: 1;
+		//1 if page can be written to (otherwise writing causes a page fault)
+		unsigned int writable		: 1;
 
-	//1 if all writes should bypass the cache
-	unsigned int writeThrough	: 1;
+		//1 if page is available from user mode
+		unsigned int userMode		: 1;
 
-	//1 if all reads should bypass the cache
-	unsigned int cacheDisable	: 1;
+		//1 if all writes should bypass the cache
+		unsigned int writeThrough	: 1;
 
-	//1 if the page has been accessed since this was last set to 0
-	unsigned int accessed		: 1;
+		//1 if all reads should bypass the cache
+		unsigned int cacheDisable	: 1;
 
-	//1 if the page has been written to since this was last set to 0
-	unsigned int dirty			: 1;
-	unsigned int /* reserved */	: 1;
+		//1 if the page has been accessed since this was last set to 0
+		unsigned int accessed		: 1;
 
-	//1 if this page should not be invalidated when changing CR3
-	// Must enable this feature in a CR4 bit first
-	unsigned int global			: 1;
+		//1 if the page has been written to since this was last set to 0
+		unsigned int dirty			: 1;
+		unsigned int /* reserved */	: 1;
 
-	unsigned int /* can be used by OS */	: 3;
+		//1 if this page should not be invalidated when changing CR3
+		// Must enable this feature in a CR4 bit first
+		unsigned int global			: 1;
 
-	//The page frame ID of the 4KB page
-	// (as returned by pmem_allocpage)
-	unsigned int pageID			: 20;
+		unsigned int /* can be used by OS */	: 3;
+
+		//The page frame ID of the 4KB page
+		PhysPage pageID				: 20;
+	};
 
 } PageTable;
 
@@ -170,12 +192,9 @@ typedef struct STagMemContext
 {
 	ListItem regions;				//List head containing all the regions
 	unsigned int kernelVersion;		//Version of kernel page directory for this context
-	PageDirectory * directory;		//Page directory (4KB)
+	PhysPage directory;				//Page directory physical page
 
 } MemContext;
-
-//Initialises the kernel memory context
-void MemContextInitKernel();
 
 //Creates a new blank memory context
 MemContext * MemContextInit();
@@ -206,7 +225,7 @@ MemRegion * MemRegionCreateMMap(MemContext * context, void * startAddress,
 		unsigned int fileOffset, unsigned int fileSize);
 
 //Creates a new blank memory region
-MemRegion * MemRegionCreate(MemContext * context, void * startAddress,
+static inline MemRegion * MemRegionCreate(MemContext * context, void * startAddress,
 		unsigned int length)
 {
 	return MemRegionCreateMMap(context, startAddress, length, 0, 0, 0);
@@ -230,7 +249,6 @@ void MemRegionResize(MemRegion * region, unsigned int newLength);
 void MemRegionDelete(MemRegion * region);
 
 //Kernel context
-// The page directory is NULL in this context
 extern MemContext MemKernelContextData;
 #define MemKernelContext (&MemKernelContextData)
 

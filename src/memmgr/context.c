@@ -8,101 +8,38 @@
 #include "chaff.h"
 #include "memmgr.h"
 
-using namespace Chaff;
-using namespace Chaff::MemMgr;
+//Kernel page directory data
+PageDirectory kernelPageDirectory[1024] __attribute__((aligned(4096)));
+PageTable kernelPageTable255[1024] __attribute__((aligned(4096)));
 
-static char kernelContextData[sizeof(MContext)];
-static PageDirectory kernelDirectoryData[256];
-MContext * MContext::kernelContext;
-
-//Initialises the kernel memory context
-// PRE SLAB INIT - DO NOT USE NEW
-void MContext::InitKernelContext()
-{
-	//Allocate directory
-	kernelContext = new (kernelContextData) MContext();
-	kernelContext->directory = kernelDirectoryData;
-
-	//Setup basic pages
-	kernelContext->directory[0].present = 1;
-	kernelContext->directory[0].global = 1;
-	kernelContext->directory[0].hugePage = 1;
-	kernelContext->directory[0].writable = 1;
-
-	kernelContext->directory[255].present = 1;
-	kernelContext->directory[255].global = 1;
-	kernelContext->directory[255].writable = 1;
-	kernelContext->directory[255].pageID.writable = 1;
-
-
-	//Upgrade version
-	kernelContext->kernelVersion = 1;
-}
+//Kernel context
+MemContext MemKernelContextData = { LIST_SINIT(MemKernelContextData.regions), 0, INVALID_PAGE};
 
 //Creates a new blank memory context
-MContext * MContext::InitBlank()
+MemContext * MemContextInit()
 {
-	//Create blank context
-	MContext * newContext = new MContext();
+#if 0
+	//Allocate new context
+	MemContext * newContext = MAlloc(sizeof(MemContext));
 
-	//Create directory
-#warning The page directory must be page aligned
-	newContext->directory = new PageDirectory[1024];
+	//Allocate directory
+#warning This must be page aligned (idea - use manaul page alloc and temp map it to an address)
+	newContext->directory = MAlloc(sizeof(PageDirectory) * 1024);
 
-	//Setup with blank and kernel mode stuffs
-	MemSet(newContext->directory, 0, 768 * sizeof(PageDirectory));
-	MemCpy(newContext->directory + 768, kernelContext->directory, 256 * sizeof(PageDirectory));
+	//Wipe user area
+	MemSet(newContext->directory, 0, sizeof(PageDirectory) * 768);
 
-	//Set kernel version
-	newContext->kernelVersion = kernelContext->kernelVersion;
+	//Copy kernel area
+	MemCpy(newContext->directory + 768, kernelPageDirectory, sizeof(PageDirectory) * 255);
+	newContext->kernelVersion = MemKernelContext->kernelVersion;
 
+	//Setup final page
+	newContext->directory[1023] = 0;
+	newContext->directory[1023].present = 1;
+	newContext->directory[1023].writable = 1;
+	newContext->directory[1023].pageID = newContext->directory;
+	
+	//Return context
 	return newContext;
-}
-
-//Clones this memory context
-MContext * MContext::Clone()
-{
-	//
-#warning TODO Copy On Write
-	return NULL;
-}
-
-//Creates a new region of blank memory
-MRegion * MContext::CreateRegion(void * startAddress, unsigned int length)
-{
-	//
-}
-
-//Creates a new memory mapped region
-MRegion * MContext::CreateRegion(void * startAddress, unsigned int length, IO::FileHandle file,
-		unsigned int fileOffset, unsigned int fileSize)
-{
-	//
-}
-
-//Finds the region which contains the given address
-// or returns NULL if there isn't one
-MRegion * MContext::FindRegion(void * address)
-{
-	//
-}
-
-//Removes the pages in the given region from this context and frees
-// their physical memory
-void MContext::Erase(void * startAddress, unsigned int length)
-{
-	//
-}
-
-//Switches to this memory context
-void MContext::SwitchTo()
-{
-	//
-}
-
-//Deletes this memory context - DO NOT delete the memory context
-// which is currently in use!
-void MContext::Delete()
-{
-	//Check deletion of current context
+#endif
 }
