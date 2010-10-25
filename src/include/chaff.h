@@ -30,8 +30,8 @@ typedef unsigned long size_t;
 
 //External symbol accessing
 #define DECLARE_SYMBOL(symb) extern char symb[];
-#define GET_SYMBOL(symb) ((void *) &symb)
-#define GET_SYMBOL_UINTPTR(symb) ((unsigned int *) &symb)
+#define GET_SYMBOL(symb) ((void *) symb)
+#define GET_SYMBOL_UINT(symb) ((unsigned int) symb)
 
 //General functions
 
@@ -57,40 +57,22 @@ void PrintLog(LogLevel level, const char * msg, ...);
 
 //Sets the specified number of bytes after the given pointer with the given value
 // Returns ptr
-inline void * MemSet(void * ptr, unsigned char value, size_t length)
-{
-	__builtin_memset(ptr, value, length);
-	return ptr;
-}
+#define MemSet __builtin_memset
 
 //Copies the region of memory with the given length from src to dst
 // src and dst must not overlap
 // Returns ptr
-inline void * MemCpy(void * ptr, const void * src, size_t length)
-{
-	__builtin_memcpy(ptr, src, length);
-	return ptr;
-}
+#define MemCpy __builtin_memcpy
 
 //Moves the region of memory with the given length from src to dst
 // src and dst are allowed to overlap
 // Returns ptr
-inline void * MemMove(void * ptr, const void * src, size_t length)
-{
-	__builtin_memmove(ptr, src, length);
-	return ptr;
-}
+#define MemMove __builtin_memmove
 
-inline int MemCmp(const void * ptr1, const void * ptr2, size_t length)
-{
-	return __builtin_memcmp(ptr1, ptr2, length);
-}
+#define MemCmp __builtin_memcmp
 
 //Returns the offset of the first 1 bit in the given data
 // If data == 0, the result is undefined
-inline int BitScanReverse(unsigned int data)
-{
-	return __builtin_clz(data);
-}
+#define BitScanReverse __builtin_clz
 
 #endif /* CHAFF_H_ */

@@ -1,5 +1,6 @@
 global _loader
 extern kMain
+extern kernelPageDirectory
 
 ;Constants
 STACK_SIZE equ 0x4000
@@ -8,10 +9,6 @@ KERNEL_PAGE_OFFSET equ (KERNEL_VIRTUAL_BASE >> 20)	;Offset of kernel 4MB area in
 
 section .bss nobits alloc noexec write align=4096
 align 4096
-bootPageDirectory:
-	resd 1024		;Allocate 4096 bytes for the boot page directory
-					; This must be aligned on a page boundary
-
 startupStack:
 	resb STACK_SIZE		;Allocate 16k of startup stack
 
@@ -66,11 +63,11 @@ section .text
 _loader:
 	;Before we setup paging, we must offset any symbols with the KERNEL_VIRTUAL_BASE
 	; Also, DO NOT USE EAX OR EBX HERE - it contains the multiboot pointer
-	xchg bx,bx
+
 	; Setup boot page directory
-	mov ecx, (bootPageDirectory - KERNEL_VIRTUAL_BASE)
-	mov dword [ecx], 0x00000083		;This number is: 4MB page, rw, mapped to address 0x0
-	mov dword [ecx + KERNEL_PAGE_OFFSET], 0x00000083
+	mov ecx, (kernelPageDirectory - KERNEL_VIRTUAL_BASE)
+	mov dword [ecx], 0x00000183		;This number is: 4MB page, rw, global, mapped to address 0x0
+	mov dword [ecx + KERNEL_PAGE_OFFSET], 0x00000183
 
 	; Load boot page directory
 	mov cr3, ecx
@@ -110,7 +107,7 @@ _loader:
 
 highLoader:
 	;Unmap first identity page
-	mov dword [bootPageDirectory], 0x00000000
+	mov dword [kernelPageDirectory], 0x00000000
 	invlpg [0]
 
 	;Setup the stack pointer

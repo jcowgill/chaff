@@ -20,6 +20,7 @@ ASM = nasm
 
 CFLAGS = -c -gdwarf-2 -Wall -Wextra -Isrc/include -DDEBUG -std=gnu99 -nostdlib -fno-builtin -nostartfiles -nodefaultlibs -fno-stack-protector
 ASMFLAGS = -Xgnu -f elf -F dwarf
+LDFLAGS = -x
 
 #Calculate objects (changes to .obj and uses obj directory)
 OBJS = $(subst src/,obj/,$(addsuffix .obj,$(basename $(SOURCES))))
@@ -43,7 +44,7 @@ clean:
 	cmd /c del bin\\$(BINFILE)
 
 $(BINFILE): $(OBJS)
-	$(LINK) -o bin/$@ -T src/linker.ld $(OBJS)
+	$(LINK) $(LDFLAGS) -o bin/$@ -T src/linker.ld $(OBJS)
 
 obj/%.obj : %.c
 	$(CC) $(CFLAGS) -o $@ -c $<
