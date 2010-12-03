@@ -10,7 +10,7 @@
 #include "memmgr.h"
 
 extern PageDirectory kernelPageDirectory[1024];
-extern PageTable kernelPageTable255[1024];
+extern PageTable kernelPageTable254[1024];
 MemPageStatus * MemPageStateTableEnd;
 
 //Kernel end symbol
@@ -124,18 +124,18 @@ void MemManagerInit(multiboot_info_t * bootInfo)
 	GetPhysicalTableLocation(bootInfo, &tableLength, &tableLocation);
 
 	//PHASE 2 - Setup page tables for the physical table
-	kernelPageDirectory[1023].present = 1;
-	kernelPageDirectory[1023].writable = 1;
-	kernelPageDirectory[1023].global = 1;
-	kernelPageDirectory[1023].pageID =
-			((unsigned int) kernelPageTable255 - (unsigned int) KERNEL_VIRTUAL_BASE) / 4096;
+	kernelPageDirectory[1022].present = 1;
+	kernelPageDirectory[1022].writable = 1;
+	kernelPageDirectory[1022].global = 1;
+	kernelPageDirectory[1022].pageID =
+			((unsigned int) kernelPageTable254 - (unsigned int) KERNEL_VIRTUAL_BASE) / 4096;
 
 	for(unsigned int i = 0; i < tableLength; ++i)
 	{
-		kernelPageTable255[i].present = 1;
-		kernelPageTable255[i].writable = 1;
-		kernelPageTable255[i].global = 1;
-		kernelPageTable255[i].pageID = tableLocation + i;
+		kernelPageTable254[i].present = 1;
+		kernelPageTable254[i].writable = 1;
+		kernelPageTable254[i].global = 1;
+		kernelPageTable254[i].pageID = tableLocation + i;
 	}
 
 	//PHASE 3 - Fill memory table

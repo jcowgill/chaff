@@ -14,6 +14,21 @@
 #include "list.h"
 #include "multiboot.h"
 
+/*
+ * Memory Layout
+ * -------------
+ * 00000000 - 00000FFF	Reserved (cannot be mapped)
+ * 00001000 - BFFFFFFF	User mode code
+ * C0000000 - C03FFFFF	Mapped to first 4MB of physical space. Contains all kernel code.
+ * C0400000 - CFFFFFFF	Driver code
+ * D0000000 - DFFFFFFF	Kernel heap
+ * F0000000 - FF6FFFFF	No use at the moment
+ * FF700000 - FFFFFFFF	Memory manager use
+ * 	FF700000 - FF7FFFFF		Temporary page mappings
+ * 	FF800000 - FFBFFFFF		Physical page references
+ * 	FFC00000 - FFFFFFFF		Current page tables
+ */
+
 //Memory manager initialisation
 void MemManagerInit(multiboot_info_t * bootInfo);
 
@@ -40,7 +55,7 @@ typedef struct
 } MemPageStatus;
 
 //Page status area
-#define MemPageStateTable ((MemPageStatus *) 0xFFC00000)
+#define MemPageStateTable ((MemPageStatus *) 0xFF800000)
 extern MemPageStatus * MemPageStateTableEnd;		//Address after page state table (this can be NULL)
 
 
@@ -141,7 +156,10 @@ typedef union UTagPageTable
 		// Must enable this feature in a CR4 bit first
 		unsigned int global			: 1;
 
-		unsigned int /* can be used by OS */	: 3;
+		//Not used by CPU
+		// 3 bits of table counter to count number of pages allocated in page table
+		// tableCount is used only in the first 5 page table entries
+		unsigned int tableCount		: 3;
 
 		//The page frame ID of the 4KB page
 		PhysPage pageID				: 20;
@@ -153,11 +171,14 @@ typedef union UTagPageTable
 // Note that restrictions only apply to user mode
 typedef enum ETagRegionFlags
 {
-	NoAccess = 0,
-	Readable = 1,
-	Writable = 2,
-	Executable = 4,
-	Fixed = 8,
+	MEM_NOACCESS = 0,
+	MEM_READABLE = 1,
+	MEM_WRITABLE = 2,
+	MEM_EXECUTABLE = 4,
+	MEM_FIXED = 8,
+	MEM_MAPPEDFILE = 16,
+
+	MEM_ALLFLAGS = 31
 
 } RegionFlags;
 
@@ -171,28 +192,28 @@ struct STagMemContext;
 
 typedef struct STagMemRegion
 {
-	ListItem item;					//Item in regions list
+	struct list_head listItem;		//Item in regions list
 
-	struct StagMemContext * myContext;	//Context this region is assigned to
+	struct STagMemContext * myContext;	//Context this region is assigned to
 
 	RegionFlags flags;				//The properties of the region
 
-	void * start;					//Pointer to start of region
+	unsigned int start;				//Pointer to start of region
 	unsigned int length;			//Length of region in pages
 	PhysPage firstPage;				//First page - used only for fixed regions
 
 	FileHandle file;				//File used to read data into memory from
-	unsigned int fileOffset;		//The offset of file to read (ignored if file is null)
-	unsigned int fileSize;			//The amount of data to read from the file (ignored if file is null)
+	unsigned int fileOffset;		//The offset of file to read
+	unsigned int fileSize;			//The amount of data to read from the file
 
 } MemRegion;
 
 //A group of memory regions which make up the virtual memory space for a process
 typedef struct STagMemContext
 {
-	ListItem regions;				//List head containing all the regions
+	struct list_head regions;		//Regions in this context
 	unsigned int kernelVersion;		//Version of kernel page directory for this context
-	PhysPage directory;				//Page directory physical page
+	PhysPage physDirectory;			//Page directory physical page
 
 } MemContext;
 
@@ -211,32 +232,35 @@ void MemContextDelete(MemContext * context);
 
 //Frees the pages associated with a given region of memory without destroying the region
 // (pages will automatically be allocated when memory is referenced)
-void MemContextFreePages(MemContext * context, void * address, unsigned int length);
+// The memory address range must be withing the bounds of the given region
+void MemRegionFreePages(MemRegion * region, void * address, unsigned int length);
 
 //Finds the region which contains the given address
 // or returns NULL if there isn't one
 MemRegion * MemRegionFind(MemContext * context, void * address);
 
+//Creates a new blank memory region
+// If the context given is not the current or kernel context,
+//  a temporary memory context switch may occur
+// The start address MUST be page aligned
+MemRegion * MemRegionCreate(MemContext * context, void * startAddress,
+		unsigned int length, RegionFlags flags);
+
 //Creates a new memory mapped region
 // If the context given is not the current or kernel context,
 //  a temporary memory context switch may occur
+// MEM_MAPPEDFILE is implied by this
 MemRegion * MemRegionCreateMMap(MemContext * context, void * startAddress,
 		unsigned int length, FileHandle file,
-		unsigned int fileOffset, unsigned int fileSize);
-
-//Creates a new blank memory region
-static inline MemRegion * MemRegionCreate(MemContext * context, void * startAddress,
-		unsigned int length)
-{
-	return MemRegionCreateMMap(context, startAddress, length, 0, 0, 0);
-}
+		unsigned int fileOffset, unsigned int fileSize, RegionFlags flags);
 
 //Creates a new fixed memory section
 // These regions always point to a particular area of physical memory
 // If the context given is not the current or kernel context,
 //  a temporary memory context switch may occur
+// MEM_FIXED is implied by this
 MemRegion * MemRegionCreateFixed(MemContext * context, void * startAddress,
-		unsigned int length, PhysPage firstPage);
+		unsigned int length, PhysPage firstPage, RegionFlags flags);
 
 //Resizes the region of allocated memory
 // If the context of the region given is not the current or kernel context,
