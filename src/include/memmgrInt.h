@@ -16,6 +16,7 @@
 //Kernel page directory entries
 extern PageDirectory kernelPageDirectory[1024];
 extern PageTable kernelPageTable254[1024];
+extern PageTable kernelPageTable253[1024];
 
 //Raw page mapping
 // Maps pages and handles all creation and management of page tables

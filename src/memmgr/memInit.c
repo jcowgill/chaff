@@ -129,6 +129,13 @@ void MemManagerInit(multiboot_info_t * bootInfo)
 	kernelPageDirectory[1022].pageID =
 			((unsigned int) kernelPageTable254 - (unsigned int) KERNEL_VIRTUAL_BASE) / 4096;
 
+	//...and tmp page tables while we're at it
+	kernelPageDirectory[1021].present = 1;
+	kernelPageDirectory[1021].writable = 1;
+	kernelPageDirectory[1021].global = 1;
+	kernelPageDirectory[1021].pageID =
+			((unsigned int) kernelPageTable253 - (unsigned int) KERNEL_VIRTUAL_BASE) / 4096;
+
 	for(unsigned int i = 0; i < tableLength; ++i)
 	{
 		kernelPageTable254[i].present = 1;

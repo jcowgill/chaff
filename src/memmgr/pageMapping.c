@@ -10,6 +10,9 @@
 #include "inlineasm.h"
 #include "memmgrInt.h"
 
+//Page table for tmp pages
+PageTable kernelPageTable253[1024] __attribute__((aligned(4096)));
+
 #define THIS_PAGE_DIRECTORY ((PageDirectory *) 0xFFFFF000)
 #define THIS_PAGE_TABLES ((PageTable *) 0xFFC00000)
 
@@ -206,13 +209,52 @@ void MemIntUnmapPageAndFree(MemContext * currContext, void * address)
 	}
 }
 
-#warning Map and unmap temporary pages - allocate another page table in BSS for this
 void MemIntMapTmpPage(void * address, PhysPage page)
 {
-	//
+	//Map page (very simple)
+	unsigned int addr = (unsigned int) address;
+
+	if(addr < 0xFF800000 || addr >= 0xFFC00000)
+	{
+		Panic("MemIntMapTmpPage: can only map pages in the temporary page zone");
+	}
+
+	//Get page table
+	PageTable * pTable = THIS_PAGE_TABLES + (addr >> 12);
+
+	//Overwrite?
+	if(pTable->present)
+	{
+		PrintLog(Warning, "MemIntMapTmpPage: Overwriting temporary page table entry");
+	}
+
+	//Set properties
+	pTable->rawValue = 0;
+	pTable->present = 1;
+	pTable->global = 1;
+	pTable->writable = 1;
+	pTable->pageID = page;
+
+	//Invalidate page
+	invlpg(address);
 }
 
 void MemIntUnmapTmpPage(void * address)
 {
-	//
+	//Unmap page (very simple)
+	unsigned int addr = (unsigned int) address;
+
+	if(addr < 0xFF800000 || addr >= 0xFFC00000)
+	{
+		Panic("MemIntUnmapTmpPage: can only unmap pages in the temporary page zone");
+	}
+
+	//Get page table
+	PageTable * pTable = THIS_PAGE_TABLES + (addr >> 12);
+
+	//Set properties
+	pTable->rawValue = 0;
+
+	//Invalidate page
+	invlpg(address);
 }
