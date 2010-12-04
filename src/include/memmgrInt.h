@@ -13,10 +13,34 @@
 #include "chaff.h"
 #include "memmgr.h"
 
+//Kernel page directory entries
+extern PageDirectory kernelPageDirectory[1024];
+extern PageTable kernelPageTable254[1024];
+
 //Raw page mapping
 // Maps pages and handles all creation and management of page tables
-void MemIntMapPage(void * address, PhysPage page, RegionFlags flags);
-void MemIntUnmapPage(void * address);
-void MemIntUnmapPageAndFree(void * address);
+void MemIntMapPage(MemContext * currContext, void * address, PhysPage page, RegionFlags flags);
+void MemIntUnmapPage(MemContext * currContext, void * address);
+void MemIntUnmapPageAndFree(MemContext * currContext, void * address);
+
+//Can be used for mapping tmp pages ONLY
+// Do not use other functions for temporary pages
+void MemIntMapTmpPage(void * address, PhysPage page);
+void MemIntUnmapTmpPage(void * address);
+
+//Temporary pages
+// These should be unmapped while outside a region function
+#define MEM_TEMPPAGE1 ((void *) 0xFF800000)
+#define MEM_TEMPPAGE2 ((void *) 0xFF801000)
+
+//Temporary context change
+#define CONTEXT_SWAP(context) \
+{ \
+	unsigned int _oldCR3 = getCR3(); \
+	MemContextSwitchTo(context); \
+
+#define CONTEXT_SWAP_END \
+	setCR3(_oldCR3); \
+}
 
 #endif /* MEMMGRINT_H_ */

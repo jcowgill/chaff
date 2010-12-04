@@ -8,9 +8,8 @@
 #include "chaff.h"
 #include "multiboot.h"
 #include "memmgr.h"
+#include "memmgrInt.h"
 
-extern PageDirectory kernelPageDirectory[1024];
-extern PageTable kernelPageTable254[1024];
 MemPageStatus * MemPageStateTableEnd;
 
 //Kernel end symbol

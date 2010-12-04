@@ -17,23 +17,7 @@ PageTable kernelPageTable254[1024] __attribute__((aligned(4096)));			//For physi
 //Kernel context
 MemContext MemKernelContextData = { LIST_HEAD_INIT(MemKernelContextData.regions), 0, INVALID_PAGE };
 
-//Temporary pages
-// These should be unmapped while outside a region function
-#define MEM_TEMPPAGE1 ((void *) 0xFF800000)
-#define MEM_TEMPPAGE2 ((void *) 0xFF801000)
-
-//Temporary context change
-#define CONTEXT_SWAP(context) \
-{ \
-	unsigned int _oldCR3 = getCR3(); \
-	MemContextSwitchTo(context); \
-
-#define CONTEXT_SWAP_END \
-	setCR3(_oldCR3); \
-}
-
-#warning TODO - kernel version updating in some functions
-
+#warning Remove this vvv
 void * MAlloc(unsigned int);
 void MFree(void *);
 
@@ -46,9 +30,10 @@ MemContext * MemContextInit()
 
 	//Allocate directory
 	newContext->physDirectory = MemPhysicalAlloc(1);
+	newContext->kernelVersion = 0;
 
 	//Temporarily map directory
-	MemIntMapPage(MEM_TEMPPAGE1, newContext->physDirectory, MEM_READABLE | MEM_WRITABLE);
+	MemIntMapTmpPage(MEM_TEMPPAGE1, newContext->physDirectory);
 
 	//Wipe user area
 	PageDirectory * dir = (PageDirectory *) MEM_TEMPPAGE1;
@@ -65,7 +50,7 @@ MemContext * MemContextInit()
 	dir[1023].pageID = newContext->physDirectory;
 	
 	//Unmap directory
-	MemIntUnmapPage(MEM_TEMPPAGE1);
+	MemIntUnmapTmpPage(MEM_TEMPPAGE1);
 
 	//Return context
 	return newContext;
@@ -96,7 +81,6 @@ void MemContextSwitchTo(MemContext * context)
 	{
 		//Update kernel page tables
 		// The TLB should already contain the correct values so we SHOULN'T need to INVLPG them
-#warning Kernel pages must be GLOBAL for this to work
 		MemCpy((void *) 0xFFFFFC00, kernelPageDirectory + 768, sizeof(PageDirectory) * 255);
 
 		context->kernelVersion = MemKernelContext->kernelVersion;
@@ -196,11 +180,12 @@ void MemRegionFreePages(MemRegion * region, void * address, unsigned int length)
 	startAddr = (startAddr + 4095) / 4096;
 
 	//Free pages
+	MemContext * context = region->myContext;
 	CONTEXT_SWAP(context)
 	{
 		for(; startAddr < endAddr; startAddr += 4096)
 		{
-			MemIntUnmapPageAndFree((void *) startAddr);
+			MemIntUnmapPageAndFree(context, (void *) startAddr);
 		}
 	}
 	CONTEXT_SWAP_END
@@ -267,7 +252,7 @@ MemRegion * MemRegionCreate(MemContext * context, void * startAddress,
 	}
 
 	//Validate addresses
-	if((context == MemKernelContext && (startAddr < 0xC0000000 || startAddr + length >= MEM_TEMPPAGE1)) ||
+	if((context == MemKernelContext && (startAddr < 0xC0000000 || startAddr + length >= (unsigned int) MEM_TEMPPAGE1)) ||
 		(context != MemKernelContext && (startAddr == 0 || startAddr + length >= 0xC0000000)))
 	{
 		PrintLog(Error, "MemRegionCreate: Region outside valid range");
@@ -369,7 +354,7 @@ MemRegion * MemRegionCreateFixed(MemContext * context, void * startAddress,
 					length -= 4096, startAddr += 4096, ++firstPage)
 			{
 				//Map this page
-				MemIntMapPage(startAddr, firstPage, flags);
+				MemIntMapPage(context, startAddr, firstPage, flags);
 			}
 		}
 		CONTEXT_SWAP_END
@@ -383,6 +368,8 @@ MemRegion * MemRegionCreateFixed(MemContext * context, void * startAddress,
 //  a temporary memory context switch may occur
 void MemRegionResize(MemRegion * region, unsigned int newLength)
 {
+	MemContext * context = region->myContext;
+
 	//Length must be page aligned
 	if(newLength % 4096 != 0)
 	{
@@ -403,14 +390,14 @@ void MemRegionResize(MemRegion * region, unsigned int newLength)
 			{
 				for(; start < end; start += 4096)
 				{
-					MemIntUnmapPage((void *) start);
+					MemIntUnmapPage(context, (void *) start);
 				}
 			}
 			else
 			{
 				for(; start < end; start += 4096)
 				{
-					MemIntUnmapPageAndFree((void *) start);
+					MemIntUnmapPageAndFree(context, (void *) start);
 				}
 			}
 		}
