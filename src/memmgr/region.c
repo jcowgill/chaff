@@ -1,5 +1,5 @@
 /*
- * context.cpp
+ * region.c
  *
  *  Created on: 14 Oct 2010
  *      Author: James
@@ -8,6 +8,7 @@
 #include "chaff.h"
 #include "memmgr.h"
 #include "inlineasm.h"
+#include "memmgrInt.h"
 
 //Kernel page directory data
 PageDirectory kernelPageDirectory[1024] __attribute__((aligned(4096)));
@@ -31,12 +32,6 @@ MemContext MemKernelContextData = { LIST_HEAD_INIT(MemKernelContextData.regions)
 	setCR3(_oldCR3); \
 }
 
-//Raw page mapping
-// Maps pages and handles all creation and management of page tables
-static void mapPage(void * address, PhysPage page, RegionFlags flags);
-static void unmapPage(void * address);
-static void unmapPageAndFree(void * address);
-
 #warning TODO - kernel version updating in some functions
 
 void * MAlloc(unsigned int);
@@ -53,7 +48,7 @@ MemContext * MemContextInit()
 	newContext->physDirectory = MemPhysicalAlloc(1);
 
 	//Temporarily map directory
-	mapPage(MEM_TEMPPAGE1, newContext->physDirectory, MEM_READABLE | MEM_WRITABLE);
+	MemIntMapPage(MEM_TEMPPAGE1, newContext->physDirectory, MEM_READABLE | MEM_WRITABLE);
 
 	//Wipe user area
 	PageDirectory * dir = (PageDirectory *) MEM_TEMPPAGE1;
@@ -70,7 +65,7 @@ MemContext * MemContextInit()
 	dir[1023].pageID = newContext->physDirectory;
 	
 	//Unmap directory
-	unmapPage(MEM_TEMPPAGE1);
+	MemIntUnmapPage(MEM_TEMPPAGE1);
 
 	//Return context
 	return newContext;
@@ -205,7 +200,7 @@ void MemRegionFreePages(MemRegion * region, void * address, unsigned int length)
 	{
 		for(; startAddr < endAddr; startAddr += 4096)
 		{
-			unmapPageAndFree((void *) startAddr);
+			MemIntUnmapPageAndFree((void *) startAddr);
 		}
 	}
 	CONTEXT_SWAP_END
@@ -374,7 +369,7 @@ MemRegion * MemRegionCreateFixed(MemContext * context, void * startAddress,
 					length -= 4096, startAddr += 4096, ++firstPage)
 			{
 				//Map this page
-				mapPage(startAddr, firstPage, flags);
+				MemIntMapPage(startAddr, firstPage, flags);
 			}
 		}
 		CONTEXT_SWAP_END
@@ -408,14 +403,14 @@ void MemRegionResize(MemRegion * region, unsigned int newLength)
 			{
 				for(; start < end; start += 4096)
 				{
-					unmapPage((void *) start);
+					MemIntUnmapPage((void *) start);
 				}
 			}
 			else
 			{
 				for(; start < end; start += 4096)
 				{
-					unmapPageAndFree((void *) start);
+					MemIntUnmapPageAndFree((void *) start);
 				}
 			}
 		}

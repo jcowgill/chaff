@@ -1,5 +1,5 @@
 /*
- * physicalMgr.cpp
+ * physicalMgr.c
  *
  *  Created on: 6 Oct 2010
  *      Author: James

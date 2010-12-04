@@ -1,5 +1,5 @@
 /*
- * kMain.cpp
+ * kMain.c
  *
  *  Created on: 30 Sep 2010
  *      Author: James
