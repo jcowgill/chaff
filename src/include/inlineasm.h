@@ -21,4 +21,10 @@ static inline unsigned int getCR3()
 	return val;
 }
 
+//Invalidate TLB entry at given address
+static inline void invlpg(void * address)
+{
+	asm volatile("invlpg %0"::"m"(address));
+}
+
 #endif
