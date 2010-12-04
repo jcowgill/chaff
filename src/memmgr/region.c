@@ -21,15 +21,26 @@ MemContext MemKernelContextData = { LIST_HEAD_INIT(MemKernelContextData.regions)
 #define MEM_TEMPPAGE1 ((void *) 0xFF800000)
 #define MEM_TEMPPAGE2 ((void *) 0xFF801000)
 
+//Temporary context change
+#define CONTEXT_SWAP(context) \
+{ \
+	unsigned int _oldCR3 = getCR3(); \
+	MemContextSwitchTo(context); \
+
+#define CONTEXT_SWAP_END \
+	setCR3(_oldCR3); \
+}
+
 //Raw page mapping
 // Maps pages and handles all creation and management of page tables
 static void mapPage(void * address, PhysPage page, RegionFlags flags);
 static void unmapPage(void * address);
 static void unmapPageAndFree(void * address);
 
-#warning TODO - must switch to new context in most functions temporarilly
-#warning TODO - don't allow mapping in some areas
 #warning TODO - kernel version updating in some functions
+
+void * MAlloc(unsigned int);
+void MFree(void *);
 
 //Creates a new blank memory context
 MemContext * MemContextInit()
@@ -83,7 +94,7 @@ void MemContextSwitchTo(MemContext * context)
 	}
 
 	//Switch to directory
-	setCR3(context->physDirectory);
+	setCR3((unsigned int) context->physDirectory * 4096);
 
 	//Check kernel version
 	if(context->kernelVersion != MemKernelContext->kernelVersion)
@@ -91,7 +102,7 @@ void MemContextSwitchTo(MemContext * context)
 		//Update kernel page tables
 		// The TLB should already contain the correct values so we SHOULN'T need to INVLPG them
 #warning Kernel pages must be GLOBAL for this to work
-		MemCpy(0xFFFFFC00, kernelPageDirectory + 768, sizeof(PageDirectory) * 255);
+		MemCpy((void *) 0xFFFFFC00, kernelPageDirectory + 768, sizeof(PageDirectory) * 255);
 
 		context->kernelVersion = MemKernelContext->kernelVersion;
 	}
@@ -101,10 +112,8 @@ void MemContextSwitchTo(MemContext * context)
 // which is currently in use!
 void MemContextDelete(MemContext * context)
 {
-	unsigned int oldContext = getCR3();
-
 	//Check current context
-	if(context->physDirectory == oldContext / 4096)
+	if((unsigned int) context->physDirectory == getCR3() / 4096)
 	{
 		PrintLog(Critical, "MemContextDelete: Cannot delete current memory context.");
 		return;
@@ -116,37 +125,39 @@ void MemContextDelete(MemContext * context)
 	}
 
 	//Switch to context to delete pages
-	MemContextSwitchTo(context);
-
-	//Process tables
-	for(int i = 0; i < 0x300; ++i)
+	CONTEXT_SWAP(context)
 	{
-		PageDirectory * dir = ((PageDirectory *) 0xFFFFF000) + i;
-
-		//If present, free pages in page table first
-		if(dir->present)
+		//Process tables
+		for(int i = 0; i < 0x300; ++i)
 		{
-			PageTable * tableBase = ((PageTable *) 0xFFC00000) + (i * 1024);
+			PageDirectory * dir = ((PageDirectory *) 0xFFFFF000) + i;
 
-			//Free pages
-			for(int j = 0; j < 1024; ++j)
+			//If present, free pages in page table first
+			if(dir->present)
 			{
-				PageTable * table = tableBase + j;
+				PageTable * tableBase = ((PageTable *) 0xFFC00000) + (i * 1024);
 
-				//Free page if present
-				if(table->present)
+				//Free pages
+				for(int j = 0; j < 1024; ++j)
 				{
-					MemPhysicalFree(table->pageID, 1);
+					PageTable * table = tableBase + j;
+
+					//Free page if present
+					if(table->present)
+					{
+						MemPhysicalFree(table->pageID, 1);
+					}
 				}
+
+				MemPhysicalFree(dir->pageID, 1);
 			}
-
-			MemPhysicalFree(dir->pageID, 1);
 		}
-	}
 
-	//Switch back to other directory
-	// We can skip the kernel update since there won't be one
-	setCR3(oldContext);
+		//Switch back to other directory
+		// We can skip the kernel update since there won't be one
+		//setCR3(oldContext);
+	}
+	CONTEXT_SWAP_END
 
 	//Free directory
 	MemPhysicalFree(context->physDirectory, 1);
@@ -171,7 +182,6 @@ void MemContextDelete(MemContext * context)
 void MemRegionFreePages(MemRegion * region, void * address, unsigned int length)
 {
 	//Check this op can be done on the region
-#warning This allowed pages from memory mapped files to be freed (if changing, other functions need changing too)
 	if(region->flags & MEM_FIXED)
 	{
 		PrintLog(Warning, "MemRegionFreePages: Cannot free pages from fixed page region");
@@ -191,18 +201,20 @@ void MemRegionFreePages(MemRegion * region, void * address, unsigned int length)
 	startAddr = (startAddr + 4095) / 4096;
 
 	//Free pages
-	for(; startAddr < endAddr; startAddr += 4096)
+	CONTEXT_SWAP(context)
 	{
-		unmapPageAndFree(startAddr);
+		for(; startAddr < endAddr; startAddr += 4096)
+		{
+			unmapPageAndFree((void *) startAddr);
+		}
 	}
+	CONTEXT_SWAP_END
 }
 
 //Finds the region which contains the given address
 // or returns NULL if there isn't one
 MemRegion * MemRegionFind(MemContext * context, void * address)
 {
-#warning Assumes ORDERED list of regions
-
 	unsigned int addr = (unsigned int) address;
 
 	//Check each address
@@ -249,6 +261,21 @@ MemRegion * MemRegionCreate(MemContext * context, void * startAddress,
 	if(startAddr % 4096 != 0 || length % 4096 != 0)
 	{
 		PrintLog(Error, "MemRegionCreate: Region start address and length must be page aligned");
+		return NULL;
+	}
+
+	if(startAddr + length < startAddr)
+	{
+		//Wrapped around
+		PrintLog(Error, "MemRegionCreate: Region range wrapped around");
+		return NULL;
+	}
+
+	//Validate addresses
+	if((context == MemKernelContext && (startAddr < 0xC0000000 || startAddr + length >= MEM_TEMPPAGE1)) ||
+		(context != MemKernelContext && (startAddr == 0 || startAddr + length >= 0xC0000000)))
+	{
+		PrintLog(Error, "MemRegionCreate: Region outside valid range");
 		return NULL;
 	}
 
@@ -341,12 +368,16 @@ MemRegion * MemRegionCreateFixed(MemContext * context, void * startAddress,
 		region->firstPage = firstPage;
 
 		//With fixed regions, we map the pages now
-		for(char * startAddr = (char *) startAddress; length > 0;
-				length -= 4096, startAddr += 4096, ++firstPage)
+		CONTEXT_SWAP(context)
 		{
-			//Map this page
-			mapPage(startAddr, firstPage, flags);
+			for(char * startAddr = (char *) startAddress; length > 0;
+					length -= 4096, startAddr += 4096, ++firstPage)
+			{
+				//Map this page
+				mapPage(startAddr, firstPage, flags);
+			}
 		}
+		CONTEXT_SWAP_END
 	}
 
 	return region;
@@ -371,18 +402,46 @@ void MemRegionResize(MemRegion * region, unsigned int newLength)
 		unsigned int end = region->start + region->length;
 
 		//If fixed region, we don't free the pages - we just unmap them
-		if(region->flags & MEM_FIXED)
+		CONTEXT_SWAP(context)
 		{
-			for(; start < end; start += 4096)
+			if(region->flags & MEM_FIXED)
 			{
-				unmapPage((void *) start);
+				for(; start < end; start += 4096)
+				{
+					unmapPage((void *) start);
+				}
+			}
+			else
+			{
+				for(; start < end; start += 4096)
+				{
+					unmapPageAndFree((void *) start);
+				}
+			}
+		}
+		CONTEXT_SWAP_END
+	}
+	else
+	{
+		//Disallow if it enters restricted area
+		if(region->start < 0xC0000000)
+		{
+			//Do not enter kernel zone
+			if(region->start + newLength > 0xC0000000)
+			{
+				//Error
+				PrintLog(Error, "MemRegionResize: User mode region cannot be resized into kernel mode");
+				return;
 			}
 		}
 		else
 		{
-			for(; start < end; start += 4096)
+			//Do not enter memory manager zone
+			if(region->start + newLength > (unsigned int) MEM_TEMPPAGE1)
 			{
-				unmapPageAndFree((void *) start);
+				//Error
+				PrintLog(Error, "MemRegionResize: Region cannot be resized into memory manager area");
+				return;
 			}
 		}
 	}
