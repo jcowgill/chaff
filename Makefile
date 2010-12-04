@@ -32,23 +32,22 @@ OBJS = $(subst src/,obj/,$(addsuffix .obj,$(basename $(SOURCES))))
 
 all: $(BINFILE)
 
-mkdirs:
-	cmd /c mkdir bin
-	cmd /c mkdir obj
-
 install:
 	cmd /c copy bin\\$(BINFILE) O:\\
 
 clean:
-	cmd /c del /q obj
-	cmd /c del bin\\$(BINFILE)
+	-cmd /c rmdir /s /q obj
+	-cmd /c del bin\\$(BINFILE)
 
 $(BINFILE): $(OBJS)
+	-cmd /c mkdir bin
 	$(LINK) $(LDFLAGS) -o bin/$@ -T src/linker.ld $(OBJS)
 
 obj/%.obj : %.c
+	-cmd /c mkdir $(subst /,\\,$(dir $@))
 	$(CC) $(CFLAGS) -o $@ -c $<
 	cmd /c $(CC) -MM $(CFLAGS) $< \> obj/$*.d
 
 obj/%.obj : %.s
+	-cmd /c mkdir $(subst /,\\,$(dir $@))
 	$(ASM) $(ASMFLAGS) -o $@ $<
