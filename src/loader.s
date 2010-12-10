@@ -89,7 +89,7 @@ _loader:
 	mov cr0, ecx
 
 	; Now we can set the PGE - 7 Page Global Flag
-	mov ecx, 0x140
+	mov ecx, 0x150
 	mov cr4, ecx
 
 	;WE HAVE NOW SETUP PAGING
