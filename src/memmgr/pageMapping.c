@@ -120,6 +120,10 @@ void MemIntMapPage(MemContext * currContext, void * address, PhysPage page, Regi
 	    
 	    invlpg(address);
 	}
+	else
+	{
+		IncrementCounter(pTable);
+	}
 	
 	//Set properties
 	pTable->pageID = page;
@@ -214,7 +218,7 @@ void MemIntMapTmpPage(void * address, PhysPage page)
 	//Map page (very simple)
 	unsigned int addr = (unsigned int) address;
 
-	if(addr < 0xFF800000 || addr >= 0xFFC00000)
+	if(addr < 0xFF400000 || addr >= 0xFF800000)
 	{
 		Panic("MemIntMapTmpPage: can only map pages in the temporary page zone");
 	}
@@ -244,7 +248,7 @@ void MemIntUnmapTmpPage(void * address)
 	//Unmap page (very simple)
 	unsigned int addr = (unsigned int) address;
 
-	if(addr < 0xFF800000 || addr >= 0xFFC00000)
+	if(addr < 0xFF400000 || addr >= 0xFF800000)
 	{
 		Panic("MemIntUnmapTmpPage: can only unmap pages in the temporary page zone");
 	}

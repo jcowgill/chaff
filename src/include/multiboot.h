@@ -222,11 +222,15 @@
  // The length of the memory map is passed in <len>
  // <entryVar> is a multiboot_memory_map_t
  // All other vars MUST be unsigned longs
- #define MMAP_FOREACH(entryVar, in, len) \
- 	for(multiboot_memory_map_t * entryVar = (multiboot_memory_map_t *) in; \
+ // This will add KERNEL_VIRTUAL_BASE to the address
+#define MMAP_FOREACH(entryVar, in, len) _MMAP_FOREACH(entryVar, in + 0xC0000000, len)
+#define _MMAP_FOREACH(entryVar, in, len) \
+ 	for(multiboot_memory_map_t * entryVar = (multiboot_memory_map_t *) (in); \
  		((unsigned long) entryVar) < (in) + (len); \
  		entryVar = (multiboot_memory_map_t *)( \
  			((unsigned long) entryVar) + entryVar->size + sizeof(entryVar->size)))
+
+
 
  //Iterates over each boot module entry in <in> and stores them in <entryVar>
  // The number of boot modules is passed in <len>

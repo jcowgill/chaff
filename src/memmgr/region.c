@@ -17,10 +17,6 @@ PageTable kernelPageTable254[1024] __attribute__((aligned(4096)));			//For physi
 //Kernel context
 MemContext MemKernelContextData = { LIST_HEAD_INIT(MemKernelContextData.regions), 0, INVALID_PAGE };
 
-#warning Remove this vvv
-void * MAlloc(unsigned int);
-void MFree(void *);
-
 //Creates a new blank memory context
 MemContext * MemContextInit()
 {

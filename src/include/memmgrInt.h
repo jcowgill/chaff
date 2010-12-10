@@ -31,8 +31,8 @@ void MemIntUnmapTmpPage(void * address);
 
 //Temporary pages
 // These should be unmapped while outside a region function
-#define MEM_TEMPPAGE1 ((void *) 0xFF800000)
-#define MEM_TEMPPAGE2 ((void *) 0xFF801000)
+#define MEM_TEMPPAGE1 ((void *) 0xFF400000)
+#define MEM_TEMPPAGE2 ((void *) 0xFF401000)
 
 //Temporary context change
 #define CONTEXT_SWAP(context) \

@@ -54,7 +54,7 @@ PhysPage MemPhysicalAlloc(unsigned int number /* = 1 */)
 				{
 					//Set as first free
 					firstFree = physHead;
-					freeLength = 0;
+					freeLength = 1;
 				}
 				else
 				{
