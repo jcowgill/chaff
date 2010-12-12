@@ -276,4 +276,8 @@ void MemRegionDelete(MemRegion * region);
 extern MemContext MemKernelContextData;
 #define MemKernelContext (&MemKernelContextData)
 
+//Page fault handler
+// This MUST be called from an interrupt context
+void MemPageFaultHandler(unsigned int errorCode);
+
 #endif
