@@ -177,8 +177,9 @@ typedef enum ETagRegionFlags
 	MEM_EXECUTABLE = 4,
 	MEM_FIXED = 8,
 	MEM_MAPPEDFILE = 16,
+	MEM_CACHEDISABLE = 32,
 
-	MEM_ALLFLAGS = 31
+	MEM_ALLFLAGS = 63
 
 } RegionFlags;
 

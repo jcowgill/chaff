@@ -128,11 +128,11 @@ void MemIntMapPage(MemContext * currContext, void * address, PhysPage page, Regi
 	//Set properties
 	pTable->pageID = page;
 
-	if(flags & MEM_WRITABLE)
-	{
-	    //Page is writable
-	    pTable->writable = 1;
-	}
+	//Page is writable
+	pTable->writable = (flags & MEM_WRITABLE) ? 1 : 0;
+
+	//Disable cache
+	pTable->cacheDisable = (flags & MEM_CACHEDISABLE) ? 1 : 0;
 
 	if(addr < 0xC0000000)
 	{
