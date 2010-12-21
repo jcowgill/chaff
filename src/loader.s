@@ -1,4 +1,5 @@
 global _loader
+global TssESP0
 extern kMain
 extern kernelPageDirectory
 
@@ -12,6 +13,18 @@ align 4096
 startupStack:
 	resb STACK_SIZE		;Allocate 16k of startup stack
 
+;Global TSS
+TssStart:
+	resb 4
+
+TssESP0:
+	resb 4
+
+TssSS0:
+	resb 2
+
+	;Rest of TSS
+	resb 94				;Total size = 104 bytes
 
 section .data
 align 8
@@ -93,8 +106,21 @@ _loader:
 	mov cr4, ecx
 
 	;WE HAVE NOW SETUP PAGING
+	; Load TSS SS0
+	mov [TssSS0], 0x10
+
+	; Load TSS location into GDT
+	mov [tss_b1], TssStart & 0xFF
+	mov [tss_b2], (TssStart >> 8) & 0xFF
+	mov [tss_b3], (TssStart >> 16) & 0xFF
+	mov [tss_b4], (TssStart >> 24) & 0xFF
+
 	; Load our GDT
 	lgdt [gdt_ptr]
+
+	; Load TSS
+	mov cx, 0x28
+	ltr cx
 
 	;Load new selectors
 	mov cx, 0x10
