@@ -13,11 +13,13 @@
 
 //Internal process functions
 
-//Manually adds a thread to the scheduler (usually on thread creation)
-void ProcIntSchedulerAdd(ProcThread * thread);
+//Swaps the stack
+void STDCALL ProcIntSchedulerSwap(void * newStackPtr, void ** oldStackPtr);
 
-//Removes the current thread from scheduler existence
-// This deallocates the ProcThread and kernel stack only
+// Removes the current thread from scheduler existence
 void NORETURN ProcIntSchedulerExitSelf();
+
+// User thread entry point
+void ProcIntUserThreadEntry();
 
 #endif /* PROCESSINT_H_ */

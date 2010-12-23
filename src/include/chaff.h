@@ -14,8 +14,9 @@
 //Base of kernel
 #define KERNEL_VIRTUAL_BASE ((void *) 0xC0000000)
 
-//Non-returning function
+//Non-returning function and stdcall convention
 #define NORETURN __attribute__((noreturn))
+#define STDCALL __attribute__((stdcall))
 
 //The null pointer
 #define NULL 0
@@ -55,6 +56,10 @@ typedef enum
 //Prints something to the kernel log
 void PrintLog(LogLevel level, const char * msg, ...);
 
+//Kernel heap allocation
+void * MAlloc(unsigned int size);
+void MFree(void * data);
+
 //Sets the specified number of bytes after the given pointer with the given value
 // Returns ptr
 #define MemSet __builtin_memset
@@ -70,6 +75,12 @@ void PrintLog(LogLevel level, const char * msg, ...);
 #define MemMove __builtin_memmove
 
 #define MemCmp __builtin_memcmp
+
+//Duplicates a string using MAlloc
+#define StrDup __builtin_strdup
+
+//Determines string length
+#define StrLen __builtin_strlen
 
 //Returns the offset of the first 1 bit in the given data
 // If data == 0, the result is undefined

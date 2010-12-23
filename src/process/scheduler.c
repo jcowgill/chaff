@@ -27,16 +27,15 @@ static void DoSchedule()
 {
 	//Pop next thread from list
 	ProcThread * newThread;
-	if(list_empty(threadQueue))
+	if(list_empty(&threadQueue))
 	{
 		//No next thread, use kernel idle thread
-		newThread = NULL;
-#warning Add address of idle thread
+		newThread = ProcIdleThread;
 	}
 	else
 	{
 		//Get new thread
-		newThread = list_entry(threadQueue.next);
+		newThread = list_entry(threadQueue.next, ProcThread, schedQueueEntry);
 		list_del_init(&newThread->schedQueueEntry);
 	}
 
@@ -44,7 +43,7 @@ static void DoSchedule()
 	if(ProcCurrThread != newThread)
 	{
 		//Set top of kernel stack in TSS if it's a user mode thread
-		if(newThread->parent == kernelProcess)
+		if(newThread->parent == ProcKernelProcess)
 		{
 			TssESP0 = NULL;
 		}
@@ -65,14 +64,8 @@ static void DoSchedule()
 		ProcCurrProcess = newThread->parent;
 
 		//Last thing - switch stack
-		asm volatile(
-				"pushl %%ebp\n"
-				"movl %%esp, %0\n"
-				"movl %1, %%esp\n"
-				"popl %%ebp\n"
-				:: "m"(oldThread->kStackPointer), "m"(ProcCurrThread->kStackPointer)
-				: "%edi", "%esi", "%ebx"
-			);
+		// Note this function may not return to this position if a new thread is being run
+		ProcIntSchedulerSwap(newThread->kStackPointer, &oldThread->kStackPointer);
 	}
 }
 
@@ -81,17 +74,17 @@ void ProcYield()
 {
 	//Wipe scheduler data
 	ProcCurrThread->schedInterrupted = 0;
-	ProcCurrThread->schedNextThread = NULL;
+	INIT_LIST_HEAD(&ProcCurrThread->schedQueueEntry);
 
 	//If there are no other thread to run, just return
-	if(nextThread == NULL)
+	if(list_empty(&threadQueue))
 	{
 		return;
 	}
 	else
 	{
 		//Add thread
-		list_add_tail(ProcCurrThread, &threadQueue);
+		list_add_tail(&ProcCurrThread->schedQueueEntry, &threadQueue);
 
 		//Choose another thread
 		DoSchedule(false);
@@ -105,7 +98,7 @@ bool ProcYieldBlock(bool interruptable)
 {
 	//Set scheduler data
 	ProcCurrThread->schedInterrupted = 0;
-	ProcCurrThread->schedNextThread = NULL;
+	INIT_LIST_HEAD(&ProcCurrThread->schedQueueEntry);
 	ProcCurrThread->state = interruptable ? PTS_INTR : PTS_UNINTR;
 
 	//We don't add ourselves to the scheduler list since we're blocked
@@ -161,14 +154,7 @@ void ProcWakeUpSig(ProcThread * thread, bool isSignal)
 
 	//Wake up + add to queue
 	thread->state = PTS_RUNNING;
-	list_add_tail(thread, &threadQueue);
-}
-
-//Manually adds a thread to the scheduler (usually on thread creation)
-void ProcIntSchedulerAdd(ProcThread * thread)
-{
-	//Add to scheduler
-	list_add(thread, &threadQueue);
+	list_add_tail(&thread->schedQueueEntry, &threadQueue);
 }
 
 //Removes the current thread from scheduler existence

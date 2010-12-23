@@ -16,10 +16,28 @@
 static HashTable hTableProcess;
 static HashTable hTableThread;
 
+static unsigned int processNextID;
+static unsigned int threadNextID;
+
 //Reapers
 static void ProcReapProcess(ProcProcess * process);
 static void ProcReapThread(ProcThread * thread);
 static void ProcDisownChildren(ProcProcess * process);
+
+//Raw thread creator
+static ProcThread * ProcCreateRawThread(const char * name, ProcProcess * parent);
+
+//Global processes and threads
+ProcProcess * ProcKernelProcess;
+ProcThread * ProcIdleThread;
+ProcThread * ProcInterruptsThread;
+
+//Initialise global processes and threads
+void ProcInit()
+{
+	//
+#warning TODO
+}
 
 //Gets a process from the given ID or returns NULL if the process doesn't exist
 ProcProcess * ProcGetProcessByID(unsigned int pid)
@@ -52,27 +70,159 @@ ProcThread * ProcGetThreadByID(unsigned int tid)
 }
 
 //Creates a completely empty process from nothing
+// The memory context is left blank and must be created manually
+// No threads are added to the process either
 ProcProcess * ProcCreateProcess(const char * name, ProcProcess * parent)
 {
-	//
+	//Allocate process
+	ProcProcess * process = MAlloc(sizeof(ProcProcess));
+
+	//Allocate process id
+	do
+	{
+		process->hItem.id = processNextID++;
+	}
+	while(!HashTableInsert(hTableProcess, &process->hItem));
+
+	//Set process parent
+	if(parent == NULL)
+	{
+		//Null parent with no siblings
+		process->parent = NULL;
+		INIT_LIST_HEAD(&process->processSibling);
+	}
+	else
+	{
+		//Add as sibling
+		process->parent = parent;
+		list_add_tail(&process->processSibling, &parent->children);
+	}
+
+	//Init blank heads
+	INIT_LIST_HEAD(&process->children);
+	INIT_LIST_HEAD(&process->threads);
+
+	//Set name
+	process->name = StrDup(name);
+
+	//Exit code is 0
+	process->exitCode = 0;
+
+	//Memory context is handled manually
+	process->memContext = NULL;
+
+	//Not a zombie
+	process->zombie = false;
+
+	return process;
+}
+
+//Creates new thread with the given name and process
+// The kernel stack is allocated and wiped
+static ProcThread * ProcCreateRawThread(const char * name, ProcProcess * parent)
+{
+	//Allocate thread
+	ProcThread * thread = MAlloc(sizeof(ProcThread));
+
+	//Allocate thread id
+	do
+	{
+		thread->hItem.id = threadNextID++;
+	}
+	while(!HashTableInsert(hTableThread, &thread->hItem));
+
+	//Set thread parent
+	thread->parent = parent;
+	INIT_LIST_HEAD(&thread->threadSibling);
+	list_add_tail(&thread->threadSibling, &parent->threads);
+
+	//Set thread name
+	thread->name = StrDup(name);
+
+	//Set startup state
+	thread->state = PTS_STARTUP;
+
+	//Initialise scheduler head
+	INIT_LIST_HEAD(&thread->schedQueueEntry);
+	thread->schedInterrupted = 0;
+
+	//Allocate kernel stack
+	thread->kStackBase = MAlloc(PROC_KSTACK_SIZE);
+	thread->kStackPointer = NULL;
+
+	//Kernel stack is setup by caller
+	return thread;
 }
 
 //Creates a new thread in a process
+// This is a user-mode function - the start addresses and stack pointer are USER MODE
 ProcThread * ProcCreateThread(const char * name, ProcProcess * process,
-								void * startAddr, void * stackPtr)
+								void (* startAddr)(), void * stackPtr)
 {
-	//
+	//Create raw thread
+	ProcThread * thread = ProcCreateRawThread(name, process);
+
+	//Setup kernel stack
+	unsigned int * kStackPointer = (unsigned int *) ((unsigned int) thread->kStackBase) + PROC_KSTACK_SIZE;
+	kStackPointer -= 12;
+
+	kStackPointer[0] = 0;		//Initial edi
+	kStackPointer[1] = 0;		//Initial esi
+	kStackPointer[2] = 0;		//Initial ebx
+	kStackPointer[3] = 0;		//Initial ebp
+	kStackPointer[4] = (unsigned int) ProcIntUserThreadEntry;	//Kernel entry point (this performs the switch to user mode)
+	kStackPointer[5] = 0;		//Discarded
+	kStackPointer[6] = 0;		//Discarded
+	kStackPointer[7] = (unsigned int) startAddr;				//User start address
+	kStackPointer[8] = 0x1B;	//User code selector
+	kStackPointer[9] = 0x202;	//Initial EFLAGS
+	kStackPointer[10] = (unsigned int) stackPtr;				//User stack pointrt
+	kStackPointer[11] = 0x23;	//User data selector
+
+	thread->kStackPointer = kStackPointer;
+
+	//Return thread
+	return thread;
 }
 
 //Creates a new kernel thread
-ProcThread * ProcCreateKernelThread(const char * name, void * startAddr)
+// startAddr is a kernel mode pointer
+// You MUST NOT return from this function. Instead, call ProcExitThread
+// arg is a user defined argument to the function
+ProcThread * ProcCreateKernelThread(const char * name, void NORETURN (* startAddr)(void *), void * arg)
 {
-	//
+#warning This causes kernel thread zombies to be created
+#warning TODO thread local storage
+
+	//Create raw thread
+	ProcThread * thread = ProcCreateRawThread(name, ProcKernelProcess);
+
+	//Setup kernel stack
+	unsigned int * kStackPointer = (unsigned int *) ((unsigned int) thread->kStackBase) + PROC_KSTACK_SIZE;
+	kStackPointer -= 9;
+
+	kStackPointer[0] = 0;		//Initial edi
+	kStackPointer[1] = 0;		//Initial esi
+	kStackPointer[2] = 0;		//Initial ebx
+	kStackPointer[3] = 0;		//Initial ebp
+	kStackPointer[4] = (unsigned int) startAddr;		//Kernel start address
+	kStackPointer[5] = 0;		//Discarded
+	kStackPointer[6] = 0;		//Discarded
+	kStackPointer[7] = 0;		//Return address from kernel thread
+	kStackPointer[8] = (unsigned int) arg;				//Function argument
+
+	thread->kStackPointer = kStackPointer;
+
+	//Return thread
+	return thread;
 }
 
 //Exits the current process with the given error code
 void NORETURN ProcExitProcess(unsigned int exitCode)
 {
+	//Set exit code
+	ProcCurrProcess->exitCode = exitCode;
+
 	//If this is not the last thread, kill the others and then kill
 	if(ProcCurrProcess->children.next != ProcCurrProcess->children.prev)
 	{
@@ -83,6 +233,24 @@ void NORETURN ProcExitProcess(unsigned int exitCode)
 	else
 	{
 		//Exit this process and this thread
+		// Disown children
+		ProcDisownChildren(ProcCurrProcess);
+
+		// Free memory context
+		if(ProcCurrProcess->memContext != NULL)
+		{
+			MemContextDelete(ProcCurrProcess->memContext);
+			ProcCurrProcess->memContext = NULL;
+		}
+
+		// Zombieize
+		ProcCurrProcess->zombie = true;
+
+		// Notify parent process
+#warning Notify parent
+
+		// Exit thread
+		ProcIntSchedulerExitSelf();
 	}
 }
 
@@ -97,7 +265,7 @@ static void ProcReapProcess(ProcProcess * process)
 
 	//Reap any existing threads
 	ProcThread * thread, *threadTmp;
-	list_for_each_entry_safe(thread, threadTmp, process->threads, threadSibling)
+	list_for_each_entry_safe(thread, threadTmp, &process->threads, threadSibling)
 	{
 		//Reap thread
 		ProcReapThread(thread);
@@ -106,15 +274,30 @@ static void ProcReapProcess(ProcProcess * process)
 	//Any child processes should be inherited by init
 	ProcDisownChildren(process);
 
-	//
+	//Free process memory context if it still exists
+	if(process->memContext != NULL)
+	{
+		MemContextDelete(process->memContext);
+	}
 
+	//Remove as one of the parent's children
+	list_del(&process->processSibling);
+
+	//Remove from hashtable
+	HashTableRemove(hTableProcess, process->hItem.id);
+
+	//Free name
+	MFree(process->name);
+
+	//Free process
+	MFree(process);
 }
 
 //Disowns this process's children
 static void ProcDisownChildren(ProcProcess * process)
 {
 	ProcProcess * child, *childTmp;
-	list_for_each_entry_safe(child, childTmp, process->children, processSibling)
+	list_for_each_entry_safe(child, childTmp, &process->children, processSibling)
 	{
 #warning child should inherit from init
 	}
@@ -133,9 +316,13 @@ void NORETURN ProcExitThread(unsigned int exitCode)
 	else
 	{
 		//Exit this thread
+		// Set exit code
+		ProcCurrThread->exitCode = exitCode;
+
 		// Notify other threads
 #warning Notify others
 
+#warning If we do other stuff here, review ProcExitProcess
 		// Exit thread - other stuff is freed when the thread is reaped
 		ProcIntSchedulerExitSelf();
 	}
@@ -148,6 +335,12 @@ static void ProcReapThread(ProcThread * thread)
 	if(ProcCurrThread == thread)
 	{
 		Panic("ProcReapThread: Cannot reap the current thread");
+	}
+
+	//Must be zombie thread
+	if(thread->state != PTS_ZOMBIE)
+	{
+		Panic("ProcReapThread: Cannot reap a thread which is still running");
 	}
 
 	//Remove from hash table

@@ -12,6 +12,7 @@
 //
 
 #include "list.h"
+#include "htable.h"
 #include "memmgr.h"
 
 //Thread state
@@ -40,11 +41,14 @@ struct SProcProcess
 	struct SProcProcess * parent;
 	struct list_head processSibling;		//Sibling
 	struct list_head children;				//Head
-	struct list_head threads;				//Head (0 threads = Zombie Process)
+	struct list_head threads;				//Head
+
+	//Zombie status
+	bool zombie;
 
 	//Name of process
 	// This must be unique to this process since it will be MFreed
-	const char * name;
+	char * name;
 
 	//Process exit code - this is read only
 	unsigned int exitCode;
@@ -63,9 +67,12 @@ struct SProcThread
 	struct SProcProcess * parent;
 	struct list_head threadSibling;			//Sibling
 
+	//Exit code
+	unsigned int exitCode;
+
 	//Name of thread
 	// This must be unique to this process since it will be MFreed
-	const char * name;
+	char * name;
 
 	//Thread state
 	ProcThreadState state;
@@ -75,7 +82,6 @@ struct SProcThread
 	int schedInterrupted;					//Weather thread was interrupted or not
 	void * kStackPointer;					//Current pointer to kernel stack
 	void * kStackBase;						//Base of kernel stack
-
 
 };
 
@@ -120,19 +126,36 @@ ProcProcess * ProcGetProcessByID(unsigned int pid);
 ProcThread * ProcGetThreadByID(unsigned int tid);
 
 //Creates a completely empty process from nothing
+// The memory context is left blank and must be created manually
+// No threads are added to the process either
 ProcProcess * ProcCreateProcess(const char * name, ProcProcess * parent);
 
 //Exits the current process with the given error code
 void NORETURN ProcExitProcess(unsigned int exitCode);
 
 //Creates a new thread in a process
-ProcThread * ProcCreateThread(const char * name, ProcProcess * process, void * startAddr, void * stackPtr);
+// This is a user-mode function - the start addresses and stack pointer are USER MODE
+// You must wake up the created thread with ProcWakeUp
+ProcThread * ProcCreateThread(const char * name, ProcProcess * process, void (* startAddr)(), void * stackPtr);
 
 //Creates a new kernel thread
-ProcThread * ProcCreateKernelThread(const char * name, void * startAddr);
+// startAddr is a kernel mode pointer
+// You MUST NOT return from this function. Instead, call ProcExitThread
+// arg is a user defined argument to the function
+// You must wake up the created thread with ProcWakeUp
+ProcThread * ProcCreateKernelThread(const char * name, void NORETURN (* startAddr)(void *), void * arg);
 
 //Exits the current thread with the given error code
 // If this is the final thread, this will also exit the current process with status 0
+// This works for both user and kernel threads
 void NORETURN ProcExitThread(unsigned int exitCode);
+
+//Global processes and threads
+extern ProcProcess * ProcKernelProcess;
+extern ProcThread * ProcIdleThread;
+extern ProcThread * ProcInterruptsThread;
+
+//Initialise global processes and threads
+void ProcInit();
 
 #endif /* PROCESS_H_ */

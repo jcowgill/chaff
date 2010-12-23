@@ -25,7 +25,7 @@ typedef HashItem * HashTable[HASHT_BUCKET_COUNT];
 //Insert an item into the hashmap
 // You must set the ID in the HashItem
 // Returns false if that ID already exists
-bool HashTableInsertItem(HashTable table, HashItem * item);
+bool HashTableInsert(HashTable table, HashItem * item);
 
 //Removes the given ID from the hash table
 // Returns false if that ID doesn't exist

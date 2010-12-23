@@ -107,13 +107,15 @@ _loader:
 
 	;WE HAVE NOW SETUP PAGING
 	; Load TSS SS0
-	mov [TssSS0], 0x10
+	mov word [TssSS0], 0x10
 
 	; Load TSS location into GDT
-	mov [tss_b1], TssStart & 0xFF
-	mov [tss_b2], (TssStart >> 8) & 0xFF
-	mov [tss_b3], (TssStart >> 16) & 0xFF
-	mov [tss_b4], (TssStart >> 24) & 0xFF
+	mov ecx, TssStart
+	mov [tss_b1], cl
+	mov [tss_b2], ch
+	shr ecx, 16
+	mov [tss_b3], cl
+	mov [tss_b4], ch
 
 	; Load our GDT
 	lgdt [gdt_ptr]

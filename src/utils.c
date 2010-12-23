@@ -129,3 +129,27 @@ int memcmp(const void * ptr1, const void * ptr2, size_t length)
 	return 0;
 }
 
+//Strdup implementation
+char * strdup(const char * s)
+{
+	//Get string length
+	unsigned int sLen = StrLen(s);
+
+	//Allocate memory, copy and return string
+	return MemCpy(MAlloc(sLen + 1), s, sLen);
+}
+
+//Strlen implementation
+unsigned int strlen(const char * s)
+{
+	const char * strStart = s;
+
+	//Loop until NULL character
+	while(*s)
+	{
+		++s;
+	}
+
+	//Return pointer difference
+	return s - strStart;
+}

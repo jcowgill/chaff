@@ -19,7 +19,7 @@ static inline unsigned int HashFunction(unsigned int id)
 //Insert an item into the hashmap
 // You must set the ID in the HashItem
 // Returns false if that ID already exists
-bool HashTableInsertItem(HashTable table, HashItem * item)
+bool HashTableInsert(HashTable table, HashItem * item)
 {
 	//Get bucket for hash
 	HashItem ** ptrToItem = &table[HashFunction(item->id)];
