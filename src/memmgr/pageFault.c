@@ -11,12 +11,12 @@
 #include "inlineasm.h"
 #include "process.h"
 
-
 //Page fault handler
-void MemPageFaultHandler(unsigned int errorCode)
+void MemPageFaultHandler(IntrContext * intContext)
 {
 	//Get address causing fault
 	void * faultAddress = getCR2();
+	unsigned int errorCode = intContext->intrError;
 
 	//Check which error and handle accordingly
 	// P  (0) = Set if caused by protection violation, unset if caused by page not present
@@ -32,7 +32,6 @@ void MemPageFaultHandler(unsigned int errorCode)
 	}
 
 	//Get region of address
-#warning TODO - get context from somewhere
 	MemContext * context = ProcCurrProcess->memContext;
 	MemRegion * region = MemRegionFind(context, faultAddress);
 
@@ -78,4 +77,5 @@ void MemPageFaultHandler(unsigned int errorCode)
 
 	//If we're here, it's an error
 #warning Raise SIGSEGV here
+	Panic("MemPageFaultHandler: Reached end of page fault handler");
 }

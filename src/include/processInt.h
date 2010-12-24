@@ -22,4 +22,7 @@ void NORETURN ProcIntSchedulerExitSelf();
 // User thread entry point
 void ProcIntUserThreadEntry();
 
+// Idle thread code
+void NORETURN ProcIntIdleThread(void *);
+
 #endif /* PROCESSINT_H_ */

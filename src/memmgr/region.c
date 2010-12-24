@@ -222,6 +222,23 @@ MemRegion * MemRegionFind(MemContext * context, void * address)
 MemRegion * MemRegionCreate(MemContext * context, void * startAddress,
 		unsigned int length, RegionFlags flags)
 {
+	MemRegion * region = MAlloc(sizeof(MemRegion));
+	if(MemIntRegionCreate(context, startAddress, length, flags, region))
+	{
+		return region;
+	}
+	else
+	{
+		MFree(region);
+		return NULL;
+	}
+}
+
+//Create region from already allocated MemRegion
+// See MemRegionCreate
+bool MemIntRegionCreate(MemContext * context, void * startAddress,
+		unsigned int length, RegionFlags flags, MemRegion * newRegion)
+{
 	unsigned int startAddr = (unsigned int) startAddress;
 
 	//Validate flags
@@ -230,21 +247,21 @@ MemRegion * MemRegionCreate(MemContext * context, void * startAddress,
 	if((flags & MEM_MAPPEDFILE) && (flags & MEM_FIXED))
 	{
 		PrintLog(Error, "MemRegionCreate: Region cannot be both memory mapped and fixed");
-		return NULL;
+		return false;
 	}
 
 	//Ensure start address and length are page aligned
 	if(startAddr % 4096 != 0 || length % 4096 != 0)
 	{
 		PrintLog(Error, "MemRegionCreate: Region start address and length must be page aligned");
-		return NULL;
+		return false;
 	}
 
 	if(startAddr + length < startAddr)
 	{
 		//Wrapped around
 		PrintLog(Error, "MemRegionCreate: Region range wrapped around");
-		return NULL;
+		return false;
 	}
 
 	//Validate addresses
@@ -252,59 +269,68 @@ MemRegion * MemRegionCreate(MemContext * context, void * startAddress,
 		(context != MemKernelContext && (startAddr == 0 || startAddr + length >= 0xC0000000)))
 	{
 		PrintLog(Error, "MemRegionCreate: Region outside valid range");
-		return NULL;
+		return false;
 	}
 
 	//Find place to insert region
-	MemRegion * region;
-	list_for_each_entry(region, &context->regions, listItem)
+	MemRegion * region = NULL;
+
+	if(!list_empty(&context->regions))
 	{
-		//Is region beyond address?
-		if(region->start > startAddr)
+		list_for_each_entry(region, &context->regions, listItem)
 		{
-			//Not found
-			break;
+			//Is region beyond address?
+			if(region->start > startAddr)
+			{
+				//Not found
+				break;
+			}
 		}
-	}
 
-	// region is now the region AFTER where we should insert
+		// region is now the region AFTER where we should insert
 
-	//Check previous region overlap
-	bool prevOverlap = false;
-	struct list_head * prev = region->listItem.prev;
+		//Check previous region overlap
+		bool prevOverlap = false;
+		struct list_head * prev = region->listItem.prev;
 
-	if(prev != &context->regions)
-	{
-		//Check overlap
-		MemRegion * prevRegion = list_entry(prev, MemRegion, listItem);
+		if(prev != &context->regions)
+		{
+			//Check overlap
+			MemRegion * prevRegion = list_entry(prev, MemRegion, listItem);
 
-		prevOverlap = (startAddr >= prevRegion->start && startAddr < (prevRegion->start + prevRegion->length)) ||
-				(prevRegion->start >= startAddr && prevRegion->start < (startAddr + length));
-	}
+			prevOverlap = (startAddr >= prevRegion->start && startAddr < (prevRegion->start + prevRegion->length)) ||
+					(prevRegion->start >= startAddr && prevRegion->start < (startAddr + length));
+		}
 
-	//Ensure new region doesn't overlap
-	if(prevOverlap || (startAddr >= region->start && startAddr < (region->start + region->length)) ||
-			(region->start >= startAddr && region->start < (startAddr + length)))
-	{
-		PrintLog(Error, "MemRegionCreate: Region start address and length must be page aligned");
-		return NULL;
+		//Ensure new region doesn't overlap
+		if(prevOverlap || (startAddr >= region->start && startAddr < (region->start + region->length)) ||
+				(region->start >= startAddr && region->start < (startAddr + length)))
+		{
+			PrintLog(Error, "MemRegionCreate: Region start address and length must be page aligned");
+			return false;
+		}
 	}
 
 	//Validation complete!
 	// Actually allocate region
-	MemRegion * newRegion = MAlloc(sizeof(MemRegion));
-
 	newRegion->myContext = context;
 	INIT_LIST_HEAD(&newRegion->listItem);
 
-	list_add_tail(&newRegion->listItem, &region->listItem);
+	if(region == NULL)
+	{
+		list_add_tail(&newRegion->listItem, &context->regions);
+	}
+	else
+	{
+		list_add_tail(&newRegion->listItem, &region->listItem);
+	}
 
 	newRegion->flags = flags;
 	newRegion->length = length;
 	newRegion->start = startAddr;
 
 	// We do no mapping until a page fault
-	return newRegion;
+	return true;
 }
 
 //Creates a new memory mapped region

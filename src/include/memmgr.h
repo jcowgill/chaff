@@ -13,6 +13,7 @@
 #include "io.h"
 #include "list.h"
 #include "multiboot.h"
+#include "interrupt.h"
 
 /*
  * Memory Layout
@@ -279,6 +280,9 @@ extern MemContext MemKernelContextData;
 
 //Page fault handler
 // This MUST be called from an interrupt context
-void MemPageFaultHandler(unsigned int errorCode);
+void MemPageFaultHandler(IntrContext * context);
+
+//Malloc Init
+void MAllocInit();
 
 #endif

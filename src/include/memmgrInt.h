@@ -29,6 +29,12 @@ void MemIntUnmapPageAndFree(MemContext * currContext, void * address);
 void MemIntMapTmpPage(void * address, PhysPage page);
 void MemIntUnmapTmpPage(void * address);
 
+//Create region from already allocated MemRegion
+// See MemRegionCreate
+// Returns true on success
+bool MemIntRegionCreate(MemContext * context, void * startAddress,
+		unsigned int length, RegionFlags flags, MemRegion * newRegion);
+
 //Temporary pages
 // These should be unmapped while outside a region function
 #define MEM_TEMPPAGE1 ((void *) 0xFF400000)

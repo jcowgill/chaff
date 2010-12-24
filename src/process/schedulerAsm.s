@@ -7,6 +7,8 @@
 
 global ProcIntSchedulerSwap
 global ProcIntUserThreadEntry
+global ProcIntIdleThread
+extern ProcYield
 
 ;This is STDCALL
 ; void __stdcall ProcIntSchedulerSwap(void * newStackPtr, void ** oldStackPtr)
@@ -72,3 +74,13 @@ ProcIntUserThreadEntry:
 
 	;Jump to user mode
 	iret
+
+;Idle thread
+ProcIntIdleThread:
+	;Loop around waiting for an interrupt then preempting myself
+	sti
+	hlt
+	cli
+
+	call ProcYield
+	jmp ProcIntIdleThread

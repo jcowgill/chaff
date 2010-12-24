@@ -6,6 +6,7 @@
  */
 
 #include "chaff.h"
+#include "memmgr.h"
 #include "interrupt.h"
 #include "inlineasm.h"
 
@@ -43,6 +44,8 @@ void IntrInit()
 {
 	//Setup descriptor table
 	int i;
+
+	IntrDispatchTable[14] = MemPageFaultHandler;
 
 	// 0 to 2 (kernel only)
 	for(i = 0; i <= 2; ++i)

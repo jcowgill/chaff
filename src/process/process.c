@@ -25,7 +25,7 @@ static void ProcReapThread(ProcThread * thread);
 static void ProcDisownChildren(ProcProcess * process);
 
 //Raw thread creator
-static ProcThread * ProcCreateRawThread(const char * name, ProcProcess * parent);
+static ProcThread * ProcCreateRawThread(const char * name, ProcProcess * parent, bool withStack);
 
 //Global processes and threads
 ProcProcess * ProcKernelProcess;
@@ -35,8 +35,16 @@ ProcThread * ProcInterruptsThread;
 //Initialise global processes and threads
 void ProcInit()
 {
-	//
-#warning TODO
+	//Create kernel process
+	ProcKernelProcess = ProcCreateProcess("kernel", NULL);
+	ProcKernelProcess->memContext = MemKernelContext;
+
+	//Create idle thread
+	ProcIdleThread = ProcCreateKernelThread("idle", ProcIntIdleThread, NULL);
+
+	//Create interrupts thread
+	// This needs no stack since it isn't run
+	ProcInterruptsThread = ProcCreateRawThread("interrupts", ProcKernelProcess, false);
 }
 
 //Gets a process from the given ID or returns NULL if the process doesn't exist
@@ -118,8 +126,8 @@ ProcProcess * ProcCreateProcess(const char * name, ProcProcess * parent)
 }
 
 //Creates new thread with the given name and process
-// The kernel stack is allocated and wiped
-static ProcThread * ProcCreateRawThread(const char * name, ProcProcess * parent)
+// The kernel stack is allocated and wiped if withStack is specified
+static ProcThread * ProcCreateRawThread(const char * name, ProcProcess * parent, bool withStack)
 {
 	//Allocate thread
 	ProcThread * thread = MAlloc(sizeof(ProcThread));
@@ -147,8 +155,16 @@ static ProcThread * ProcCreateRawThread(const char * name, ProcProcess * parent)
 	thread->schedInterrupted = 0;
 
 	//Allocate kernel stack
-	thread->kStackBase = MAlloc(PROC_KSTACK_SIZE);
 	thread->kStackPointer = NULL;
+	if(withStack)
+	{
+		thread->kStackBase = MAlloc(PROC_KSTACK_SIZE);
+		MemSet(thread->kStackBase, 0, PROC_KSTACK_SIZE);
+	}
+	else
+	{
+		thread->kStackBase = NULL;
+	}
 
 	//Kernel stack is setup by caller
 	return thread;
@@ -160,7 +176,7 @@ ProcThread * ProcCreateThread(const char * name, ProcProcess * process,
 								void (* startAddr)(), void * stackPtr)
 {
 	//Create raw thread
-	ProcThread * thread = ProcCreateRawThread(name, process);
+	ProcThread * thread = ProcCreateRawThread(name, process, true);
 
 	//Setup kernel stack
 	unsigned int * kStackPointer = (unsigned int *) ((unsigned int) thread->kStackBase) + PROC_KSTACK_SIZE;
@@ -195,7 +211,7 @@ ProcThread * ProcCreateKernelThread(const char * name, void NORETURN (* startAdd
 #warning TODO thread local storage
 
 	//Create raw thread
-	ProcThread * thread = ProcCreateRawThread(name, ProcKernelProcess);
+	ProcThread * thread = ProcCreateRawThread(name, ProcKernelProcess, true);
 
 	//Setup kernel stack
 	unsigned int * kStackPointer = (unsigned int *) ((unsigned int) thread->kStackBase) + PROC_KSTACK_SIZE;
