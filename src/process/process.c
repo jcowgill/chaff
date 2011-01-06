@@ -28,7 +28,7 @@ static void ProcDisownChildren(ProcProcess * process);
 static ProcThread * ProcCreateRawThread(const char * name, ProcProcess * parent, bool withStack);
 
 //Global processes and threads
-ProcProcess * ProcKernelProcess;
+ProcProcess ProcKernelProcessData;
 ProcThread * ProcIdleThread;
 ProcThread * ProcInterruptsThread;
 
@@ -36,8 +36,19 @@ ProcThread * ProcInterruptsThread;
 void ProcInit()
 {
 	//Create kernel process
-	ProcKernelProcess = ProcCreateProcess("kernel", NULL);
-	ProcKernelProcess->memContext = MemKernelContext;
+	// Malloc need this so we must do it with no dynamic memory
+	ProcKernelProcessData.hItem.id = 0;
+	HashTableInsert(hTableProcess, &ProcKernelProcessData.hItem);
+
+	ProcKernelProcessData.name = "kernel";
+	ProcKernelProcessData.memContext = MemKernelContext;
+
+	INIT_LIST_HEAD(&ProcKernelProcessData.threads);
+	INIT_LIST_HEAD(&ProcKernelProcessData.processSibling);
+	INIT_LIST_HEAD(&ProcKernelProcessData.children);
+
+	//Set as current process
+	ProcCurrProcess = ProcKernelProcess;
 
 	//Create idle thread
 	ProcIdleThread = ProcCreateKernelThread("idle", ProcIntIdleThread, NULL);
@@ -179,7 +190,7 @@ ProcThread * ProcCreateThread(const char * name, ProcProcess * process,
 	ProcThread * thread = ProcCreateRawThread(name, process, true);
 
 	//Setup kernel stack
-	unsigned int * kStackPointer = (unsigned int *) ((unsigned int) thread->kStackBase) + PROC_KSTACK_SIZE;
+	unsigned int * kStackPointer = (unsigned int *) ((unsigned int) thread->kStackBase + PROC_KSTACK_SIZE);
 	kStackPointer -= 12;
 
 	kStackPointer[0] = 0;		//Initial edi
@@ -214,7 +225,7 @@ ProcThread * ProcCreateKernelThread(const char * name, void NORETURN (* startAdd
 	ProcThread * thread = ProcCreateRawThread(name, ProcKernelProcess, true);
 
 	//Setup kernel stack
-	unsigned int * kStackPointer = (unsigned int *) ((unsigned int) thread->kStackBase) + PROC_KSTACK_SIZE;
+	unsigned int * kStackPointer = (unsigned int *) ((unsigned int) thread->kStackBase + PROC_KSTACK_SIZE);
 	kStackPointer -= 9;
 
 	kStackPointer[0] = 0;		//Initial edi

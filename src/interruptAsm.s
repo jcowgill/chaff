@@ -73,6 +73,7 @@ IsrWithError 17
 IsrNoError 66		; = 0x42
 
 ;ISR address list
+align 4
 IntrISRList:
 	%assign i 0
 	%rep 48

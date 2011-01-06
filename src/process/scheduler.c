@@ -5,7 +5,6 @@
  *      Author: James
  */
 
-#define NO_SCHED_EXTERN
 #include "chaff.h"
 #include "process.h"
 #include "processInt.h"
@@ -163,6 +162,21 @@ void NORETURN ProcIntSchedulerExitSelf()
 {
 	//Set as zombie
 	ProcCurrThread->state = PTS_ZOMBIE;
+
+	//Reschedule
+	DoSchedule();
+
+	//If we get here, something's gone very wrong
+	Panic("ProcIntSchedulerExitSelf: DoSchedule(true) returned");
+}
+
+//Exits the boot code to continue running threads as normal
+void NORETURN ProcExitBootMode()
+{
+	//DoSchedule requires a current thread
+	// We use the interrupts thread - shouldn't really be used but i don't care
+	// so there
+	ProcCurrThread = ProcInterruptsThread;
 
 	//Reschedule
 	DoSchedule();

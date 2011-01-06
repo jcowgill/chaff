@@ -16,14 +16,15 @@ typedef struct
 	unsigned int offLow : 16;
 	unsigned int destSegment : 16;
 
-	unsigned int gateInfo: 16;
+	unsigned int /* unused */ : 8;
+	unsigned int gateInfo: 8;
 
 	unsigned int offHigh : 16;
 
 } IntrGateStruct;
 
 //Interrupt entry points
-extern unsigned int * IntrISRList;		//List of entry points for ISRs 0 to 47
+extern unsigned int IntrISRList;		//List of entry points for ISRs 0 to 47
 void Isr66();
 
 //Gate info values
@@ -50,8 +51,8 @@ void IntrInit()
 	// 0 to 2 (kernel only)
 	for(i = 0; i <= 2; ++i)
 	{
-		idt[i].offLow = IntrISRList[i] & 0xFFFF;
-		idt[i].offHigh = IntrISRList[i] >> 16;
+		idt[i].offLow = (&IntrISRList)[i] & 0xFFFF;
+		idt[i].offHigh = (&IntrISRList)[i] >> 16;
 		idt[i].destSegment = 0x08;
 		idt[i].gateInfo = INTR_KERNEL_GATE;
 	}
@@ -59,8 +60,8 @@ void IntrInit()
 	// 3 to 5 (user and kernel)
 	for(; i <= 5; ++i)
 	{
-		idt[i].offLow = IntrISRList[i] & 0xFFFF;
-		idt[i].offHigh = IntrISRList[i] >> 16;
+		idt[i].offLow = (&IntrISRList)[i] & 0xFFFF;
+		idt[i].offHigh = (&IntrISRList)[i] >> 16;
 		idt[i].destSegment = 0x08;
 		idt[i].gateInfo = INTR_USER_GATE;
 	}
@@ -68,17 +69,17 @@ void IntrInit()
 	// 6 to 47 (kernel only)
 	for(; i <= 47; ++i)
 	{
-		idt[i].offLow = IntrISRList[i] & 0xFFFF;
-		idt[i].offHigh = IntrISRList[i] >> 16;
+		idt[i].offLow = (&IntrISRList)[i] & 0xFFFF;
+		idt[i].offHigh = (&IntrISRList)[i] >> 16;
 		idt[i].destSegment = 0x08;
 		idt[i].gateInfo = INTR_KERNEL_GATE;
 	}
 
 	// 66 Syscall
-	idt[i].offLow = (unsigned int) Isr66 & 0xFFFF;
-	idt[i].offHigh = (unsigned int) Isr66 >> 16;
-	idt[i].destSegment = 0x08;
-	idt[i].gateInfo = INTR_USER_GATE;
+	idt[0x42].offLow = (unsigned int) Isr66 & 0xFFFF;
+	idt[0x42].offHigh = (unsigned int) Isr66 >> 16;
+	idt[0x42].destSegment = 0x08;
+	idt[0x42].gateInfo = INTR_USER_GATE;
 
 	//Load idt
 	lidt(sizeof(IntrGateStruct) * 0x43, idt);

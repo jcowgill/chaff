@@ -16,8 +16,6 @@
 #define HEAP_START ((void *) 0xD0000000)
 #define HEAP_EXTRAALOC 0x2000		//8 KB - amount to allocate when run out of memory
 
-#define NUNIT_BLOCK_SCALE (HEAP_EXTRAALOC / 4)
-
 //The 8-byte header located before every allocations
 typedef struct s_mHeader
 {
@@ -43,8 +41,8 @@ void MAllocInit()
 // new memory is always committed
 static mHeader * rawAlloc(unsigned int nunits)
 {
-	//Determine number of bytes to allocate
-	unsigned int bytes = (nunits * 4 + NUNIT_BLOCK_SCALE - 1) & ~(NUNIT_BLOCK_SCALE - 1);
+	//Round up bytes
+	unsigned int bytes = ((nunits * sizeof(mHeader)) + HEAP_EXTRAALOC - 1) & ~(HEAP_EXTRAALOC - 1);
 
 	//Get pointer to memory
 	mHeader * memory = (mHeader *) (heapRegion.length + (unsigned int) HEAP_START);
@@ -53,7 +51,7 @@ static mHeader * rawAlloc(unsigned int nunits)
 	MemRegionResize(&heapRegion, heapRegion.length + bytes);
 
 	//Set memory size (this will commit the first page also)
-	memory->size = bytes / 4;
+	memory->size = bytes / sizeof(mHeader);
 
 	//Add block to frees
 	MFree(memory + 1);
@@ -77,9 +75,9 @@ void * MAlloc(unsigned int size)
 		return NULL;
 	}
 
-	//Convert size to nunits (1 nunit = 4 bytes, rounding up)
-	// also, allocate 2 extra units for the header
-	nunits = ((size + 3) / 4) + 2;
+	//Convert size to nunits (1 nunit = 8 bytes, rounding up)
+	// also, allocate 1 extra unit for the header
+	nunits = ((size + sizeof(mHeader) - 1) / sizeof(mHeader)) + 1;
 
 	//Search through the free pointer blocks for a block big enough
 	prevp = freep;

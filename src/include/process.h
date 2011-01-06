@@ -92,14 +92,10 @@ typedef struct SProcThread ProcThread;
 
 //Scheduler functions
 
-#ifndef NO_SCHED_EXTERN
-
 //Currently running process and thread
 // These MUST NOT BE MODIFIED
-extern ProcProcess * const ProcCurrProcess;
-extern ProcThread * const ProcCurrThread;
-
-#endif
+extern ProcProcess * ProcCurrProcess;
+extern ProcThread * ProcCurrThread;
 
 //Yields the current thread temporarily so that other threads can run
 void ProcYield();
@@ -151,11 +147,16 @@ ProcThread * ProcCreateKernelThread(const char * name, void NORETURN (* startAdd
 void NORETURN ProcExitThread(unsigned int exitCode);
 
 //Global processes and threads
-extern ProcProcess * ProcKernelProcess;
+extern ProcProcess ProcKernelProcessData;
 extern ProcThread * ProcIdleThread;
 extern ProcThread * ProcInterruptsThread;
+#define ProcKernelProcess (&ProcKernelProcessData)
 
+//BOOT CODE
 //Initialise global processes and threads
 void ProcInit();
+
+//Exits the boot code to continue running threads as normal
+void NORETURN ProcExitBootMode();
 
 #endif /* PROCESS_H_ */
