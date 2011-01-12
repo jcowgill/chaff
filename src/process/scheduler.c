@@ -95,6 +95,9 @@ void ProcYield()
 //Returns true if the block was interrupted
 bool ProcYieldBlock(bool interruptable)
 {
+	//Return immediately if interruptable and a signal is pending
+#warning TODO ProcYieldBlock Signal Stuff
+
 	//Set scheduler data
 	ProcCurrThread->schedInterrupted = 0;
 	INIT_LIST_HEAD(&ProcCurrThread->schedQueueEntry);

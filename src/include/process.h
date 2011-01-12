@@ -136,10 +136,9 @@ ProcThread * ProcCreateThread(const char * name, ProcProcess * process, void (* 
 
 //Creates a new kernel thread
 // startAddr is a kernel mode pointer
-// You MUST NOT return from this function. Instead, call ProcExitThread
 // arg is a user defined argument to the function
 // You must wake up the created thread with ProcWakeUp
-ProcThread * ProcCreateKernelThread(const char * name, void NORETURN (* startAddr)(void *), void * arg);
+ProcThread * ProcCreateKernelThread(const char * name, int (* startAddr)(void *), void * arg);
 
 //Exits the current thread with the given error code
 // If this is the final thread, this will also exit the current process with status 0

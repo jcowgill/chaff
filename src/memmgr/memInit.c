@@ -143,7 +143,7 @@ void MemManagerInit(multiboot_info_t * bootInfo)
 			((unsigned int) kernelPageTable253 - (unsigned int) KERNEL_VIRTUAL_BASE) / 4096;
 
 	// Map physical page tables to memory
-	int tableLengthPages = (tableLength + 4095) / 4096;
+	unsigned int tableLengthPages = (tableLength + 4095) / 4096;
 	for(unsigned int i = 0; i < tableLengthPages; ++i)
 	{
 		kernelPageTable254[i].present = 1;

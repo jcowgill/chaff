@@ -8,7 +8,10 @@
 global ProcIntSchedulerSwap
 global ProcIntUserThreadEntry
 global ProcIntIdleThread
+global ProcIntKernelThreadReturn
+
 extern ProcYield
+extern ProcExitThread
 
 ;This is STDCALL
 ; void __stdcall ProcIntSchedulerSwap(void * newStackPtr, void ** oldStackPtr)
@@ -74,6 +77,16 @@ ProcIntUserThreadEntry:
 
 	;Jump to user mode
 	iret
+
+;Return address for all kernel thread
+; Simply calls ProcExitThread
+ProcIntKernelThreadReturn:
+	;Stack should have 1 arg alloced - replace with return code
+	mov [esp], eax
+
+	;Call thread exit
+	call ProcExitThread
+
 
 ;Idle thread
 ProcIntIdleThread:

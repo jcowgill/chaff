@@ -214,9 +214,8 @@ ProcThread * ProcCreateThread(const char * name, ProcProcess * process,
 
 //Creates a new kernel thread
 // startAddr is a kernel mode pointer
-// You MUST NOT return from this function. Instead, call ProcExitThread
 // arg is a user defined argument to the function
-ProcThread * ProcCreateKernelThread(const char * name, void NORETURN (* startAddr)(void *), void * arg)
+ProcThread * ProcCreateKernelThread(const char * name, int (* startAddr)(void *), void * arg)
 {
 #warning This causes kernel thread zombies to be created
 #warning TODO thread local storage
@@ -235,7 +234,7 @@ ProcThread * ProcCreateKernelThread(const char * name, void NORETURN (* startAdd
 	kStackPointer[4] = (unsigned int) startAddr;		//Kernel start address
 	kStackPointer[5] = 0;		//Discarded
 	kStackPointer[6] = 0;		//Discarded
-	kStackPointer[7] = 0;		//Return address from kernel thread
+	kStackPointer[7] = (unsigned int) ProcIntKernelThreadReturn;		//Return address from kernel thread
 	kStackPointer[8] = (unsigned int) arg;				//Function argument
 
 	thread->kStackPointer = kStackPointer;
