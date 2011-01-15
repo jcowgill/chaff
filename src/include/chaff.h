@@ -82,6 +82,10 @@ void MFree(void * data);
 //Determines string length
 #define StrLen __builtin_strlen
 
+//Returns the offset of the last 1 bit in the given data
+// If data == 0, the result is undefined
+#define BitScanForward __builtin_ctz
+
 //Returns the offset of the first 1 bit in the given data
 // If data == 0, the result is undefined
 #define BitScanReverse __builtin_clz

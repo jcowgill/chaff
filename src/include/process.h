@@ -8,12 +8,14 @@
 #ifndef PROCESS_H_
 #define PROCESS_H_
 
-//Process, scheduler and signal function
+//Process, scheduler and signal functions
 //
 
 #include "list.h"
 #include "htable.h"
 #include "memmgr.h"
+#include "interrupt.h"
+#include "signalNums.h"
 
 //Thread state
 typedef enum
@@ -31,6 +33,7 @@ typedef enum
 //Process and thread structures
 struct SProcProcess;
 struct SProcThread;
+struct SProcSigaction;
 
 struct SProcProcess
 {
@@ -55,6 +58,27 @@ struct SProcProcess
 
 	//Process memory context
 	MemContext * memContext;
+
+	//Process signal handlers
+#warning Info found
+	/*
+	 * Signal handlers are process wide
+	 *
+	 * There are no signals which kill or stop a particular thread
+	 *  When 1 thread or 1 process (no difference) receives SIGKILL or SIGSTOP, the entire process
+	 *  is stopped or killed. Anyone for a thr_kill, thr_stop, thr_cont syscall?
+	 *
+	 * When a signal is sent to a process, only 1 thread will handle it
+	 * 	This thread is any random thread which is not blocking the signal
+	 * 	The signal will be sent when another signal is unblocked
+	 *
+	 * 	Threads need to read the process pending and thread pending signals as well
+	 */
+
+	struct SProcSigaction sigHandlers[SIG_MAX];
+
+	//Process wide pending signals
+	ProcSigSet sigPending;
 
 };
 
@@ -83,6 +107,9 @@ struct SProcThread
 	void * kStackPointer;					//Current pointer to kernel stack
 	void * kStackBase;						//Base of kernel stack
 
+	//Signal masks
+	ProcSigSet sigPending;
+	ProcSigSet sigBlocked;
 };
 
 #define PROC_KSTACK_SIZE 0x1000		//4KB Kernel Stack
@@ -157,5 +184,50 @@ void ProcInit();
 
 //Exits the boot code to continue running threads as normal
 void NORETURN ProcExitBootMode();
+
+
+//Signal functions
+typedef struct SProcSigaction
+{
+	void (* sa_handler)(int);
+	ProcSigSet sa_mask;
+	int sa_flags;
+
+} ProcSigaction;
+
+//Send a signal to the given thread
+// This will not redirect SIGKILL, SIGSTOP or SIGCONT to the whole process however
+void ProcSignalSendThread(ProcThread * thread, int sigNum);
+
+//Send a signal to the given process
+void ProcSignalSendProcess(ProcProcess * process, int sigNum);
+
+//Changes the signal mask for a given thread
+// how is one of SIG_BLOCK, SIG_UNBLOCK or SIG_SETMASK
+//
+// In signal sets, the bit for a signal corresponds to the signal - 1,
+//  eg SIGHUP (number 1) uses bit 0
+void ProcSignalSetMask(ProcThread * thread, int how, ProcSigSet signalSet);
+
+//Sets a signal handling function for the given signal
+void ProcSignalSetAction(ProcProcess * process, int sigNum, ProcSigaction newAction);
+
+//Waits for a signal to be sent to this thread and returns when that happens
+// If SIGKILL is sent to this thread, this function will return but a later ProcSignalHandler will kill the thread
+// When in this function, the thread will receive process wide signals if there are no running threads to receive them
+static inline void ProcSignalWait()
+{
+    ProcYieldBlock(true);
+}
+
+//Returns true if a signal is pending on the given thread
+// This also checks process wide signals.
+static inline bool ProcSignalIsPending(ProcThread * thread)
+{
+    return (thread->sigPending | thread->parent->sigPending) & ~thread->sigBlocked;
+}
+
+//Delivers pending signals on the current thread
+void ProcSignalHandler(IntrContext * iContext);
 
 #endif /* PROCESS_H_ */
