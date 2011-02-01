@@ -195,6 +195,12 @@ typedef struct SProcSigaction
 
 } ProcSigaction;
 
+
+//Sends a signal to the current thread
+// If the signal is blocked or ignored - will exit this thread
+// May not return
+void ProcSignalSendOrCrash(int sigNum);
+
 //Send a signal to the given thread
 // This will not redirect SIGKILL, SIGSTOP or SIGCONT to the whole process however
 void ProcSignalSendThread(ProcThread * thread, int sigNum);

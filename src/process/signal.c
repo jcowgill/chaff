@@ -8,18 +8,100 @@
 #include "chaff.h"
 #include "process.h"
 
+//Continues a suspended thread
+// If the thread isn't suspended, does nothing
 static void RemoteContinueThread(ProcThread * thread)
 {
 	//Continues a remote thread
 
 	//Interrupt thread
 
-
+#warning TODO
 	//Set signal pending
 	thread->sigPending |= (1 << (SIGCONT - 1));
 
 	//Remove suspend signals
 	thread->sigPending &= ~((1 << (SIGSTOP - 1)) | (1 << (SIGTSTP - 1)) | (1 << (SIGTTIN - 1)) | (1 << (SIGTTOU - 1)));
+}
+
+//Suspends the current thread until a RemoteContinueThread is issued
+static void SuspendSelf()
+{
+	//
+	#warning TODO
+}
+
+//Returns true if the given signal is ignored by a process
+// Does NOT check SIGKILL or SIGSTOP for bogus actions
+static inline bool SignalIsIgnored(ProcProces * process, int sigNum)
+{
+	return process->sigHandlers[sigNum - 1].sa_handler == SIG_IGN ||
+	        (process->sigHandlers[sigNum - 1].sa_handler == SIG_DFL && sigNum == SIGCONT || sigNum == SIGCLD);
+}
+
+//Handles custom signal handlers
+static void HandleCustomSignal(IntrContext * iContext, ProcSigaction * action, int sigNum)
+{
+	//Get user mode stack
+	// Allocate 14 * 4 bytes for data (see below)
+	unsigned int * stack = ((unsigned int *) context->pesp) - 14;
+
+	//Do memory checks
+	#warning TODO User-mode memory checks
+	// If checks fail - crash whole process
+
+	//Note: stack refers to the TOP of the stack
+
+	// First add return address and signal parameter
+	stack[0] = (unsigned int) &stack[2];
+	stack[1] = sigNum;
+
+	// Add signal return code
+	/*
+	 * Code Below (8 bytes)
+	 * -----
+	 * 58               pop eax
+	 * B8 EE000000		mov eax, 0xEE
+	 * CD42				int 42h
+	 */
+
+#warning TODO add syscall number
+	stack[2] = 0x00EEB858;		//Signal return syscall number replaces EE
+	stack[3] = 0x42CD0000;
+
+	// Save registers
+	stack[4] = context->pesp;
+	stack[5] = context->peflags;
+	stack[6] = context->peip;
+	stack[7] = context->eax;
+	stack[8] = context->ecx;
+	stack[9] = context->edx;
+	stack[10] = context->ebx;
+	stack[11] = context->ebp;
+	stack[12] = context->esi;
+	stack[13] = context->edi;
+
+	//Set the context pointers
+	context->pesp = (unsigned int) stack;
+	context->peip = (unsigned int) action->sa_handler;
+}
+
+//Sends a signal to the current thread
+// If the signal is blocked or ignored - will exit this thread
+// May not return
+void ProcSignalSendOrCrash(int sigNum)
+{
+	//Check if ignored or blocked
+	if(SignalIsIgnored(sigNum) ||
+		((1 << (sigNum - 1)) & (ProcCurrThread->sigBlocked | ProcCurrProcess->sigBlocked)))
+	{
+	    //Kill self
+	    ProcExitProcess(-sigNum);
+	}
+	else
+	{
+	    ProcSignalSendThread(ProcCurrThread, sigNum);
+	}
 }
 
 //Send a signal to the given thread
@@ -40,7 +122,7 @@ void ProcSignalSendThread(ProcThread * thread, int sigNum)
         {
             //Ignore request is the handler is SIG_IGN
             // Force if SIGKILL, SIGSTOP
-            if(thread->parent->sigHandlers[sigNum - 1] != SIG_IGN || sigNum == SIGKILL || sigNum == SIGSTOP)
+            if(!SignalIsIgnored(thread->parent, sigNum) || sigNum == SIGKILL || sigNum == SIGSTOP)
             {
                 //Decrease signal to get bit
                 --sigNum;
@@ -102,7 +184,7 @@ void ProcSignalSendProcess(ProcProcess * process, int sigNum)
 
                 //Ignore request is the handler is SIG_IGN
                 // Force if SIGKILL, SIGSTOP
-                if(process->sigHandlers[sigNum - 1] != SIG_IGN)
+                if(!SignalIsIgnored(process, sigNum))
                 {
                     //Decrease signal to get bit
                     --sigNum;
@@ -181,12 +263,35 @@ void ProcSignalSetAction(ProcProcess * process, int sigNum, ProcSigaction newAct
 
         //Copy action to process
         process->sigHandlers[sigNum] = newAction;
+
+		//If the new action is ignore, remove pending signals on all threads
+		if(SignalIsIgnored(process, sigNum))
+		{
+		    int mask = ~(1 << (sigNum - 1));
+		
+		    //Remove from pending signals
+		    process->sigPending &= mask;
+
+            list_for_each_entry(thread, process->children, threadSibling)
+            {
+                thread->sigPending &= mask;
+            }
+		}
     }
 }
 
 //Delivers pending signals on the current thread
 void ProcSignalHandler(IntrContext * iContext)
 {
+	//Must be user-mode
+	if(iContext->pcs != 0x1B)
+	{
+	    PrintLog(Error, "ProcSignalHandler: Can only handle user-mode signals");
+	    return;
+	}
+
+refreshSigSet:
+
     //Get valid pending signals
     ProcSigSet sigSet = (ProcCurrThread->sigPending | ProcCurrProcess->sigPending)
                             & ~(ProcCurrThread->sigBlocked);
@@ -207,7 +312,8 @@ void ProcSignalHandler(IntrContext * iContext)
     //Check SIGSTOP
     if(sigSet & (SIGSTOP - 1))
     {
-#warning TODO suspend thread
+        SuspendSelf();
+        goto refreshSigSet;
     }
 
     do
@@ -234,6 +340,7 @@ void ProcSignalHandler(IntrContext * iContext)
                 switch(sigNum)
                 {
                     //Ignore
+                    // When changing, update SignalIsIgnored
                     case SIGCLD:
                     case SIGCONT:
                         continue;
@@ -243,11 +350,15 @@ void ProcSignalHandler(IntrContext * iContext)
                     case SIGTTIN:
                     case SIGTTOU:
                     	//Process / thread?
-                    	if(ProcCurrThread->sigPending & (1 << (sigNum - 1)))
+                    	if(ProcCurrProcess->sigPending & (1 << (sigNum - 1)))
                     	{
                     		//Whole process signal
+                    		ProcSignalSendProcess(ProcCurrProcess, sigNum);
                     	}
-#warning TODO suspend self or all threads (depends weather it's a process or thread signal)
+                    	
+                    	//Suspend self
+                	    SuspendSelf();
+                     	goto refreshSigSet;
 
                     //Dump core
                     case SIGQUIT:
@@ -267,7 +378,8 @@ void ProcSignalHandler(IntrContext * iContext)
 
             default:
                 //User mode function
-#warning Do user-mode stack setup
+                HandleCustomSignal(iContext, &action, sigNum);
+                return;
         }
         
     } while(sigSet != 0);
