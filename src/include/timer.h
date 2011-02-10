@@ -16,12 +16,16 @@ void TimerInit();
 //Time representation
 // The high 32 bits are the number of seconds since 1st Jan 1970.
 // The low 32 bits are fractions of seconds (1 = 1/(2^32) seconds)
-typedef unsigned long long TimerTime;
+typedef signed long long TimerTime;
 
 //Gets or sets the current time
 TimerTime TimerGetTime();
 TimerTime TimerGetStartupTime();
-void TimerSetTime(TimerTime newTime);
+void TimerSetTime(TimerTime newTime);		//Currently this does not store the time in the RTC and is lost on reboot
+
+//Gets the time stored in the CMOS
+// This is much slower than TimeGetTime and shouldn't usually be used since it can be different
+TimerTime TimerGetCMOSTime();
 
 //Waits time until returning (current thread only)
 // Returns time actually left to sleep (not 0 when interrupted)
@@ -29,6 +33,7 @@ TimerTime TimerSleep(TimerTime time);
 
 //Sets the PROCESS alarm
 // Returns number of seconds left on existing alarm or 0 if no previous alarm existed
+//  Call with 0 time to clear the alarm
 // Important: POSIX alarms are PROCESS WIDE.
 // Kernel threads should not call this
 TimerTime TimerSetAlarm(TimerTime time);

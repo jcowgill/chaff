@@ -33,7 +33,14 @@ typedef enum
 //Process and thread structures
 struct SProcProcess;
 struct SProcThread;
-struct SProcSigaction;
+
+typedef struct SProcSigaction
+{
+	void (* sa_handler)(int);
+	ProcSigSet sa_mask;
+	int sa_flags;
+
+} ProcSigaction;
 
 struct SProcProcess
 {
@@ -80,6 +87,8 @@ struct SProcProcess
 	//Process wide pending signals
 	ProcSigSet sigPending;
 
+	//Process alarm
+	struct list_head * alarmPtr;
 };
 
 struct SProcThread
@@ -187,14 +196,7 @@ void NORETURN ProcExitBootMode();
 
 
 //Signal functions
-typedef struct SProcSigaction
-{
-	void (* sa_handler)(int);
-	ProcSigSet sa_mask;
-	int sa_flags;
-
-} ProcSigaction;
-
+// Signal action structure is above
 
 //Sends a signal to the current thread
 // If the signal is blocked or ignored - will exit this thread

@@ -26,6 +26,9 @@
 #define false 0
 #define bool _Bool
 
+//Ignore unused parameter
+#define IGNORE_PARAM (void)
+
 //Generic size (32 bits)
 typedef unsigned long size_t;
 

@@ -26,13 +26,28 @@ TimerTime startupTime;
 //Time beep is schedule to end / 0 = unused
 TimerTime beepEndTime = 0;
 
-static void UpdateTimeFromCMOS();
+//Timer sleep queues
+typedef struct
+{
+	union
+	{
+		ProcThread * thread;		//Used by sleep queue
+		ProcProcess * process;		//Used by alarm queue
+	};
+
+	TimerTime endTime;
+	struct list_head list;
+
+} TimerQueue;
+
+struct list_head sleepQueueHead = LIST_HEAD_INIT(sleepQueueHead);
+struct list_head alarmQueueHead = LIST_HEAD_INIT(alarmQueueHead);
 
 //Initialises the PIT and PC Speaker
 void TimerInit()
 {
 	//Read time from CMOS
-	UpdateTimeFromCMOS();
+	currentTime = TimerGetCMOSTime();
 
 	//Store startup time
 	startupTime = currentTime;
@@ -48,6 +63,9 @@ void TimerInit()
 
 	//Stop beep
 	TimerBeepStop();
+
+	//Register interrupts
+#warning Register interrupt handleer
 }
 
 //Gets or sets the current time
@@ -66,16 +84,61 @@ void TimerSetTime(TimerTime newTime)
 {
 	//Update current time
 	currentTime = newTime;
-
-	//Store in CMOS
-#warning Write time to CMOS
 }
 
-//Waits time miliseconds until returning (current thread only)
+//Adds a timer queue item to a given timer queue
+static void AddTimerToQueue(TimerQueue * newItem, struct list_head * headPtr)
+{
+	TimerTime time = newItem->endTime;
+
+	INIT_LIST_HEAD(&newItem->list);
+
+	//Find place to insert into queue
+	TimerQueue * currPos;
+
+	list_for_each_entry(currPos, headPtr, list)
+	{
+		//Is this time more than ours?
+		if(time >= currPos->endTime)
+		{
+			//Add before current pos
+			list_add_tail(&newItem->list, &currPos->list);
+			return;
+		}
+	}
+
+	//Add list to end of queue
+	list_add_tail(&newItem->list, headPtr);
+}
+
+//Waits time milliseconds until returning (current thread only)
 // Returns number of milliseconds actually left to sleep (not 0 when interrupted)
 TimerTime TimerSleep(TimerTime time)
 {
-	//
+	//Calculate wake up time
+	time += currentTime;
+
+	//Create entry
+	TimerQueue * newQueueEntry = MAlloc(sizeof(TimerQueue));
+	newQueueEntry->thread = ProcCurrThread;
+	newQueueEntry->endTime = time;
+
+	//Add to queue
+	AddTimerToQueue(newQueueEntry, &sleepQueueHead);
+
+	//Block thread
+	if(ProcYieldBlock(true))
+	{
+		//Interrupted, we must manually remove the queue entry
+		list_del(&newQueueEntry->list);
+		MFree(newQueueEntry);
+
+		//Return difference between current time and given time
+		return currentTime - time;
+	}
+
+	//If uninterrupted, the queue has already been freed
+	return 0;
 }
 
 //Sets the PROCESS alarm
@@ -84,7 +147,44 @@ TimerTime TimerSleep(TimerTime time)
 // Kernel threads should not call this
 TimerTime TimerSetAlarm(TimerTime time)
 {
-	//
+	TimerTime timeLeft;
+	TimerQueue * queueHead;
+
+	//First, remove previous alarm
+	if(ProcCurrProcess->alarmPtr != NULL)
+	{
+		//Get time left
+		queueHead = list_entry(ProcCurrProcess->alarmPtr, TimerQueue, list);
+		timeLeft = queueHead->endTime - currentTime;
+
+		//Remove from list + free
+		list_del(&queueHead->list);
+		MFree(queueHead);
+
+		//Wipe from process
+		ProcCurrProcess->alarmPtr = NULL;
+	}
+	else
+	{
+		timeLeft = 0;
+	}
+
+	//If time is not 0, create new alarm
+	if(time != 0)
+	{
+		//Create alarm
+		queueHead = MAlloc(sizeof(TimerQueue));
+		queueHead->process = ProcCurrProcess;
+		queueHead->endTime = time;
+
+		//Add to list
+		AddTimerToQueue(queueHead, &alarmQueueHead);
+
+		//Add to process
+		ProcCurrProcess->alarmPtr = &queueHead->list;
+	}
+
+	return timeLeft;
 }
 
 //Stops the timer from beeping manually (before time is up)
@@ -132,6 +232,8 @@ void TimerBeepAdv(unsigned int freq, TimerTime time)
 //Timer interrupt
 void TimerInterrupt(IntrContext * iContext)
 {
+	IGNORE_PARAM iContext;
+
 	//Update system time
 	currentTime += PIT_TICKS_PER_INTERRUPT;
 
@@ -139,5 +241,64 @@ void TimerInterrupt(IntrContext * iContext)
 	if(beepEndTime != 0 && currentTime >= beepEndTime)
 	{
 		TimerBeepStop();
+	}
+
+	//Process sleep queue
+	if(!list_empty(&sleepQueueHead))
+	{
+		TimerQueue * head = list_entry(sleepQueueHead.next, TimerQueue, list);
+		TimerQueue * newHead;
+
+		while(currentTime >= head->endTime)
+		{
+			//Wake up head
+			ProcWakeUp(head->thread);
+
+			//Get next head
+			newHead = list_entry(head->list.next, TimerQueue, list);
+
+			//Remove current from queue
+			list_del(&head->list);
+			MFree(head);
+
+			//Next head
+			head = newHead;
+
+			//Check wrapped
+			if(list_empty(&sleepQueueHead))
+			{
+				break;
+			}
+		}
+	}
+
+	//Process alarm queue
+	if(!list_empty(&alarmQueueHead))
+	{
+		TimerQueue * head = list_entry(alarmQueueHead.next, TimerQueue, list);
+		TimerQueue * newHead;
+
+		while(currentTime >= head->endTime)
+		{
+			//Send signal and remove process pointer
+			ProcSignalSendProcess(head->process, SIGALRM);
+			head->process->alarmPtr = NULL;
+
+			//Get next head
+			newHead = list_entry(head->list.next, TimerQueue, list);
+
+			//Remove current from queue
+			list_del(&head->list);
+			MFree(head);
+
+			//Next head
+			head = newHead;
+
+			//Check wrapped
+			if(list_empty(&alarmQueueHead))
+			{
+				break;
+			}
+		}
 	}
 }
