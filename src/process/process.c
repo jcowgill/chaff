@@ -9,6 +9,7 @@
 #include "process.h"
 #include "processInt.h"
 #include "htable.h"
+#include "timer.h"
 
 //Process management functions
 
@@ -259,6 +260,9 @@ void NORETURN ProcExitProcess(unsigned int exitCode)
 	else
 	{
 		//Exit this process and this thread
+		// Clear alarm
+		TimerSetAlarm(0);
+
 		// Disown children
 		ProcDisownChildren(ProcCurrProcess);
 

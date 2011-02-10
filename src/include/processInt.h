@@ -23,6 +23,9 @@ void NORETURN ProcIntSchedulerExitSelf();
 void ProcIntUserThreadEntry();
 
 // Idle thread code
-void NORETURN ProcIntIdleThread(void *);
+int NORETURN ProcIntIdleThread(void *);
+
+// Kernel thread return
+void NORETURN ProcIntKernelThreadReturn(int);
 
 #endif /* PROCESSINT_H_ */

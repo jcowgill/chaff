@@ -33,10 +33,10 @@ static void SuspendSelf()
 
 //Returns true if the given signal is ignored by a process
 // Does NOT check SIGKILL or SIGSTOP for bogus actions
-static inline bool SignalIsIgnored(ProcProces * process, int sigNum)
+static inline bool SignalIsIgnored(ProcProcess * process, int sigNum)
 {
 	return process->sigHandlers[sigNum - 1].sa_handler == SIG_IGN ||
-	        (process->sigHandlers[sigNum - 1].sa_handler == SIG_DFL && sigNum == SIGCONT || sigNum == SIGCLD);
+	        (process->sigHandlers[sigNum - 1].sa_handler == SIG_DFL && (sigNum == SIGCONT || sigNum == SIGCLD));
 }
 
 //Handles custom signal handlers
@@ -44,7 +44,7 @@ static void HandleCustomSignal(IntrContext * iContext, ProcSigaction * action, i
 {
 	//Get user mode stack
 	// Allocate 14 * 4 bytes for data (see below)
-	unsigned int * stack = ((unsigned int *) context->pesp) - 14;
+	unsigned int * stack = ((unsigned int *) iContext->esp) - 14;
 
 	//Do memory checks
 	#warning TODO User-mode memory checks
@@ -70,20 +70,20 @@ static void HandleCustomSignal(IntrContext * iContext, ProcSigaction * action, i
 	stack[3] = 0x42CD0000;
 
 	// Save registers
-	stack[4] = context->pesp;
-	stack[5] = context->peflags;
-	stack[6] = context->peip;
-	stack[7] = context->eax;
-	stack[8] = context->ecx;
-	stack[9] = context->edx;
-	stack[10] = context->ebx;
-	stack[11] = context->ebp;
-	stack[12] = context->esi;
-	stack[13] = context->edi;
+	stack[4] = iContext->esp;
+	stack[5] = iContext->eflags;
+	stack[6] = iContext->eip;
+	stack[7] = iContext->eax;
+	stack[8] = iContext->ecx;
+	stack[9] = iContext->edx;
+	stack[10] = iContext->ebx;
+	stack[11] = iContext->ebp;
+	stack[12] = iContext->esi;
+	stack[13] = iContext->edi;
 
 	//Set the context pointers
-	context->pesp = (unsigned int) stack;
-	context->peip = (unsigned int) action->sa_handler;
+	iContext->esp = (unsigned int) stack;
+	iContext->eip = (unsigned int) action->sa_handler;
 }
 
 //Sends a signal to the current thread
@@ -92,8 +92,8 @@ static void HandleCustomSignal(IntrContext * iContext, ProcSigaction * action, i
 void ProcSignalSendOrCrash(int sigNum)
 {
 	//Check if ignored or blocked
-	if(SignalIsIgnored(sigNum) ||
-		((1 << (sigNum - 1)) & (ProcCurrThread->sigBlocked | ProcCurrProcess->sigBlocked)))
+	if(SignalIsIgnored(ProcCurrProcess, sigNum) ||
+		((1 << (sigNum - 1)) & ProcCurrThread->sigBlocked))
 	{
 	    //Kill self
 	    ProcExitProcess(-sigNum);
@@ -163,7 +163,7 @@ void ProcSignalSendProcess(ProcProcess * process, int sigNum)
 
             case SIGSTOP:
                 //Sent to all threads instead of the process
-                list_for_each_entry(thread, process->children, threadSibling)
+                list_for_each_entry(thread, &process->children, threadSibling)
                 {
                     ProcSignalSendThread(thread, sigNum);
                 }
@@ -172,7 +172,7 @@ void ProcSignalSendProcess(ProcProcess * process, int sigNum)
 
             case SIGCONT:
                 //Continue all threads, then handle like a normal signal
-                list_for_each_entry(thread, process->children, threadSibling)
+                list_for_each_entry(thread, &process->children, threadSibling)
                 {
                 	RemoteContinueThread(thread);
                 }
@@ -196,7 +196,7 @@ void ProcSignalSendProcess(ProcProcess * process, int sigNum)
                     // running threads
                     ProcThread * eligibleIntr = NULL;
 
-                    list_for_each_entry(thread, process->children, threadSibling)
+                    list_for_each_entry(thread, &process->children, threadSibling)
                     {
                         //Check thread
                         if(!(thread->sigBlocked & (1 << sigNum)))
@@ -272,7 +272,8 @@ void ProcSignalSetAction(ProcProcess * process, int sigNum, ProcSigaction newAct
 		    //Remove from pending signals
 		    process->sigPending &= mask;
 
-            list_for_each_entry(thread, process->children, threadSibling)
+		    ProcThread * thread;
+            list_for_each_entry(thread, &process->children, threadSibling)
             {
                 thread->sigPending &= mask;
             }
@@ -283,8 +284,10 @@ void ProcSignalSetAction(ProcProcess * process, int sigNum, ProcSigaction newAct
 //Delivers pending signals on the current thread
 void ProcSignalHandler(IntrContext * iContext)
 {
+	ProcSigSet sigSet;
+
 	//Must be user-mode
-	if(iContext->pcs != 0x1B)
+	if(iContext->cs != 0x1B)
 	{
 	    PrintLog(Error, "ProcSignalHandler: Can only handle user-mode signals");
 	    return;
@@ -293,7 +296,7 @@ void ProcSignalHandler(IntrContext * iContext)
 refreshSigSet:
 
     //Get valid pending signals
-    ProcSigSet sigSet = (ProcCurrThread->sigPending | ProcCurrProcess->sigPending)
+    sigSet = (ProcCurrThread->sigPending | ProcCurrProcess->sigPending)
                             & ~(ProcCurrThread->sigBlocked);
 
     //If there are no signals we're done
@@ -329,13 +332,13 @@ refreshSigSet:
         ++sigNum;
 
         //Do action
-        switch(action->sa_handler)
+        switch((int) action->sa_handler)
         {
-            case SIG_IGN:
+            case (int) SIG_IGN:
                 //Ignore signal
                 continue;
 
-            case SIG_DFL:
+            case (int) SIG_DFL:
                 //Default action
                 switch(sigNum)
                 {
@@ -378,7 +381,7 @@ refreshSigSet:
 
             default:
                 //User mode function
-                HandleCustomSignal(iContext, &action, sigNum);
+                HandleCustomSignal(iContext, action, sigNum);
                 return;
         }
         

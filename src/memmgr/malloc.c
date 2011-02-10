@@ -139,6 +139,11 @@ void MFree(void * ptr)
 	mHeader * dataHeader = ((mHeader *) ptr) - 1;
 	mHeader * cBlock;
 
+#ifdef DEBUG
+	//Wipe data with 0xFE for debugging
+	MemSet(ptr, 0xFE, dataHeader->size * sizeof(mHeader));
+#endif
+
 	//Find position to place the freed block
 	for(cBlock = freep; ; cBlock = cBlock->ptr)
 	{
