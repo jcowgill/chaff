@@ -47,4 +47,14 @@ void IntrInit();
 //Interrupt handler entry point
 void IntrHandler(IntrContext iContext);
 
+#define INTR_SHARED 1		//Allows interrupt to have multiple interrupt handlers
+
+//Interrupt registering
+// Registers the given IRQ with an interrupt handler
+// The order shared interrupt handlers are executed in could be any order
+bool IntrRegister(int irq, int flags, void (* handler)(IntrContext *));
+
+// Unregisters an IRQ
+bool IntrUnRegister(int irq, void (* handler)(IntrContext *));
+
 #endif /* INTERRUPT_H_ */

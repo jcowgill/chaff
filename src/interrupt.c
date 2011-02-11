@@ -35,10 +35,15 @@ void Isr66();
 static IntrGateStruct idt[0x43] __attribute__((aligned(8)));
 
 //Interrupt dispatch table
-static void (* IntrDispatchTable[0x30])(IntrContext *) =
-	{
-		NULL
-	};
+typedef struct SIntrDispatchEntry
+{
+	void (* handler)(IntrContext *);
+	int flags;
+	struct SIntrDispatchEntry * next;
+
+} IntrDispatchEntry;
+
+static IntrDispatchEntry IntrDispatchTable[0x30];
 
 //Initialise interrupts
 void IntrInit()
@@ -46,7 +51,7 @@ void IntrInit()
 	//Setup descriptor table
 	int i;
 
-	IntrDispatchTable[14] = MemPageFaultHandler;
+	IntrDispatchTable[14].handler = MemPageFaultHandler;
 
 	// 0 to 2 (kernel only)
 	for(i = 0; i <= 2; ++i)
@@ -97,7 +102,7 @@ void IntrInit()
 	outb(0x21, 1);			//Set how PIC is notified of a completed interrupt
 	outb(0xA1, 1);
 
-	outb(0x21, 0xFF);		//Disable all IO interrupts until later
+	outb(0x21, 0xFB);		//Disable all IO interrupts until later (IRQ 2 is enabled for cascading interrupt)
 	outb(0xA1, 0xFF);
 }
 
@@ -107,8 +112,21 @@ void IntrHandler(IntrContext iContext)
 	//Get interrupt number and dispatch
 	if(iContext.intrNum < 0x30)
 	{
-		//Dispatch using dispatch table
-		IntrDispatchTable[iContext.intrNum](&iContext);
+		//Get dispatch table entry
+		IntrDispatchEntry * intrEntry = &IntrDispatchTable[iContext.intrNum];
+
+		//Execute handler chains
+		do
+		{
+			if(intrEntry->handler == NULL)
+			{
+				break;
+			}
+
+			intrEntry->handler(&iContext);
+			intrEntry = intrEntry->next;
+		}
+		while(intrEntry);
 
 		//If it's a hardware interrupt, allow them to be fired again
 		if(iContext.intrNum >= 0x20)
@@ -136,4 +154,128 @@ void IntrHandler(IntrContext iContext)
 
 	//Handle signals
 #warning Check for signals here
+}
+
+
+//Interrupt registering
+// Registers the given IRQ with an interrupt handler
+bool IntrRegister(int irq, int flags, void (* handler)(IntrContext *))
+{
+	//Check IRQ range
+	if(irq < 0 || irq > 15)
+	{
+		PrintLog(Error, "IntrRegister: Attempt to register IRQ out of range");
+		return false;
+	}
+
+	//If handler is empty, quickly process
+	IntrDispatchEntry * intrEntry = &IntrDispatchTable[0x20 + irq];
+
+	if(IntrDispatchTable[0x20 + irq].handler != NULL)
+	{
+		//Refuse if entry is in used and someone doesn't want to share
+		if(!(flags & INTR_SHARED)  || !(intrEntry->flags & INTR_SHARED))
+		{
+			//Interrupt rejected
+			return false;
+		}
+
+		//Allocate new entry
+		IntrDispatchEntry * newEntry = MAlloc(sizeof(IntrDispatchEntry));
+
+		//Set entry chain properties
+		newEntry->next = intrEntry->next;
+		intrEntry->next = newEntry;
+
+		//We're dealing with this entry now
+		intrEntry = newEntry;
+	}
+	else
+	{
+		//New handler, enable in PIC
+		if(irq > 8)
+		{
+			outb(0xA1, inb(0xA1) & ~(1 << (irq - 8)));
+		}
+		else
+		{
+			outb(0x21, inb(0x21) & ~(1 << irq));
+		}
+
+		intrEntry->next = NULL;
+	}
+
+	//Copy data to entry
+	intrEntry->handler = handler;
+	intrEntry->flags = flags;
+	return true;
+}
+
+// Unregisters an IRQ
+bool IntrUnRegister(int irq, void (* handler)(IntrContext *))
+{
+	//Check IRQ range
+	if(irq < 0 || irq > 15)
+	{
+		PrintLog(Error, "IntrUnRegister: Attempt to unregister IRQ out of range");
+		return false;
+	}
+
+	//Find handler in IRQ specified
+	IntrDispatchEntry * intrEntry = &IntrDispatchTable[0x20 + irq];
+	IntrDispatchEntry * prevEntry = NULL;
+
+	// Search through handlers list
+	while(intrEntry && intrEntry->handler != handler)
+	{
+		prevEntry = intrEntry;
+		intrEntry = intrEntry->next;
+	}
+
+	//If the entry is NULL, the handler does not exist
+	if(intrEntry == NULL)
+	{
+		return false;
+	}
+
+	//If previous entry is NULL, copy next entry to first
+	if(prevEntry == NULL)
+	{
+		//Is there another entry?
+		if(intrEntry->next)
+		{
+			IntrDispatchEntry * nextEntry = intrEntry->next;
+
+			//Copy next entry contents to first
+			MemCpy(intrEntry, nextEntry, sizeof(IntrDispatchEntry));
+
+			//Free unused entry
+			MFree(nextEntry);
+		}
+		else
+		{
+			//No more entries, wipe dispatch table
+			MemSet(intrEntry, 0, sizeof(IntrDispatchEntry));
+
+			//Block in PIC
+			if(irq > 8)
+			{
+				outb(0xA1, inb(0xA1) | (1 << (irq - 8)));
+			}
+			else
+			{
+				outb(0x21, inb(0x21) | (1 << irq));
+			}
+		}
+	}
+	else
+	{
+		//Join previous's next pointer to this entry's next pointer
+		prevEntry->next = intrEntry->next;
+
+		//Free current entry
+		MFree(intrEntry);
+	}
+
+	return true;
 }
