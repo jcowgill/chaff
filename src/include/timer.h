@@ -53,7 +53,4 @@ static inline void TimerBeep()
 	TimerBeepAdv(1000, 1000);
 }
 
-//Timer interrupt
-void TimerInterrupt(IntrContext * iContext);
-
 #endif /* TIMER_H_ */

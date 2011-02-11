@@ -43,9 +43,17 @@ typedef struct
 struct list_head sleepQueueHead = LIST_HEAD_INIT(sleepQueueHead);
 struct list_head alarmQueueHead = LIST_HEAD_INIT(alarmQueueHead);
 
+static void TimerInterrupt(IntrContext * iContext);
+
 //Initialises the PIT and PC Speaker
 void TimerInit()
 {
+	//Register interrupts
+	if(!IntrRegister(0, 0, TimerInterrupt))
+	{
+		Panic("TimerInit: Cannot initialize timer - IntrRegister returned false");
+	}
+
 	//Read time from CMOS
 	currentTime = TimerGetCMOSTime();
 
@@ -63,9 +71,6 @@ void TimerInit()
 
 	//Stop beep
 	TimerBeepStop();
-
-	//Register interrupts
-#warning Register interrupt handleer
 }
 
 //Gets or sets the current time
@@ -230,7 +235,7 @@ void TimerBeepAdv(unsigned int freq, TimerTime time)
 }
 
 //Timer interrupt
-void TimerInterrupt(IntrContext * iContext)
+static void TimerInterrupt(IntrContext * iContext)
 {
 	IGNORE_PARAM iContext;
 

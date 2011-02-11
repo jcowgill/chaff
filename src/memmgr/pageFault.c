@@ -43,7 +43,6 @@ void MemPageFaultHandler(IntrContext * intContext)
 		{
 			//Protection violation (user mode accessed supervisor)
 			// Or a write to a read-only page
-#warning Fallthrough to error
 		}
 		else
 		{
@@ -76,6 +75,22 @@ void MemPageFaultHandler(IntrContext * intContext)
 	}
 
 	//If we're here, it's an error
-#warning Raise SIGSEGV here
-	Panic("MemPageFaultHandler: Reached end of page fault handler");
+	if(errorCode & (1 << 2))
+	{
+		//User mode fault
+		ProcSignalSendThread(ProcCurrThread, SIGSEGV);
+	}
+	else
+	{
+		//Kernel mode fault
+		if(faultAddress < 4096)
+		{
+			Panic("MemPageFaultHandler: Unable to handle kernel NULL pointer dereference");
+		}
+		else
+		{
+			Panic("MemPageFaultHandler: Unable to handle kernel page fault");
+#warning ...at address...
+		}
+	}
 }

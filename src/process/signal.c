@@ -65,7 +65,6 @@ static void HandleCustomSignal(IntrContext * iContext, ProcSigaction * action, i
 	 * CD42				int 42h
 	 */
 
-#warning TODO add syscall number
 	stack[2] = 0x00EEB858;		//Signal return syscall number replaces EE
 	stack[3] = 0x42CD0000;
 

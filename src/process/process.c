@@ -253,7 +253,14 @@ void NORETURN ProcExitProcess(unsigned int exitCode)
 	//If this is not the last thread, kill the others and then kill
 	if(ProcCurrProcess->children.next != ProcCurrProcess->children.prev)
 	{
-#warning Send SIGKILL to all other threads
+		ProcThread * thread;
+		list_for_each_entry(thread, &ProcCurrProcess->threads, threadSibling)
+		{
+			if(thread != ProcCurrThread)
+			{
+				ProcSignalSendThread(thread, SIGKILL);
+			}
+		}
 
 		ProcExitThread(0);
 	}
@@ -326,10 +333,14 @@ static void ProcReapProcess(ProcProcess * process)
 //Disowns this process's children
 static void ProcDisownChildren(ProcProcess * process)
 {
-	ProcProcess * child, *childTmp;
+	ProcProcess * child;
+	ProcProcess * childTmp;
+	ProcProcess * initProcess = ProcGetProcessByID(1);
+
 	list_for_each_entry_safe(child, childTmp, &process->children, processSibling)
 	{
-#warning child should inherit from init
+		list_del_init(&child->processSibling);
+		list_add_tail(child, &initProcess->children);
 	}
 }
 
