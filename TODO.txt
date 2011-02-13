@@ -1,0 +1,36 @@
+TODO list
+--------------
+- CPU exception handlers
+- Process and thread waiting (including SIGCLD)
+- MemContextClone and copy-on-write
+- Suspending threads (including SIGSTOP and SIGCONT)
+- Signal action flags (see signalNums.h)
+- System calls
+
+Then complete all non-io related TODO warnings
+Then do a big test
+
+Then the virtual file system
+Then the driver interface
+Then the ELF loader + kernel symbol table linker for drivers
+Then finish off the system calls
+
+Drivers
+--
+- Console Video Output
+- Keyboard (PS/2)
+- Mouse (PS/2)
+- Serial
+
+- PATA (this is probably the most complex)
+
+- ext2
+- fat
+- iso9660
+
+- LPT ?
+- PCI ?
+
+
+In 500 years when i get most of the above done...
+- Networking

@@ -1,4 +1,8 @@
 Prefixes used
 -------------
 (none)		General functions
-List		Linked List Manipulation
+Mem			Memory Manager
+Timer		Timing (sleeps, alarms, clock)
+Proc		Process and Thread management (includes scheduler and signals)
+Intr		Hardware Interrupts
+HashTable	Hash table functions
