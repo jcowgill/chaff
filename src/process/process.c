@@ -340,7 +340,7 @@ static void ProcDisownChildren(ProcProcess * process)
 	list_for_each_entry_safe(child, childTmp, &process->children, processSibling)
 	{
 		list_del_init(&child->processSibling);
-		list_add_tail(child, &initProcess->children);
+		list_add_tail(&child->processSibling, &initProcess->children);
 	}
 }
 

@@ -3,8 +3,6 @@ TODO list
 - CPU exception handlers
 - Process and thread waiting (including SIGCLD)
 - MemContextClone and copy-on-write
-- Suspending threads (including SIGSTOP and SIGCONT)
-- Signal action flags (see signalNums.h)
 - System calls
 
 Then complete all non-io related TODO warnings
@@ -14,6 +12,8 @@ Then the virtual file system
 Then the driver interface
 Then the ELF loader + kernel symbol table linker for drivers
 Then finish off the system calls
+
+Try http://posixtest.sourceforge.net/ if you can't be bothered to test it yourself...
 
 Drivers
 --

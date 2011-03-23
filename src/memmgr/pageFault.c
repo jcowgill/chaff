@@ -83,7 +83,7 @@ void MemPageFaultHandler(IntrContext * intContext)
 	else
 	{
 		//Kernel mode fault
-		if(faultAddress < 4096)
+		if((unsigned int) faultAddress < 4096)
 		{
 			Panic("MemPageFaultHandler: Unable to handle kernel NULL pointer dereference");
 		}

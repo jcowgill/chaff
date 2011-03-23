@@ -46,10 +46,7 @@ typedef unsigned int ProcSigSet;
 #define SIG_SETMASK 2 /* Set the set of blocked signals.  */
 
 //Implemented flags:
-// SA_NOCLDSTOP
-// SA_NOCLDWAIT
-// SA_NODEFER
-// SA_RESETHAND
+// None of the flags implemented yet
 #warning Signal stuff done?
 
 #define SA_NOCLDSTOP 1 /* Don't send SIGCHLD when children stop.  */

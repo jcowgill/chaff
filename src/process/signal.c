@@ -13,21 +13,52 @@
 static void RemoteContinueThread(ProcThread * thread)
 {
 	//Continues a remote thread
+	if(thread->state != PTS_INTR)
+	{
+		//Already running
+		return;
+	}
 
-	//Interrupt thread
-
-#warning TODO
 	//Set signal pending
 	thread->sigPending |= (1 << (SIGCONT - 1));
 
 	//Remove suspend signals
 	thread->sigPending &= ~((1 << (SIGSTOP - 1)) | (1 << (SIGTSTP - 1)) | (1 << (SIGTTIN - 1)) | (1 << (SIGTTOU - 1)));
+
+	//Interrupt thread
+	ProcWakeUpSig(thread, true);
 }
 
 //Suspends the current thread until a RemoteContinueThread is issued
 static void SuspendSelf()
 {
-	//
+	//Block all signals except SIGKILL and SIGCONT
+	ProcSigSet maskBefore = ProcCurrThread->sigBlocked;
+	ProcSignalSetMask(ProcCurrThread, SIG_SETMASK, (~0) & ~(1 << (SIGCONT - 1)));
+
+	//Perform interruptable wait
+	for(;;)
+	{
+		if(!ProcYieldBlock(true))
+		{
+			PrintLog(Error, "ProcSignalHandler: Process woken up while not waiting");
+			#warning TODO print pid
+		}
+
+		//Ignore SIGSTOP
+		ProcCurrThread->sigPending &= ~(1 << (SIGSTOP - 1));
+
+		//Exit on SIGKILL or SIGCONT
+		if(ProcCurrThread->sigPending & ((1 << (SIGKILL - 1)) | (1 << (SIGCONT -1))))
+		{
+			break;
+		}
+	}
+
+	//Restore signal mask
+	ProcSignalSetMask(ProcCurrThread, SIG_SETMASK, maskBefore);
+
+	// Must process SIGKILL here
 	#warning TODO
 }
 
