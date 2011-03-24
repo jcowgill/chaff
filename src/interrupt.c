@@ -9,6 +9,7 @@
 #include "memmgr.h"
 #include "interrupt.h"
 #include "inlineasm.h"
+#include "exceptions.h"
 
 //Interrupt gate structure
 typedef struct
@@ -43,15 +44,34 @@ typedef struct SIntrDispatchEntry
 
 } IntrDispatchEntry;
 
-static IntrDispatchEntry IntrDispatchTable[0x30];
+static IntrDispatchEntry IntrDispatchTable[0x30] =
+{
+	{ IntrExceptMathFault, 0, NULL },		//Divide by 0
+	{ IntrExceptDebugTrap, 0, NULL },		//Debug Step
+	{ IntrExceptError, 0, NULL },			//NMI
+	{ IntrExceptDebugTrap, 0, NULL },		//Debug Breakpoint
+	{ IntrExceptMathTrap, 0, NULL },		//Overflow (INTO)
+	{ IntrExceptMathTrap, 0, NULL },		//Bound range exceeded (BOUND)
+	{ IntrExceptIllOpcodeFault, 0, NULL },	//Illegal opcode
+	{ IntrExceptMathFault, 0, NULL },		//No math coprocessor
+	{ IntrExceptError, 0, NULL },			//Double Fault
+	{ IntrExceptProtectionFault, 0, NULL }, //Coprocessor segment overrun
+	{ IntrExceptError, 0, NULL },			//Invalid TSS
+	{ IntrExceptProtectionFault, 0, NULL }, //Segment not present
+	{ IntrExceptProtectionFault, 0, NULL },	//Stack segment fault
+	{ IntrExceptProtectionFault, 0, NULL },	//GPF
+	{ MemPageFaultHandler, 0, NULL },		//Page fault
+	{ IntrExceptError, 0, NULL },			//Reserved
+	{ IntrExceptMathFault, 0, NULL },		//Floating Point Exception
+	{ IntrExceptAlignmentFault, 0, NULL },	//Alignment Check
+	{ IntrExceptMathFault, 0, NULL },		//SMID Exception
+};
 
 //Initialise interrupts
 void IntrInit()
 {
 	//Setup descriptor table
 	int i;
-
-	IntrDispatchTable[14].handler = MemPageFaultHandler;
 
 	// 0 to 2 (kernel only)
 	for(i = 0; i <= 2; ++i)

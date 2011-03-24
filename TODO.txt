@@ -1,6 +1,5 @@
 TODO list
 --------------
-- CPU exception handlers
 - Process and thread waiting (including SIGCLD)
 - MemContextClone and copy-on-write
 - System calls
