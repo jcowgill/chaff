@@ -7,7 +7,7 @@
 
 #include "chaff.h"
 #include "memmgr.h"
-#include "memmgrint.h"
+#include "memmgrInt.h"
 #include "inlineasm.h"
 #include "process.h"
 
@@ -43,6 +43,35 @@ void MemPageFaultHandler(IntrContext * intContext)
 		{
 			//Protection violation (user mode accessed supervisor)
 			// Or a write to a read-only page
+
+			PageTable * table = THIS_PAGE_TABLES + ((unsigned int) faultAddress >> 12);
+
+			//Check if copy-on-write
+			if(!(table->writable) && (region->flags & MEM_WRITABLE))
+			{
+				//Get page ref count
+				unsigned int * refCount = MemIntPhysicalRefCount(table->pageID);
+
+				if(*refCount != 1)
+				{
+					//Duplicate page first
+					unsigned int * basePageAddr = (unsigned int *) ((unsigned int) faultAddress & 0xFFFFF000);
+					PhysPage newPage = MemPhysicalAlloc(1);
+
+					MemIntMapTmpPage(MEM_TEMPPAGE2, newPage);
+						MemCpy(MEM_TEMPPAGE2, basePageAddr, 4096);
+					MemIntUnmapTmpPage(MEM_TEMPPAGE2);
+
+					//Update page id and old page's count
+					table->pageID = newPage;
+					--(*refCount);
+				}
+
+				//Make page writable
+				table->writable = 1;
+				invlpg(faultAddress);
+				return;
+			}
 		}
 		else
 		{
@@ -63,10 +92,7 @@ void MemPageFaultHandler(IntrContext * intContext)
 				else
 				{
 					//Wipe page
-					for(int i = 0; i < 1024; ++i)
-					{
-						*basePageAddr++ = 0;
-					}
+					MemSet(basePageAddr, 0, 4096);
 				}
 
 				return;

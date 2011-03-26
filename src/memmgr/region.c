@@ -9,6 +9,9 @@
 #include "memmgr.h"
 #include "inlineasm.h"
 #include "memmgrInt.h"
+#include "process.h"
+
+#warning TODO Copy-On-Write Page tables
 
 //Kernel page directory data
 PageDirectory kernelPageDirectory[1024] __attribute__((aligned(4096)));
@@ -16,6 +19,21 @@ PageTable kernelPageTable254[1024] __attribute__((aligned(4096)));			//For physi
 
 //Kernel context
 MemContext MemKernelContextData = { LIST_HEAD_INIT(MemKernelContextData.regions), 0, INVALID_PAGE };
+
+//Free a page OR decrease it's reference count if it is > 1
+void MemIntFreePageOrDecRefs(PhysPage page)
+{
+	unsigned int * refCount = MemIntPhysicalRefCount(page);
+	if(*refCount > 1)
+	{
+		//Decrease copy-on-write reference count
+		--(*refCount);
+	}
+	else
+	{
+		MemPhysicalFree(page, 1);
+	}
+}
 
 //Creates a new blank memory context
 MemContext * MemContextInit()
@@ -36,7 +54,7 @@ MemContext * MemContextInit()
 	MemSet(dir, 0, sizeof(PageDirectory) * 768);
 
 	//Copy kernel area
-	MemCpy(dir + 768, kernelPageDirectory + 768, sizeof(PageDirectory) * 255);
+	MemCpy(dir + 0x300, kernelPageDirectory + 0x300, sizeof(PageDirectory) * 255);
 	newContext->kernelVersion = MemKernelContext->kernelVersion;
 
 	//Setup final page
@@ -55,8 +73,74 @@ MemContext * MemContextInit()
 //Clones this memory context
 MemContext * MemContextClone()
 {
-	//
-#warning TODO
+	//Allocate new context
+	MemContext * newContext = MAlloc(sizeof(MemContext));
+	INIT_LIST_HEAD(&newContext->regions);
+
+	//Allocate directory
+	newContext->physDirectory = MemPhysicalAlloc(1);
+	newContext->kernelVersion = 0;
+
+	//Temporarily map directory
+	MemIntMapTmpPage(MEM_TEMPPAGE1, newContext->physDirectory);
+
+	//Copy kernel area
+	PageDirectory * dir = (PageDirectory *) MEM_TEMPPAGE1;
+	MemCpy(dir + 0x300, kernelPageDirectory + 0x300, sizeof(PageDirectory) * 255);
+	newContext->kernelVersion = MemKernelContext->kernelVersion;
+
+	//Setup final page
+	dir[1023].rawValue = 0;
+	dir[1023].present = 1;
+	dir[1023].writable = 1;
+	dir[1023].pageID = newContext->physDirectory;
+
+	//Copy all the page tables and increase refcounts on all pages
+	for(int i = 0; i < 0x300; ++i)
+	{
+		PageDirectory * currDir = THIS_PAGE_DIRECTORY + i;
+
+		//Copy directory entry
+		dir[i] = *currDir;
+
+		//If present, increase page ref counts first
+		if(currDir->present)
+		{
+			PageTable * tableBase = THIS_PAGE_TABLES + (i * 1024);
+
+			//Increase ref count on any pages
+			for(int j = 0; j < 1024; ++j)
+			{
+				PageTable * table = tableBase + j;
+
+				if(table->present)
+				{
+					//Increase count and make readonly
+					++(*MemIntPhysicalRefCount(table->pageID));
+					table->writable = 0;
+				}
+			}
+
+			//Duplicate page table
+			PhysPage newTable = MemPhysicalAlloc(1);
+
+			MemIntMapTmpPage(MEM_TEMPPAGE2, newTable);				//Page faults must not occur here
+				MemCpy(MEM_TEMPPAGE2, tableBase, sizeof(PageTable) * 1024);
+			MemIntUnmapTmpPage(MEM_TEMPPAGE2);
+
+			//Store in directory
+			dir[i].pageID = newTable;
+		}
+	}
+	
+	//Unmap directory
+	MemIntUnmapTmpPage(MEM_TEMPPAGE1);
+
+	//Flush paging caches
+	setCR3(getCR3());
+
+	//Return context
+	return newContext;
 }
 
 //Switches to this memory context
@@ -77,7 +161,7 @@ void MemContextSwitchTo(MemContext * context)
 	{
 		//Update kernel page tables
 		// The TLB should already contain the correct values so we SHOULN'T need to INVLPG them
-		MemCpy((void *) 0xFFFFFC00, kernelPageDirectory + 768, sizeof(PageDirectory) * 255);
+		MemCpy(THIS_PAGE_DIRECTORY + 0x300, kernelPageDirectory + 0x300, sizeof(PageDirectory) * 255);
 
 		context->kernelVersion = MemKernelContext->kernelVersion;
 	}
@@ -105,12 +189,12 @@ void MemContextDelete(MemContext * context)
 		//Process tables
 		for(int i = 0; i < 0x300; ++i)
 		{
-			PageDirectory * dir = ((PageDirectory *) 0xFFFFF000) + i;
+			PageDirectory * dir = THIS_PAGE_DIRECTORY + i;
 
 			//If present, free pages in page table first
 			if(dir->present)
 			{
-				PageTable * tableBase = ((PageTable *) 0xFFC00000) + (i * 1024);
+				PageTable * tableBase = THIS_PAGE_TABLES + (i * 1024);
 
 				//Free pages
 				for(int j = 0; j < 1024; ++j)
@@ -120,7 +204,7 @@ void MemContextDelete(MemContext * context)
 					//Free page if present
 					if(table->present)
 					{
-						MemPhysicalFree(table->pageID, 1);
+						MemIntFreePageOrDecRefs(table->pageID);
 					}
 				}
 
@@ -130,7 +214,6 @@ void MemContextDelete(MemContext * context)
 
 		//Switch back to other directory
 		// We can skip the kernel update since there won't be one
-		//setCR3(oldContext);
 	}
 	CONTEXT_SWAP_END
 
@@ -306,7 +389,7 @@ bool MemIntRegionCreate(MemContext * context, void * startAddress,
 		if(prevOverlap || (startAddr >= region->start && startAddr < (region->start + region->length)) ||
 				(region->start >= startAddr && region->start < (startAddr + length)))
 		{
-			PrintLog(Error, "MemRegionCreate: Region start address and length must be page aligned");
+			PrintLog(Error, "MemRegionCreate: Region overlaps with another region");
 			return false;
 		}
 	}
@@ -473,4 +556,74 @@ void MemRegionDelete(MemRegion * region)
 
 	//Free region
 	MFree(region);
+}
+
+//Performs the user mode memory checks on the current memory context
+static bool MemUserChecks(unsigned int addr, unsigned int length, unsigned int flagsReqd)
+{
+	//Cut off kernel mode
+	if(addr >= 0xC0000000)
+	{
+		return false;
+	}
+
+	//Find first region
+	MemContext * context = ProcCurrProcess->memContext;
+	MemRegion * region = MemRegionFind(context, (void *) addr);
+
+	while(region != NULL && (region->flags & flagsReqd) == flagsReqd)
+	{
+		//Calculate data left
+		unsigned int end = region->start + region->length;
+		unsigned int lengthLeft = end - addr;
+
+		if(lengthLeft >= length)
+		{
+			//Passed (since we known this region is readable)
+			return true;
+		}
+
+		//Move to next region if it is continuous
+		if(region->listItem.next == &context->regions)
+		{
+			//This is the last region, fail
+			return false;
+		}
+
+		region = list_entry(region->listItem.next, MemRegion, listItem);
+
+		if (region->start == end)
+		{
+			//Not continuous, fail
+			return false;
+		}
+
+		//Update parameters
+		addr = region->start;
+		length -= lengthLeft;
+	}
+
+	return false;
+}
+
+//Returns true if user mode can read data from a specific location and length
+// Reads may cause page faults
+bool MemUserCanRead(void * data, unsigned int length)
+{
+	return MemUserChecks((unsigned int) data, length, MEM_READABLE);
+}
+
+//Returns true if user mode can write data to a specific location and length
+// Writes may cause page faults
+// Note: being able to write DOES NOT IMPLY being able to read
+bool MemUserCanWrite(void * data, unsigned int length)
+{
+	return MemUserChecks((unsigned int) data, length, MEM_WRITABLE);
+}
+
+//Returns true if user mode can read and write data to a specific location and length
+// Writes may cause page faults
+bool MemUserCanReadWrite(void * data, unsigned int length)
+{
+	return MemUserChecks((unsigned int) data, length, MEM_READABLE | MEM_WRITABLE);
 }

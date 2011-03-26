@@ -48,17 +48,6 @@ typedef int PhysPage;
 // Generally the physical memory manager doesn't need to be accessed
 // Use memory regions for allocating memory
 
-typedef struct
-{
-	//The number of references to the page
-	unsigned int refCount;
-
-} MemPageStatus;
-
-//Page status area
-#define MemPageStateTable ((MemPageStatus *) 0xFF800000)
-extern MemPageStatus * MemPageStateTableEnd;		//Address after page state table (this can be NULL)
-
 
 //Allocates physical pages
 // This function can return any free page
@@ -68,7 +57,8 @@ PhysPage MemPhysicalAlloc(unsigned int number);
 // This function will never return any page with an offset > 16M
 PhysPage MemPhysicalAllocISA(unsigned int number);
 
-//Frees 1 physical page allocated by AllocatePages or AllocateISAPages
+//Frees physical pages allocated by AllocatePages or AllocateISAPages
+// This forces the page to be freed regardless of reference count
 void MemPhysicalFree(PhysPage page, unsigned int number);
 
 //Number of pages in total and number of free pages of memory
@@ -170,6 +160,7 @@ typedef union UTagPageTable
 
 //Bitmask containing the flags for memory regions
 // Note that restrictions only apply to user mode
+// All non-fixed pages use copy-on-write when the context is cloned
 typedef enum ETagRegionFlags
 {
 	MEM_NOACCESS = 0,
@@ -229,7 +220,8 @@ MemContext * MemContextClone();
 void MemContextSwitchTo(MemContext * context);
 
 //Deletes this memory context - DO NOT delete the memory context
-// which is currently in use!
+// which is currently in use or the kernel context
+// MEM_FIXED memory IS DELETED by this
 void MemContextDelete(MemContext * context);
 
 //Frees the pages associated with a given region of memory without destroying the region
@@ -273,6 +265,19 @@ void MemRegionResize(MemRegion * region, unsigned int newLength);
 // If the context of the region given is not the current or kernel context,
 //  a temporary memory context switch may occur
 void MemRegionDelete(MemRegion * region);
+
+//Returns true if user mode can read data from a specific location and length
+// Reads may cause page faults
+bool MemUserCanRead(void * data, unsigned int length);
+
+//Returns true if user mode can write data to a specific location and length
+// Writes may cause page faults
+// Note: being able to write DOES NOT IMPLY being able to read
+bool MemUserCanWrite(void * data, unsigned int length);
+
+//Returns true if user mode can read and write data to a specific location and length
+// Writes may cause page faults
+bool MemUserCanReadWrite(void * data, unsigned int length);
 
 //Kernel context
 extern MemContext MemKernelContextData;

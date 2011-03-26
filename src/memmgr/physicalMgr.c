@@ -7,6 +7,7 @@
 
 #include "chaff.h"
 #include "memmgr.h"
+#include "memmgrInt.h"
 
 //Beginning of main (non ISA) section
 #define physMainStart (MemPageStateTable + 4096)
@@ -165,13 +166,13 @@ PhysPage MemPhysicalAllocISA(unsigned int number /* = 1 */)
 	Panic("Out of memory");
 }
 
-//Frees 1 physical page allocated by AllocatePage
+//Frees physical pages allocated by AllocatePage
 void MemPhysicalFree(PhysPage page, unsigned int number /* = 1 */)
 {
 	//Free from bitmap
 	for(; number > 0; --number, ++page)
 	{
-		MemPageStateTable[page].refCount--;
+		MemPageStateTable[page].refCount = 0;
 		++MemPhysicalFreePages;
 	}
 }

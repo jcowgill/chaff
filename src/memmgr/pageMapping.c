@@ -13,9 +13,6 @@
 //Page table for tmp pages
 PageTable kernelPageTable253[1024] __attribute__((aligned(4096)));
 
-#define THIS_PAGE_DIRECTORY ((PageDirectory *) 0xFFFFF000)
-#define THIS_PAGE_TABLES ((PageTable *) 0xFFC00000)
-
 //Increments the counter for the page directory containing this page table
 static void IncrementCounter(PageTable * table)
 {
@@ -150,7 +147,7 @@ void MemIntMapPage(MemContext * currContext, void * address, PhysPage page, Regi
 }
 
 //Unmaps a page and returns the page which was unmapped
-static PhysPage UnmapPage(MemContext * currContext, void * address)
+PhysPage UnmapPage(MemContext * currContext, void * address)
 {
 	//Only unmap if page table for address exists
 	unsigned int addr = (unsigned int) address;
@@ -205,11 +202,11 @@ void MemIntUnmapPage(MemContext * currContext, void * address)
 
 void MemIntUnmapPageAndFree(MemContext * currContext, void * address)
 {
-	register PhysPage page = UnmapPage(currContext, address);
+	PhysPage page = UnmapPage(currContext, address);
 	
 	if(page != INVALID_PAGE)
 	{
-	    MemPhysicalFree(page, 1);
+	    MemIntFreePageOrDecRefs(page);
 	}
 }
 
