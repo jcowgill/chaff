@@ -1,7 +1,6 @@
 TODO list
 --------------
 - Process and thread waiting (including SIGCLD)
-- MemContextClone and copy-on-write
 - System calls
 
 Then complete all non-io related TODO warnings

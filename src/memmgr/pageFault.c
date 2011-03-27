@@ -92,7 +92,11 @@ void MemPageFaultHandler(IntrContext * intContext)
 				else
 				{
 					//Wipe page
-					MemSet(basePageAddr, 0, 4096);
+					// Speed: don't wipe for kernel pages
+					if((unsigned int) basePageAddr < 0xC0000000)
+					{
+						MemSet(basePageAddr, 0, 4096);
+					}
 				}
 
 				return;

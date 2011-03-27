@@ -38,6 +38,8 @@ void NORETURN kMain(unsigned int mBootCode, multiboot_info_t * mBootInfo)
 
 	// Exit boot mode
 	ProcExitBootMode();
+
+	Panic("After boot code not implemented");
 }
 
 void NORETURN Panic(const char * msg, ...)

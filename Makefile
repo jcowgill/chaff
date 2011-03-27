@@ -32,6 +32,10 @@ OBJS = $(subst src/,obj/,$(addsuffix .obj,$(basename $(SOURCES))))
 
 all: $(BINFILE)
 
+install:
+	-mount bin/chaffdir
+	cp bin/chaff.elf bin/chaffdir/chaff.elf
+
 clean:
 	rm -rf obj
 	rm bin/$(BINFILE)
