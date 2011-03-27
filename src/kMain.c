@@ -26,20 +26,14 @@ void NORETURN kMain(unsigned int mBootCode, multiboot_info_t * mBootInfo)
 	// Initialize interrupts
 	IntrInit();
 
-	//Malloc must be initialized after interrupts
+	//Malloc must be initialized after interrupts (to allow page faults)
 	MAllocInit();
 
 	// Initialize process manager and scheduler
 	ProcInit();
 
-#warning IDEAS
-	//Idea - have drives load from a kernel thread so they don't have
-	// to deal with the boot special case (ProcCurrThread == NULL)
-
 	// Exit boot mode
 	ProcExitBootMode();
-
-	Panic("After boot code not implemented");
 }
 
 void NORETURN Panic(const char * msg, ...)
