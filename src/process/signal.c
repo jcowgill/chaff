@@ -57,9 +57,6 @@ static void SuspendSelf()
 
 	//Restore signal mask
 	ProcSignalSetMask(ProcCurrThread, SIG_SETMASK, maskBefore);
-
-	// Must process SIGKILL here
-	#warning TODO
 }
 
 //Returns true if the given signal is ignored by a process
@@ -78,8 +75,11 @@ static void HandleCustomSignal(IntrContext * iContext, ProcSigaction * action, i
 	unsigned int * stack = ((unsigned int *) iContext->esp) - 14;
 
 	//Do memory checks
-	#warning TODO User-mode memory checks
-	// If checks fail - crash whole process
+	if(!MemUserCanReadWrite(stack, 14 * sizeof(unsigned int)))
+	{
+		ProcExitProcess(-SIGSEGV);
+		return;
+	}
 
 	//Note: stack refers to the TOP of the stack
 
