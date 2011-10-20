@@ -168,10 +168,9 @@ typedef enum ETagRegionFlags
 	MEM_WRITABLE = 2,
 	MEM_EXECUTABLE = 4,
 	MEM_FIXED = 8,
-	MEM_MAPPEDFILE = 16,
-	MEM_CACHEDISABLE = 32,
+	MEM_CACHEDISABLE = 16,
 
-	MEM_ALLFLAGS = 63
+	MEM_ALLFLAGS = 31
 
 } RegionFlags;
 
@@ -194,10 +193,6 @@ typedef struct STagMemRegion
 	unsigned int start;				//Pointer to start of region
 	unsigned int length;			//Length of region in pages
 	PhysPage firstPage;				//First page - used only for fixed regions
-
-	FileHandle file;				//File used to read data into memory from
-	unsigned int fileOffset;		//The offset of file to read
-	unsigned int fileSize;			//The amount of data to read from the file
 
 } MemRegion;
 
@@ -238,22 +233,6 @@ MemRegion * MemRegionFind(MemContext * context, void * address);
 //  a temporary memory context switch may occur
 // The start address MUST be page aligned
 MemRegion * MemRegionCreate(MemContext * context, void * startAddress,
-		unsigned int length, RegionFlags flags);
-
-//Creates a new memory mapped region
-// If the context given is not the current or kernel context,
-//  a temporary memory context switch may occur
-// MEM_MAPPEDFILE is implied by this
-MemRegion * MemRegionCreateMMap(MemContext * context, void * startAddress,
-		unsigned int length, FileHandle file,
-		unsigned int fileOffset, unsigned int fileSize, RegionFlags flags);
-
-//Creates a new fixed memory section
-// These regions always point to a particular area of physical memory
-// If the context given is not the current or kernel context,
-//  a temporary memory context switch may occur
-// MEM_FIXED is implied by this
-MemRegion * MemRegionCreateFixed(MemContext * context, void * startAddress,
 		unsigned int length, PhysPage firstPage, RegionFlags flags);
 
 //Resizes the region of allocated memory

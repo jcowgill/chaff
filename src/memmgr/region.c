@@ -303,11 +303,29 @@ MemRegion * MemRegionFind(MemContext * context, void * address)
 // If the context given is not the current or kernel context,
 //  a temporary memory context switch may occur
 MemRegion * MemRegionCreate(MemContext * context, void * startAddress,
-		unsigned int length, RegionFlags flags)
+		unsigned int length, PhysPage firstPage, RegionFlags flags)
 {
 	MemRegion * region = MAlloc(sizeof(MemRegion));
 	if(MemIntRegionCreate(context, startAddress, length, flags, region))
 	{
+		//Map pages if fixed
+		if(flags & MEM_FIXED)
+		{
+			region->firstPage = firstPage;
+
+			//With fixed regions, we map the pages now
+			CONTEXT_SWAP(context)
+			{
+				for(char * startAddr = (char *) startAddress; length > 0;
+						length -= 4096, startAddr += 4096, ++firstPage)
+				{
+					//Map this page
+					MemIntMapPage(context, startAddr, firstPage, flags);
+				}
+			}
+			CONTEXT_SWAP_END
+		}
+
 		return region;
 	}
 	else
@@ -414,58 +432,6 @@ bool MemIntRegionCreate(MemContext * context, void * startAddress,
 
 	// We do no mapping until a page fault
 	return true;
-}
-
-//Creates a new memory mapped region
-// If the context given is not the current or kernel context,
-//  a temporary memory context switch may occur
-// MEM_MAPPEDFILE is implied by this
-MemRegion * MemRegionCreateMMap(MemContext * context, void * startAddress,
-		unsigned int length, FileHandle file,
-		unsigned int fileOffset, unsigned int fileSize, RegionFlags flags)
-{
-	//Pass to MemRegionCreate and set params
-	MemRegion * region = MemRegionCreate(context, startAddress, length, flags | MEM_MAPPEDFILE);
-
-	if(region)
-	{
-		region->file = file;
-		region->fileOffset = fileOffset;
-		region->fileSize = fileSize;
-	}
-
-	return region;
-}
-
-//Creates a new fixed memory section
-// These regions always point to a particular area of physical memory
-// If the context given is not the current or kernel context,
-//  a temporary memory context switch may occur
-// MEM_FIXED is implied by this
-MemRegion * MemRegionCreateFixed(MemContext * context, void * startAddress,
-		unsigned int length, PhysPage firstPage, RegionFlags flags)
-{
-	//Pass to MemRegionCreate and set params
-	MemRegion * region = MemRegionCreate(context, startAddress, length, flags | MEM_FIXED);
-
-	if(region)
-	{
-		region->firstPage = firstPage;
-
-		//With fixed regions, we map the pages now
-		CONTEXT_SWAP(context)
-		{
-			for(char * startAddr = (char *) startAddress; length > 0;
-					length -= 4096, startAddr += 4096, ++firstPage)
-			{
-				//Map this page
-				MemIntMapPage(context, startAddr, firstPage, flags);
-			}
-		}
-		CONTEXT_SWAP_END
-	}
-
-	return region;
 }
 
 //Resizes the region of allocated memory

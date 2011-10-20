@@ -83,22 +83,10 @@ void MemPageFaultHandler(IntrContext * intContext)
 				unsigned int * basePageAddr = (unsigned int *) ((unsigned int) faultAddress & 0xFFFFF000);
 				MemIntMapPage(context, basePageAddr, MemPhysicalAlloc(1), region->flags);
 
-				//Read page worth of data
-				if(region->flags & MEM_MAPPEDFILE)
-				{
-#warning After mapping page, read data if memory mapped
-					//Ensure ALL the page is replaced
-				}
-				else
-				{
-					//Wipe page
-					// Speed: don't wipe for kernel pages
-					if((unsigned int) basePageAddr < 0xC0000000)
-					{
-						MemSet(basePageAddr, 0, 4096);
-					}
-				}
+#warning Raise Pagefault Notification / Message
 
+				//Wipe page
+				MemSet(basePageAddr, 0, 4096);
 				return;
 			}
 		}
