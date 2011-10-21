@@ -8,6 +8,11 @@
 #ifndef CHAFF_H_
 #define CHAFF_H_
 
+//Global C Headers
+#include <stdbool.h>
+#include <stdint.h>
+#include <stddef.h>
+
 //Chaff global header
 #define CHAFF_VERSION 1
 
@@ -18,19 +23,8 @@
 #define NORETURN __attribute__((noreturn))
 #define STDCALL __attribute__((stdcall))
 
-//The null pointer
-#define NULL 0
-
-//Boolean type
-#define true 1
-#define false 0
-#define bool _Bool
-
 //Ignore unused parameter
 #define IGNORE_PARAM (void)
-
-//Generic size (32 bits)
-typedef unsigned long size_t;
 
 //External symbol accessing
 #define DECLARE_SYMBOL(symb) extern char symb[];

@@ -345,12 +345,6 @@ bool MemIntRegionCreate(MemContext * context, void * startAddress,
 	//Validate flags
 	flags &= MEM_ALLFLAGS;
 
-	if((flags & MEM_MAPPEDFILE) && (flags & MEM_FIXED))
-	{
-		PrintLog(Error, "MemRegionCreate: Region cannot be both memory mapped and fixed");
-		return false;
-	}
-
 	//Ensure start address and length are page aligned
 	if(startAddr % 4096 != 0 || length % 4096 != 0)
 	{
@@ -510,12 +504,6 @@ void MemRegionDelete(MemRegion * region)
 {
 	//Resize the region to 0 length to free all the pages
 	MemRegionResize(region, 0);
-
-	//Close file handle if mapped
-	if(region->flags & MEM_MAPPEDFILE)
-	{
-#warning TODO fclose file here
-	}
 
 	//Remove file from region list
 	list_del(&region->listItem);

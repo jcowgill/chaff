@@ -18,9 +18,9 @@ LINK = ld
 CC = gcc
 ASM = nasm
 
-CFLAGS = -c -gdwarf-2 -Wall -Wextra -Isrc/include -DDEBUG -std=gnu99 -nostdlib -fno-builtin -nostartfiles -nodefaultlibs -fno-stack-protector
-ASMFLAGS = -Xgnu -f elf -F dwarf
-LDFLAGS = -x
+CFLAGS = -c -gdwarf-2 -m32 -Wall -Wextra -Isrc/include -DDEBUG -std=gnu99 -nostdlib -fno-builtin -nostartfiles -nodefaultlibs -fno-stack-protector
+ASMFLAGS = -Xgnu -f elf32 -F dwarf
+LDFLAGS = -x -m elf_i386
 
 #Calculate objects (changes to .obj and uses obj directory)
 OBJS = $(subst src/,obj/,$(addsuffix .obj,$(basename $(SOURCES))))
@@ -38,7 +38,7 @@ install:
 
 clean:
 	rm -rf obj
-	rm bin/$(BINFILE)
+	rm -f bin/$(BINFILE)
 
 $(BINFILE): $(OBJS)
 	mkdir -p bin
