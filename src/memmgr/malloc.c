@@ -120,6 +120,7 @@ void * MAlloc(unsigned int size)
 			if(cBlock == NULL)
 			{
 				//Out of memory
+#warning Most calls to malloc do not handle out of memory situations
 				retVal = NULL;
 				break;
 			}

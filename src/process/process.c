@@ -97,6 +97,9 @@ ProcProcess * ProcCreateProcess(const char * name, ProcProcess * parent)
 	//Allocate process
 	ProcProcess * process = MAlloc(sizeof(ProcProcess));
 
+	//Zero out
+	MemSet(process, 0, sizeof(ProcProcess));
+
 	//Allocate process id
 	do
 	{
@@ -125,14 +128,7 @@ ProcProcess * ProcCreateProcess(const char * name, ProcProcess * parent)
 	//Set name
 	process->name = StrDup(name);
 
-	//Exit code is 0
-	process->exitCode = 0;
-
-	//Memory context is handled manually
-	process->memContext = NULL;
-
-	//Not a zombie
-	process->zombie = false;
+	//Other properties are zeroed out above
 
 	return process;
 }
@@ -276,7 +272,9 @@ void NORETURN ProcExitProcess(unsigned int exitCode)
 		// Free memory context
 		if(ProcCurrProcess->memContext != NULL)
 		{
+			MemContextSwitchTo(MemKernelContext);
 			MemContextDelete(ProcCurrProcess->memContext);
+
 			ProcCurrProcess->memContext = NULL;
 		}
 

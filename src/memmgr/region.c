@@ -19,6 +19,10 @@ PageTable kernelPageTable254[1024] __attribute__((aligned(4096)));			//For physi
 
 //Kernel context
 MemContext MemKernelContextData = { LIST_HEAD_INIT(MemKernelContextData.regions), 0, INVALID_PAGE };
+	//INVALID_PAGE changed in MemManagerInit
+
+//Current context
+MemContext * MemCurrentContext = MemKernelContext;
 
 //Free a page OR decrease it's reference count if it is > 1
 void MemIntFreePageOrDecRefs(PhysPage page)
@@ -165,6 +169,9 @@ void MemContextSwitchTo(MemContext * context)
 
 		context->kernelVersion = MemKernelContext->kernelVersion;
 	}
+
+	//Save current context
+	MemCurrentContext = context;
 }
 
 //Deletes this memory context - DO NOT delete the memory context
@@ -180,6 +187,11 @@ void MemContextDelete(MemContext * context)
 	else if(context->physDirectory == INVALID_PAGE)
 	{
 		PrintLog(Critical, "MemContextDelete: Invalid memory context passed.");
+		return;
+	}
+	else if(context == MemKernelContext)
+	{
+		PrintLog(Critical, "MemContextDelete: Cannot delete kernel memory context.");
 		return;
 	}
 
@@ -221,8 +233,8 @@ void MemContextDelete(MemContext * context)
 	MemPhysicalFree(context->physDirectory, 1);
 
 	//Free regions
-	MemRegion * region;
-	list_for_each_entry(region, &context->regions, listItem)
+	MemRegion * region, * tmpRegion;
+	list_for_each_entry_safe(region, tmpRegion, &context->regions, listItem)
 	{
 		//Deallocate region stuffs
 #warning TODO - Do we do something (like closing) the file handle here?

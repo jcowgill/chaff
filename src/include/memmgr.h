@@ -258,9 +258,10 @@ bool MemUserCanWrite(void * data, unsigned int length);
 // Writes may cause page faults
 bool MemUserCanReadWrite(void * data, unsigned int length);
 
-//Kernel context
+//Kernel and current context
 extern MemContext MemKernelContextData;
 #define MemKernelContext (&MemKernelContextData)
+extern MemContext * MemCurrentContext;
 
 //Page fault handler
 // This MUST be called from an interrupt context

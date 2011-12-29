@@ -32,8 +32,7 @@ void MemPageFaultHandler(IntrContext * intContext)
 	}
 
 	//Get region of address
-	MemContext * context = ProcCurrProcess->memContext;
-	MemRegion * region = MemRegionFind(context, faultAddress);
+	MemRegion * region = MemRegionFind(MemCurrentContext, faultAddress);
 
 	//If null, out of valid area
 	if(region != NULL)
@@ -81,7 +80,7 @@ void MemPageFaultHandler(IntrContext * intContext)
 			{
 				//Map page
 				unsigned int * basePageAddr = (unsigned int *) ((unsigned int) faultAddress & 0xFFFFF000);
-				MemIntMapPage(context, basePageAddr, MemPhysicalAlloc(1), region->flags);
+				MemIntMapPage(MemCurrentContext, basePageAddr, MemPhysicalAlloc(1), region->flags);
 
 #warning Raise Pagefault Notification / Message
 

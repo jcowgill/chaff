@@ -173,7 +173,7 @@ void NORETURN ProcIntSchedulerExitSelf()
 	DoSchedule();
 
 	//If we get here, something's gone very wrong
-	Panic("ProcIntSchedulerExitSelf: DoSchedule(true) returned");
+	Panic("ProcIntSchedulerExitSelf: DoSchedule() returned");
 }
 
 //Exits the boot code to continue running threads as normal
@@ -188,5 +188,5 @@ void NORETURN ProcExitBootMode()
 	DoSchedule();
 
 	//If we get here, something's gone very wrong
-	Panic("ProcIntSchedulerExitSelf: DoSchedule(true) returned");
+	Panic("ProcIntSchedulerExitSelf: DoSchedule() returned");
 }

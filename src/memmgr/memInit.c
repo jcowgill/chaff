@@ -118,6 +118,10 @@ void MemManagerInit(multiboot_info_t * bootInfo)
 	unsigned int tableLength;
 	unsigned int highestAddr;
 
+	//Set kernel context page directory location
+	MemKernelContext->physDirectory =
+			(((unsigned int) &kernelPageDirectory) - ((unsigned int) KERNEL_VIRTUAL_BASE)) / 4096;
+
 	//PHASE 1 - Get table location
 	GetPhysicalTableLocation(bootInfo, &highestAddr, &tableLength, &tableLocation);
 
