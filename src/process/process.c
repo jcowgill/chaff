@@ -140,6 +140,9 @@ static ProcThread * ProcCreateRawThread(const char * name, ProcProcess * parent,
 	//Allocate thread
 	ProcThread * thread = MAlloc(sizeof(ProcThread));
 
+	//Zero out
+	MemSet(thread, 0, sizeof(ProcThread));
+
 	//Allocate thread id
 	do
 	{
@@ -160,18 +163,12 @@ static ProcThread * ProcCreateRawThread(const char * name, ProcProcess * parent,
 
 	//Initialise scheduler head
 	INIT_LIST_HEAD(&thread->schedQueueEntry);
-	thread->schedInterrupted = 0;
 
 	//Allocate kernel stack
-	thread->kStackPointer = NULL;
 	if(withStack)
 	{
 		thread->kStackBase = MAlloc(PROC_KSTACK_SIZE);
 		MemSet(thread->kStackBase, 0, PROC_KSTACK_SIZE);
-	}
-	else
-	{
-		thread->kStackBase = NULL;
 	}
 
 	//Kernel stack is setup by caller

@@ -158,7 +158,7 @@ void IntrHandler(IntrContext iContext)
 			}
 
 			//Master PIC
-			outb(0xA0, 0x20);
+			outb(0x20, 0x20);
 		}
 	}
 	else if(iContext.intrNum == 0x42)

@@ -10,6 +10,7 @@
 #include "memmgr.h"
 #include "process.h"
 #include "interrupt.h"
+#include "timer.h"
 
 void NORETURN kMain(unsigned int mBootCode, multiboot_info_t * mBootInfo)
 {
@@ -28,6 +29,9 @@ void NORETURN kMain(unsigned int mBootCode, multiboot_info_t * mBootInfo)
 
 	//Malloc must be initialized after interrupts (to allow page faults)
 	MAllocInit();
+
+	// Initialize timer system
+	TimerInit();
 
 	// Initialize process manager and scheduler
 	ProcInit();

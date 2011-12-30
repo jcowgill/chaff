@@ -131,15 +131,23 @@ void ProcWakeUpSig(ProcThread * thread, bool isSignal)
 		//If this is an uninteruptible wake up, ensure the wake is uninterruptible
 		if(!isSignal)
 		{
-			thread->schedInterrupted = 2;
+			thread->schedInterrupted = 0;
 		}
 
 		//Already on queue
 		return;
 
 	case PTS_INTR:
-		//Interrupt
-		thread->schedInterrupted = 1;
+		//Interruptable wake up
+		if(isSignal)
+		{
+			thread->schedInterrupted = 1;
+		}
+		else
+		{
+			thread->schedInterrupted = 0;
+		}
+
 		break;
 
 	case PTS_UNINTR:
@@ -149,11 +157,17 @@ void ProcWakeUpSig(ProcThread * thread, bool isSignal)
 			return;
 		}
 
-		thread->schedInterrupted = 2;
+		thread->schedInterrupted = 0;
 		break;
 
+	case PTS_ZOMBIE:
+		//Cannot wake zombie
+		PrintLog(Critical, "ProcWakeUpSig: Attempt to wake up zombie thread");
+		return;
+
 	default:
-#warning What do i do here?
+		//WTF
+		Panic("ProcWakeUpSig: Illegal thread state");
 		return;
 	}
 

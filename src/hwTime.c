@@ -13,18 +13,18 @@
 //
 
 #define RTC_ADDR 0x70
-#define RTC_DATA 0x70
+#define RTC_DATA 0x71
 
-#define TIMEMODE_24HR 4
-#define TIMEMODE_BIN 2
+#define TIMEMODE_24HR 2
+#define TIMEMODE_BIN 4
 
 //Sum of all previous days in a year
-static const unsigned short monthdays[13] =
-	{ 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365 };
+static const unsigned short monthdays[12] =
+	{ 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334 };
 
 // leap year
-static const unsigned short monthdays2[13] =
-	{ 0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335, 366 };
+static const unsigned short monthdays2[12] =
+	{ 0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335 };
 
 //Converts a BCD number to binary
 static inline unsigned int BCD2Binary(unsigned char value)
@@ -69,7 +69,7 @@ static inline unsigned char CMOSRead(unsigned char reg, bool bcd)
 	unsigned char result;
 	outb(RTC_ADDR, reg);
 
-	result = inb(RTC_ADDR);
+	result = inb(RTC_DATA);
 
 	if(bcd)
 	{
@@ -84,26 +84,16 @@ static inline unsigned char CMOSRead(unsigned char reg, bool bcd)
 static inline unsigned int DaysDiff(unsigned int year, unsigned char month,
 		unsigned char day)
 {
-	unsigned int days = 0;
+	unsigned int days;
 
-	//Handle years and leap years
-    for(unsigned int i = 1970; i < year; i++)
-    {
-        if(i % 4 == 0)
-        {
-        	//Leap year
-            days += 366;
-        }
-        else
-        {
-            days += 365;
-        }
-    }
+	//Handle years and leap year
+	days = (year - 1970) * 365 + ((year - 1970 + 1) / 4);
 
     //Handle months
-    if(month > 12)
+    month--;
+    if(month > 11)
     {
-    	month = 12;
+    	month = 11;
     }
 
     if(year % 4 == 0)
@@ -168,7 +158,7 @@ TimerTime TimerGetCMOSTime()
 	unsigned char year = CMOSRead(9, isBCD);
 
 	//Add days part to unixTime
-	unixTime += DaysDiff(year + 2000, month, days);		//Assumes year is between 2000 and 2099
+	unixTime += DaysDiff(year + 2000, month, days) * 24 * 60 * 60;	//Assumes year is between 2000 and 2099
 
 	//Return time shifted all the way to the left
 	return ((TimerTime) unixTime) << 32;

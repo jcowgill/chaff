@@ -133,10 +133,10 @@ int memcmp(const void * ptr1, const void * ptr2, size_t length)
 char * strdup(const char * s)
 {
 	//Get string length
-	unsigned int sLen = StrLen(s);
+	unsigned int lenWithNull = StrLen(s) + 1;
 
 	//Allocate memory, copy and return string
-	return MemCpy(MAlloc(sLen + 1), s, sLen);
+	return MemCpy(MAlloc(lenWithNull), s, lenWithNull);
 }
 
 //Strlen implementation
