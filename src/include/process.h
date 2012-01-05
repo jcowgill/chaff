@@ -238,4 +238,7 @@ static inline bool ProcSignalIsPending(ProcThread * thread)
 //Delivers pending signals on the current thread
 void ProcSignalHandler(IntrContext * iContext);
 
+//Called to restore the state of the thread after a signal handler has executed
+void ProcSignalReturn(IntrContext * iContext);
+
 #endif /* PROCESS_H_ */

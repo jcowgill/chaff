@@ -32,7 +32,16 @@ void MemPageFaultHandler(IntrContext * intContext)
 	}
 
 	//Get region of address
-	MemRegion * region = MemRegionFind(MemCurrentContext, faultAddress);
+	MemRegion * region;
+
+	if(faultAddress >= KERNEL_VIRTUAL_BASE)
+	{
+		region = MemRegionFind(MemKernelContext, faultAddress);
+	}
+	else
+	{
+		region = MemRegionFind(MemCurrentContext, faultAddress);
+	}
 
 	//If null, out of valid area
 	if(region != NULL)
@@ -82,8 +91,6 @@ void MemPageFaultHandler(IntrContext * intContext)
 				unsigned int * basePageAddr = (unsigned int *) ((unsigned int) faultAddress & 0xFFFFF000);
 				MemIntMapPage(MemCurrentContext, basePageAddr, MemPhysicalAlloc(1), region->flags);
 
-#warning Raise Pagefault Notification / Message
-
 				//Wipe page
 				MemSet(basePageAddr, 0, 4096);
 				return;
@@ -95,7 +102,7 @@ void MemPageFaultHandler(IntrContext * intContext)
 	if(errorCode & (1 << 2))
 	{
 		//User mode fault
-		ProcSignalSendThread(ProcCurrThread, SIGSEGV);
+		ProcSignalSendOrCrash(SIGSEGV);
 	}
 	else
 	{

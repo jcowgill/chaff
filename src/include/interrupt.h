@@ -35,7 +35,7 @@ typedef struct
 	unsigned int cs;
 	unsigned int eflags;
 
-	//These only exist if the interrupt happened while in user mode (cs = 0x10)
+	//These only exist if the interrupt happened while in user mode (cs = 0x1B)
 	unsigned int esp;
 	unsigned int ss;
 

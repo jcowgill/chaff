@@ -8,6 +8,8 @@
 #include "chaff.h"
 #include "process.h"
 
+#define SIGNAL_INDEX(num) ((num) - 1)
+
 //Continues a suspended thread
 // If the thread isn't suspended, does nothing
 static void RemoteContinueThread(ProcThread * thread)
@@ -20,10 +22,11 @@ static void RemoteContinueThread(ProcThread * thread)
 	}
 
 	//Set signal pending
-	thread->sigPending |= (1 << (SIGCONT - 1));
+	thread->sigPending |= (1 << SIGNAL_INDEX(SIGCONT));
 
 	//Remove suspend signals
-	thread->sigPending &= ~((1 << (SIGSTOP - 1)) | (1 << (SIGTSTP - 1)) | (1 << (SIGTTIN - 1)) | (1 << (SIGTTOU - 1)));
+	thread->sigPending &= ~((1 << SIGNAL_INDEX(SIGSTOP)) | (1 << SIGNAL_INDEX(SIGTSTP)) |
+			(1 << SIGNAL_INDEX(SIGTTIN)) | (1 << SIGNAL_INDEX(SIGTTOU)));
 
 	//Interrupt thread
 	ProcWakeUpSig(thread, true);
@@ -34,7 +37,7 @@ static void SuspendSelf()
 {
 	//Block all signals except SIGKILL and SIGCONT
 	ProcSigSet maskBefore = ProcCurrThread->sigBlocked;
-	ProcSignalSetMask(ProcCurrThread, SIG_SETMASK, (~0) & ~(1 << (SIGCONT - 1)));
+	ProcSignalSetMask(ProcCurrThread, SIG_SETMASK, (~0) & ~(1 << SIGNAL_INDEX(SIGCONT)));
 
 	//Perform interruptable wait
 	for(;;)
@@ -46,10 +49,10 @@ static void SuspendSelf()
 		}
 
 		//Ignore SIGSTOP
-		ProcCurrThread->sigPending &= ~(1 << (SIGSTOP - 1));
+		ProcCurrThread->sigPending &= ~(1 << SIGNAL_INDEX(SIGSTOP));
 
 		//Exit on SIGKILL or SIGCONT
-		if(ProcCurrThread->sigPending & ((1 << (SIGKILL - 1)) | (1 << (SIGCONT -1))))
+		if(ProcCurrThread->sigPending & ((1 << SIGNAL_INDEX(SIGKILL)) | (1 << SIGNAL_INDEX(SIGCONT))))
 		{
 			break;
 		}
@@ -63,8 +66,8 @@ static void SuspendSelf()
 // Does NOT check SIGKILL or SIGSTOP for bogus actions
 static inline bool SignalIsIgnored(ProcProcess * process, int sigNum)
 {
-	return process->sigHandlers[sigNum - 1].sa_handler == SIG_IGN ||
-	        (process->sigHandlers[sigNum - 1].sa_handler == SIG_DFL && (sigNum == SIGCONT || sigNum == SIGCLD));
+	return process->sigHandlers[SIGNAL_INDEX(sigNum)].sa_handler == SIG_IGN ||
+	        (process->sigHandlers[SIGNAL_INDEX(sigNum)].sa_handler == SIG_DFL && (sigNum == SIGCONT || sigNum == SIGCLD));
 }
 
 //Handles custom signal handlers
@@ -95,8 +98,8 @@ static void HandleCustomSignal(IntrContext * iContext, ProcSigaction * action, i
 	 * B8 EE000000		mov eax, 0xEE
 	 * CD42				int 42h
 	 */
-
-	stack[2] = 0x00EEB858;		//Signal return syscall number replaces EE
+#warning Replace EE with signal return syscall number
+	stack[2] = 0x00EEB858;
 	stack[3] = 0x42CD0000;
 
 	// Save registers
@@ -114,6 +117,47 @@ static void HandleCustomSignal(IntrContext * iContext, ProcSigaction * action, i
 	//Set the context pointers
 	iContext->esp = (unsigned int) stack;
 	iContext->eip = (unsigned int) action->sa_handler;
+
+	//DF should be unset when entering the signal function
+	iContext->eflags &= ~(1 << 10);
+}
+
+//Called to restore the state of the thread after a signal handler has executed
+void ProcSignalReturn(IntrContext * iContext)
+{
+	//Only allowed from user mode
+	if(iContext->cs != 0x1B)
+	{
+	    PrintLog(Error, "ProcSignalReturn: Can only return from user-mode signals");
+	    return;
+	}
+
+	//Get user stack pointer
+	unsigned int * stack = (unsigned int *) iContext->esp;
+
+	//Do memory checks
+	if(!MemUserCanRead(stack, 12 * sizeof(unsigned int)))
+	{
+		//Cannot read from stack
+		ProcSignalSendOrCrash(SIGSEGV);
+		return;
+	}
+
+	//Stack is at position 2 in HandleCustomSignal
+
+	//Restore registers
+	iContext->esp = stack[2];
+	iContext->eflags = (stack[3] & 0xCFF) | 0x200;
+		//This prevents privileged flags from being set
+		// and forces IF to be set
+	iContext->eip = stack[4];
+	iContext->eax = stack[5];
+	iContext->ecx = stack[6];
+	iContext->edx = stack[7];
+	iContext->ebx = stack[8];
+	iContext->ebp = stack[9];
+	iContext->esi = stack[10];
+	iContext->edi = stack[11];
 }
 
 //Sends a signal to the current thread
@@ -123,7 +167,7 @@ void ProcSignalSendOrCrash(int sigNum)
 {
 	//Check if ignored or blocked
 	if(SignalIsIgnored(ProcCurrProcess, sigNum) ||
-		((1 << (sigNum - 1)) & ProcCurrThread->sigBlocked))
+		((1 << SIGNAL_INDEX(sigNum)) & ProcCurrThread->sigBlocked))
 	{
 	    //Kill self
 	    ProcExitProcess(-sigNum);
@@ -154,16 +198,13 @@ void ProcSignalSendThread(ProcThread * thread, int sigNum)
             // Force if SIGKILL, SIGSTOP
             if(!SignalIsIgnored(thread->parent, sigNum) || sigNum == SIGKILL || sigNum == SIGSTOP)
             {
-                //Decrease signal to get bit
-                --sigNum;
-
                 //Add to pending signals
-                thread->sigPending |= (1 << sigNum);
+                thread->sigPending |= (1 << SIGNAL_INDEX(sigNum));
 
                 //If this is a suspend signal, remove continue signals
                 if(sigNum == SIGSTOP)
                 {
-                	thread->sigPending &= ~(1 << (SIGCONT - 1));
+                	thread->sigPending &= ~(1 << SIGNAL_INDEX(SIGCONT));
                 }
 
                 //If the thread has pending signals, wake up
@@ -216,11 +257,8 @@ void ProcSignalSendProcess(ProcProcess * process, int sigNum)
                 // Force if SIGKILL, SIGSTOP
                 if(!SignalIsIgnored(process, sigNum))
                 {
-                    //Decrease signal to get bit
-                    --sigNum;
-
                     //Add to pending signals
-                    process->sigPending |= (1 << sigNum);
+                    process->sigPending |= (1 << SIGNAL_INDEX(sigNum));
 
                     //Wake up an interruptable thread if there are no eligible
                     // running threads
@@ -251,6 +289,7 @@ void ProcSignalSendProcess(ProcProcess * process, int sigNum)
                         ProcWakeUpSig(eligibleIntr, true);
                     }
                 }
+                break;
         }
     }
 }
@@ -279,7 +318,7 @@ void ProcSignalSetMask(ProcThread * thread, int how, ProcSigSet signalSet)
     }
 
     //Force SIGKILL and SIGSTOP to be unblocked
-    thread->sigBlocked &= (1 << (SIGKILL - 1) | 1 << (SIGSTOP - 1));
+    thread->sigBlocked &= (1 << SIGNAL_INDEX(SIGKILL) | 1 << SIGNAL_INDEX(SIGSTOP));
 }
 
 //Sets a signal handling function for the given signal
@@ -289,15 +328,15 @@ void ProcSignalSetAction(ProcProcess * process, int sigNum, ProcSigaction newAct
     if(sigNum > 0 && sigNum <= SIG_MAX)
     {
         //Force non blocking of SIGKILL and SIGSTOP
-        newAction.sa_mask &= (1 << (SIGKILL - 1) | 1 << (SIGSTOP - 1));
+        newAction.sa_mask &= (1 << SIGNAL_INDEX(SIGKILL) | 1 << SIGNAL_INDEX(SIGSTOP));
 
         //Copy action to process
-        process->sigHandlers[sigNum] = newAction;
+        process->sigHandlers[SIGNAL_INDEX(sigNum)] = newAction;
 
 		//If the new action is ignore, remove pending signals on all threads
 		if(SignalIsIgnored(process, sigNum))
 		{
-		    int mask = ~(1 << (sigNum - 1));
+		    int mask = ~(1 << SIGNAL_INDEX(sigNum));
 		
 		    //Remove from pending signals
 		    process->sigPending &= mask;
@@ -336,14 +375,14 @@ refreshSigSet:
     }
 
     //Check SIGKILL
-    if(sigSet & (SIGKILL - 1))
+    if(sigSet & SIGNAL_INDEX(SIGKILL))
     {
         //Exit thread
         ProcExitThread(0);
     }
 
     //Check SIGSTOP
-    if(sigSet & (SIGSTOP - 1))
+    if(sigSet & SIGNAL_INDEX(SIGSTOP))
     {
         SuspendSelf();
         goto refreshSigSet;
@@ -352,14 +391,16 @@ refreshSigSet:
     do
     {
         //Handle lowest signal
-        int sigNum = BitScanForward(sigSet);        //Find signal
-        sigSet &= ~(1 << sigNum);                   //Clear bit
+        int sigNum = BitScanForward(sigSet) + 1;
+
+        //Clear bit from masks
+        int sigSetMask = ~(1 << SIGNAL_INDEX(sigNum));
+        sigSet &= sigSetMask;
+        ProcCurrThread->sigPending &= sigSetMask;
+        ProcCurrProcess->sigPending &= sigSetMask;
 
         //Get action
-        ProcSigaction * action = &ProcCurrProcess->sigHandlers[sigNum];
-
-        //Make signal conatantable
-        ++sigNum;
+        ProcSigaction * action = &ProcCurrProcess->sigHandlers[SIGNAL_INDEX(sigNum)];
 
         //Do action
         switch((int) action->sa_handler)
@@ -383,7 +424,7 @@ refreshSigSet:
                     case SIGTTIN:
                     case SIGTTOU:
                     	//Process / thread?
-                    	if(ProcCurrProcess->sigPending & (1 << (sigNum - 1)))
+                    	if(ProcCurrProcess->sigPending & (1 << SIGNAL_INDEX(sigNum)))
                     	{
                     		//Whole process signal
                     		ProcSignalSendProcess(ProcCurrProcess, sigNum);

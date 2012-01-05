@@ -104,7 +104,7 @@ static void AddTimerToQueue(TimerQueue * newItem, struct list_head * headPtr)
 	list_for_each_entry(currPos, headPtr, list)
 	{
 		//Is this time more than ours?
-		if(time >= currPos->endTime)
+		if(time > currPos->endTime)
 		{
 			//Add before current pos
 			list_add_tail(&newItem->list, &currPos->list);

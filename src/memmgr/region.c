@@ -81,6 +81,24 @@ MemContext * MemContextClone()
 	MemContext * newContext = MAlloc(sizeof(MemContext));
 	INIT_LIST_HEAD(&newContext->regions);
 
+	//Copy regions
+	MemRegion * oldRegion;
+	list_for_each_entry(oldRegion, &MemCurrentContext->regions, listItem)
+	{
+		//Allocate new region
+		MemRegion * newRegion = MAlloc(sizeof(MemRegion));
+
+		//Copy region data
+		MemCpy(newRegion, oldRegion, sizeof(MemRegion));
+#warning Special handling for memory mapped files
+
+		//Set context
+		newRegion->myContext = newContext;
+
+		//Add to new list
+		list_add_tail(&newRegion->listItem, &newContext->regions);
+	}
+
 	//Allocate directory
 	newContext->physDirectory = MemPhysicalAlloc(1);
 	newContext->kernelVersion = 0;

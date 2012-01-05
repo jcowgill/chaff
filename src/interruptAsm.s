@@ -95,6 +95,9 @@ IntrCommonEntry:
 	mov ds, ax
 	mov es, ax
 
+	;Clear direction flag (required by ABI)
+	cld
+
 	;Call main handler
 	call IntrHandler
 

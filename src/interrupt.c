@@ -172,8 +172,11 @@ void IntrHandler(IntrContext iContext)
 		Panic("Invalid interrupt encountered: %u", iContext.intrNum);
 	}
 
-	//Handle signals
-#warning Check for signals here
+	//Handle signals for user returns
+	if(iContext.cs == 0x1B)
+	{
+		ProcSignalHandler(&iContext);
+	}
 }
 
 

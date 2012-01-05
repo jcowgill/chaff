@@ -35,6 +35,7 @@ all: $(BINFILE)
 install:
 	-mount bin/chaffdir
 	cp bin/chaff.elf bin/chaffdir/chaff.elf
+	sync
 
 clean:
 	rm -rf obj

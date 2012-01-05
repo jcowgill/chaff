@@ -244,7 +244,7 @@ void NORETURN ProcExitProcess(unsigned int exitCode)
 	ProcCurrProcess->exitCode = exitCode;
 
 	//If this is not the last thread, kill the others and then kill
-	if(ProcCurrProcess->children.next != ProcCurrProcess->children.prev)
+	if(ProcCurrProcess->threads.next != ProcCurrProcess->threads.prev)
 	{
 		ProcThread * thread;
 		list_for_each_entry(thread, &ProcCurrProcess->threads, threadSibling)
@@ -269,6 +269,7 @@ void NORETURN ProcExitProcess(unsigned int exitCode)
 		// Free memory context
 		if(ProcCurrProcess->memContext != NULL)
 		{
+#warning Do we really want this. MemContext ref counting anyone (also update ProcReapProcess)
 			MemContextSwitchTo(MemKernelContext);
 			MemContextDelete(ProcCurrProcess->memContext);
 
@@ -303,7 +304,7 @@ static void ProcReapProcess(ProcProcess * process)
 		ProcReapThread(thread);
 	}
 
-	//Any child processes should be inherited by init
+	//Any child processes should be inherited by the kernel
 	ProcDisownChildren(process);
 
 	//Free process memory context if it still exists
@@ -330,12 +331,11 @@ static void ProcDisownChildren(ProcProcess * process)
 {
 	ProcProcess * child;
 	ProcProcess * childTmp;
-	ProcProcess * initProcess = ProcGetProcessByID(1);
 
 	list_for_each_entry_safe(child, childTmp, &process->children, processSibling)
 	{
 		list_del_init(&child->processSibling);
-		list_add_tail(&child->processSibling, &initProcess->children);
+		list_add_tail(&child->processSibling, &ProcKernelProcess->children);
 	}
 }
 
