@@ -54,7 +54,7 @@ typedef enum
 void PrintLog(LogLevel level, const char * msg, ...);
 
 //Kernel heap allocation
-void * MAlloc(unsigned int size);
+void * MAlloc(unsigned int size) __attribute__((alloc_size(1), malloc));
 void MFree(void * data);
 
 //Sets the specified number of bytes after the given pointer with the given value

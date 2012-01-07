@@ -18,7 +18,7 @@ PageDirectory kernelPageDirectory[1024] __attribute__((aligned(4096)));
 PageTable kernelPageTable254[1024] __attribute__((aligned(4096)));			//For physical reference table
 
 //Kernel context
-MemContext MemKernelContextData = { LIST_HEAD_INIT(MemKernelContextData.regions), 0, INVALID_PAGE };
+MemContext MemKernelContextData = { LIST_HEAD_INIT(MemKernelContextData.regions), 0, INVALID_PAGE, 0 };
 	//INVALID_PAGE changed in MemManagerInit
 
 //Current context
@@ -49,6 +49,7 @@ MemContext * MemContextInit()
 	//Allocate directory
 	newContext->physDirectory = MemPhysicalAlloc(1);
 	newContext->kernelVersion = 0;
+	newContext->refCount = 0;
 
 	//Temporarily map directory
 	MemIntMapTmpPage(MEM_TEMPPAGE1, newContext->physDirectory);
@@ -102,6 +103,7 @@ MemContext * MemContextClone()
 	//Allocate directory
 	newContext->physDirectory = MemPhysicalAlloc(1);
 	newContext->kernelVersion = 0;
+	newContext->refCount = 0;
 
 	//Temporarily map directory
 	MemIntMapTmpPage(MEM_TEMPPAGE1, newContext->physDirectory);
@@ -263,6 +265,24 @@ void MemContextDelete(MemContext * context)
 
 	//Free the final context
 	MFree(context);
+}
+
+//Deletes a reference to a memory context
+// The context passed MUST NOT be the current context
+// When the refCount reaches zero, the context will be destroyed
+// MEM_FIXED memory IS DELETED by this
+void MemContextDeleteReference(MemContext * context)
+{
+	if(context->refCount <= 1)
+	{
+		//Delete context
+		MemContextDelete(context);
+	}
+	else
+	{
+		//Decrement ref count
+		context->refCount--;
+	}
 }
 
 //Frees the pages associated with a given region of memory without destroying the region

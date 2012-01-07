@@ -203,21 +203,37 @@ typedef struct STagMemContext
 	unsigned int kernelVersion;		//Version of kernel page directory for this context
 	PhysPage physDirectory;			//Page directory physical page
 
+	unsigned int refCount;			//Memory contex reference counter
+
 } MemContext;
 
 //Creates a new blank memory context
+// The reference count will be 0
 MemContext * MemContextInit();
 
 //Clones this memory context
+// The reference count will be 0
 MemContext * MemContextClone();
 
 //Switches to this memory context
 void MemContextSwitchTo(MemContext * context);
 
-//Deletes this memory context - DO NOT delete the memory context
-// which is currently in use or the kernel context
+//Deletes this memory context
+// You should probably use MemContextDeleteReference instead of this
 // MEM_FIXED memory IS DELETED by this
 void MemContextDelete(MemContext * context);
+
+//Adds a reference to a memory context
+static inline void MemContextAddReference(MemContext * context)
+{
+	context->refCount++;
+}
+
+//Deletes a reference to a memory context
+// The context passed MUST NOT be the current context
+// When the refCount reaches zero, the context will be destroyed
+// MEM_FIXED memory IS DELETED by this
+void MemContextDeleteReference(MemContext * context);
 
 //Frees the pages associated with a given region of memory without destroying the region
 // (pages will automatically be allocated when memory is referenced)

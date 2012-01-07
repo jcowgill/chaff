@@ -179,7 +179,6 @@ void IntrHandler(IntrContext iContext)
 	}
 }
 
-
 //Interrupt registering
 // Registers the given IRQ with an interrupt handler
 bool IntrRegister(int irq, int flags, void (* handler)(IntrContext *))

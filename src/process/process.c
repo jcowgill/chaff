@@ -488,9 +488,8 @@ void NORETURN ProcExitProcess(unsigned int exitCode)
 		// Free memory context
 		if(ProcCurrProcess->memContext != NULL)
 		{
-#warning Do we really want this. MemContext ref counting anyone (also update ProcReapProcess)
 			MemContextSwitchTo(MemKernelContext);
-			MemContextDelete(ProcCurrProcess->memContext);
+			MemContextDeleteReference(ProcCurrProcess->memContext);
 
 			ProcCurrProcess->memContext = NULL;
 		}
@@ -520,10 +519,10 @@ void NORETURN ProcExitProcess(unsigned int exitCode)
 //Reaps the given process
 static void ProcReapProcess(ProcProcess * process)
 {
-	//Do not reap the current process
-	if(ProcCurrProcess == process)
+	//Do not reap running process
+	if(!process->zombie)
 	{
-		Panic("ProcReapProcess: Cannot reap the current process");
+		Panic("ProcReapProcess: Cannot reap running process");
 	}
 
 	//Reap any existing threads
@@ -536,12 +535,6 @@ static void ProcReapProcess(ProcProcess * process)
 
 	//Any child processes should be inherited by the kernel
 	ProcDisownChildren(process);
-
-	//Free process memory context if it still exists
-	if(process->memContext != NULL)
-	{
-		MemContextDelete(process->memContext);
-	}
 
 	//Remove as one of the parent's children
 	list_del(&process->processSibling);
