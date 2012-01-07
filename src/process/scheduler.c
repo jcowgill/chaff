@@ -107,7 +107,7 @@ bool ProcYieldBlock(bool interruptable)
 	ProcCurrThread->state = interruptable ? PTS_INTR : PTS_UNINTR;
 
 	//We don't add ourselves to the scheduler list since we're blocked
-	DoSchedule(false);
+	DoSchedule();
 
 	//Return whether interrupted
 	return ProcCurrThread->schedInterrupted == 1;

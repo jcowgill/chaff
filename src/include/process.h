@@ -30,6 +30,15 @@ typedef enum
 
 } ProcThreadState;
 
+//Thread wait mode
+typedef enum
+{
+	PWM_NONE,			//Not waiting
+	PWM_PROCESS,		//Waiting for a process
+	PWM_THREAD,			//Waiting for a thread
+
+} ProcWaitMode;
+
 //Process and thread structures
 struct SProcProcess;
 struct SProcThread;
@@ -109,6 +118,7 @@ struct SProcThread
 
 	//Thread state
 	ProcThreadState state;
+	ProcWaitMode waitMode;
 
 	//Scheduler stuff (don't change this)
 	struct list_head schedQueueEntry;		//Place in scheduler queue
@@ -180,6 +190,33 @@ ProcThread * ProcCreateKernelThread(const char * name, int (* startAddr)(void *)
 // If this is the final thread, this will also exit the current process with status 0
 // This works for both user and kernel threads
 void NORETURN ProcExitThread(unsigned int exitCode);
+
+#define WNOHANG 1		//Causes ProcWait not to block
+
+//Waits for a child process to exit
+// id
+//	  >1, only the given pid
+//	  -1, any child process
+//	   0, any process from current process group
+//	  <1, any process from given (negated) process group
+// exitCode = pointer to where to write exit code to (must be kernel mode)
+// options = one of the wait options above
+//Returns
+// the process id on success,
+// 0 if WNOHANG was given and there are no waitable processes,
+// negative error code on an error
+int ProcWaitProcess(int id, unsigned int * exitCode, int options);
+
+//Waits for a thread sibling to exit
+// id
+//	  >1, only the given pid
+//	  -1, any child process
+// options = one of the wait options above
+//Returns
+// the thread id on success,
+// 0 if WNOHANG was given and there are no waitable threads,
+// negative error code on an error
+int ProcWaitThread(int id, unsigned int * exitCode, int options);
 
 //Global processes and threads
 extern ProcProcess ProcKernelProcessData;

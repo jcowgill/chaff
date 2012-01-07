@@ -10,6 +10,7 @@
 #include "processInt.h"
 #include "htable.h"
 #include "timer.h"
+#include "errno.h"
 
 //Process management functions
 
@@ -237,6 +238,224 @@ ProcThread * ProcCreateKernelThread(const char * name, int (* startAddr)(void *)
 	return thread;
 }
 
+//Waits for a child process to exit
+// id
+//	  >1, only the given pid
+//	  -1, any child process
+//	   0, any process from current process group
+//	  <1, any process from given (negated) process group
+// exitCode = pointer to where to write exit code to (must be kernel mode)
+// options = one of the wait options above
+//Returns
+// the process id on success,
+// 0 if WNOHANG was given and there are no waitable processes,
+// negative error code on an error
+int ProcWaitProcess(int id, unsigned int * exitCode, int options)
+{
+	ProcProcess * chosenOne = NULL;
+	bool found = false;
+	bool interrupted = false;
+
+	//Check valid ids
+	if(id < 0 && id != -1)
+	{
+		return -EINVAL;
+	}
+
+	//Process groups not implemented yet
+	if(id == 0 || id < -1)
+	{
+#warning Implement process groups
+		return -ENOSYS;
+	}
+
+	//ID must be a child process
+	if(id > 0)
+	{
+		chosenOne = ProcGetProcessByID(id);
+
+		if(chosenOne == NULL || chosenOne->parent != ProcCurrProcess)
+		{
+			return -ECHILD;
+		}
+	}
+	else
+	{
+		//There must be a child process
+		if(list_empty(&ProcCurrProcess->children))
+		{
+			//Noone else
+			return -ECHILD;
+		}
+	}
+
+	//Start check loop
+	for(;;)
+	{
+		//Zombied?
+		if(id > 0)
+		{
+			//Check our process
+			found = chosenOne->zombie;
+		}
+		else
+		{
+			//Find zombie process
+			list_for_each_entry(chosenOne, &ProcCurrProcess->children, processSibling)
+			{
+				if(chosenOne->zombie)
+				{
+					//Found a process
+					found = true;
+					break;
+				}
+			}
+		}
+
+		//Break if we've found one
+		if(found)
+		{
+			break;
+		}
+
+		//Allowed to wait
+		if(options & WNOHANG)
+		{
+			return 0;
+		}
+
+		if(interrupted)
+		{
+			return -EINTR;
+		}
+
+		//Block
+		ProcCurrThread->waitMode = PWM_PROCESS;
+		if(ProcYieldBlock(true))
+		{
+			//Interrupted - but recheck anyway
+			interrupted = true;
+		}
+		ProcCurrThread->waitMode = PWM_NONE;
+	}
+
+	//Extract process data
+	if(exitCode != NULL)
+	{
+		*exitCode = chosenOne->exitCode;
+	}
+
+	unsigned int pid = chosenOne->hItem.id;
+
+	//Reap chosen thread and return
+	ProcReapProcess(chosenOne);
+	return pid;
+}
+
+//Waits for a thread sibling to exit
+// id
+//	  >1, only the given pid
+//	  -1, any child thread
+// options = one of the wait options above
+//Returns
+// the thread id on success,
+// 0 if WNOHANG was given and there are no waitable threads,
+// negative error code on an error
+int ProcWaitThread(int id, unsigned int * exitCode, int options)
+{
+	ProcThread * chosenOne = NULL;
+	bool found = false;
+	bool interrupted = false;
+
+	//Check valid ids
+	if(id < 0 && id != -1)
+	{
+		return -EINVAL;
+	}
+
+	//ID must be a thread sibling
+	if(id > 0)
+	{
+		chosenOne = ProcGetThreadByID(id);
+
+		if(chosenOne == NULL || chosenOne->parent != ProcCurrProcess)
+		{
+			return -ESRCH;
+		}
+	}
+	else
+	{
+		//Must have some other threads
+		if(ProcCurrProcess->threads.next == ProcCurrProcess->threads.prev)
+		{
+			//Noone else
+			return -ESRCH;
+		}
+	}
+
+	//Start check loop
+	for(;;)
+	{
+		//Zombied?
+		if(id > 0)
+		{
+			//Check our thread
+			found = (chosenOne->state == PTS_ZOMBIE);
+		}
+		else
+		{
+			//Find zombie thread
+			list_for_each_entry(chosenOne, &ProcCurrProcess->threads, threadSibling)
+			{
+				if(chosenOne->state == PTS_ZOMBIE)
+				{
+					//Found a thread
+					found = true;
+					break;
+				}
+			}
+		}
+
+		//Break if we've found one
+		if(found)
+		{
+			break;
+		}
+
+		//Allowed to wait
+		if(options & WNOHANG)
+		{
+			return 0;
+		}
+
+		if(interrupted)
+		{
+			return -EINTR;
+		}
+
+		//Block
+		ProcCurrThread->waitMode = PWM_THREAD;
+		if(ProcYieldBlock(true))
+		{
+			//Interrupted - but recheck anyway
+			interrupted = true;
+		}
+		ProcCurrThread->waitMode = PWM_NONE;
+	}
+
+	//Extract thread data
+	if(exitCode != NULL)
+	{
+		*exitCode = chosenOne->exitCode;
+	}
+
+	unsigned int tid = chosenOne->hItem.id;
+
+	//Reap chosen thread and return
+	ProcReapThread(chosenOne);
+	return tid;
+}
+
 //Exits the current process with the given error code
 void NORETURN ProcExitProcess(unsigned int exitCode)
 {
@@ -280,7 +499,18 @@ void NORETURN ProcExitProcess(unsigned int exitCode)
 		ProcCurrProcess->zombie = true;
 
 		// Notify parent process
-#warning Notify parent
+		ProcThread * thread;
+		list_for_each_entry(thread, &ProcCurrProcess->parent->threads, threadSibling)
+		{
+			if(thread->state == PTS_INTR && thread->waitMode == PWM_PROCESS)
+			{
+				//Wake up
+				ProcWakeUp(thread);
+			}
+		}
+
+		// Send SIGCLD signal
+		ProcSignalSendProcess(ProcCurrProcess->parent, SIGCLD);
 
 		// Exit thread
 		ProcIntSchedulerExitSelf();
@@ -344,7 +574,7 @@ static void ProcDisownChildren(ProcProcess * process)
 void NORETURN ProcExitThread(unsigned int exitCode)
 {
 	//If this is the last thread, pass on to ProcExitProcess
-	if(ProcCurrProcess->children.next == ProcCurrProcess->children.prev)
+	if(ProcCurrProcess->threads.next == ProcCurrProcess->threads.prev)
 	{
 		//The exit code is already set
 		ProcExitProcess(ProcCurrProcess->exitCode);
@@ -355,8 +585,16 @@ void NORETURN ProcExitThread(unsigned int exitCode)
 		// Set exit code
 		ProcCurrThread->exitCode = exitCode;
 
-		// Notify other threads
-#warning Notify others
+		// Notify other waiting threads
+		ProcThread * thread;
+		list_for_each_entry(thread, &ProcCurrProcess->threads, threadSibling)
+		{
+			if(thread->state == PTS_INTR && thread->waitMode == PWM_THREAD)
+			{
+				//Wake up thread
+				ProcWakeUp(thread);
+			}
+		}
 
 #warning If we do other stuff here, review ProcExitProcess
 		// Exit thread - other stuff is freed when the thread is reaped
