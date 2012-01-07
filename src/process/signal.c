@@ -458,5 +458,5 @@ refreshSigSet:
         
     } while(sigSet != 0);
 
-#warning TODO implement signal flags in signalNums.h
+#warning TODO implement signal flags in signalNums.h (and update whats implemented)
 }

@@ -214,6 +214,7 @@ ProcThread * ProcCreateKernelThread(const char * name, int (* startAddr)(void *)
 {
 #warning This causes kernel thread zombies to be created
 #warning TODO thread local storage
+#warning TODO FPU / SSE support
 
 	//Create raw thread
 	ProcThread * thread = ProcCreateRawThread(name, ProcKernelProcess, true);
@@ -589,7 +590,8 @@ void NORETURN ProcExitThread(unsigned int exitCode)
 			}
 		}
 
-#warning If we do other stuff here, review ProcExitProcess
+		//!!! If we do other stuff here, review ProcExitProcess
+
 		// Exit thread - other stuff is freed when the thread is reaped
 		ProcIntSchedulerExitSelf();
 	}

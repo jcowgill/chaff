@@ -76,7 +76,6 @@ struct SProcProcess
 	MemContext * memContext;
 
 	//Process signal handlers
-#warning Info found
 	/*
 	 * Signal handlers are process wide
 	 *

@@ -47,8 +47,6 @@ typedef unsigned int ProcSigSet;
 
 //Implemented flags:
 // None of the flags implemented yet
-#warning Signal stuff done?
-
 #define SA_NOCLDSTOP 1 /* Don't send SIGCHLD when children stop.  */
 #define SA_NOCLDWAIT 2 /* Don't create zombie on child death.  */
 #define SA_SIGINFO   4 /* Invoke signal-catching function with three arguments instead of one.  */
