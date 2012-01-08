@@ -67,6 +67,7 @@ ProcIntUserThreadEntry:
 	mov ax, 0x23
 	mov ds, ax
 	mov es, ax
+	mov ax, 0x28
 	mov fs, ax
 	mov gs, ax
 

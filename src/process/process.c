@@ -165,6 +165,9 @@ static ProcThread * ProcCreateRawThread(const char * name, ProcProcess * parent,
 	//Initialise scheduler head
 	INIT_LIST_HEAD(&thread->schedQueueEntry);
 
+	//Give thread a valid tls descriptor
+	thread->tlsDescriptor = PROC_NULL_TLS_DESCRIPTOR;
+
 	//Allocate kernel stack
 	if(withStack)
 	{
@@ -213,7 +216,6 @@ ProcThread * ProcCreateThread(const char * name, ProcProcess * process,
 ProcThread * ProcCreateKernelThread(const char * name, int (* startAddr)(void *), void * arg)
 {
 #warning This causes kernel thread zombies to be created
-#warning TODO thread local storage
 #warning TODO FPU / SSE support
 
 	//Create raw thread

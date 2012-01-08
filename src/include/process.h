@@ -124,6 +124,7 @@ struct SProcThread
 	int schedInterrupted;					//Weather thread was interrupted or not
 	void * kStackPointer;					//Current pointer to kernel stack
 	void * kStackBase;						//Base of kernel stack
+	unsigned long long tlsDescriptor;		//Thread local storage descriptor for this thread
 
 	//Signal masks
 	ProcSigSet sigPending;
@@ -230,6 +231,18 @@ void ProcInit();
 //Exits the boot code to continue running threads as normal
 void NORETURN ProcExitBootMode();
 
+//Thread Local Storage
+
+//Null descriptor - prevents all use of the descriptor
+// tlsDescriptor is initialized to this
+#define PROC_NULL_TLS_DESCRIPTOR (0x0040F20000000000ULL)
+
+//Base descriptor - used as base before modification in ProcTlsCreateDescriptor
+#define PROC_BASE_TLS_DESCRIPTOR (0x00C0F60000000000ULL)
+
+//Creates a tls descriptor using the given base pointer as an expand down segment
+// Returns PROC_NULL_TLS_DESCRIPTOR is an invalid basePtr is given
+unsigned long long ProcTlsCreateDescriptor(unsigned int basePtr) __attribute__((pure));
 
 //Signal functions
 // Signal action structure is above

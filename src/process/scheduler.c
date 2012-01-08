@@ -18,8 +18,9 @@ ProcThread * ProcCurrThread;
 //Thread queue
 struct list_head threadQueue = LIST_HEAD_INIT(threadQueue);
 
-//Current value of ESP0 in the TSS
-extern void * TssESP0;
+//Special pointers and values
+extern void * TssESP0;				//Kernel stack
+extern unsigned long long GdtTLS;	//Current TLS descriptor
 
 //Chooses another thread and runs it
 static void DoSchedule()
@@ -49,6 +50,9 @@ static void DoSchedule()
 		else
 		{
 			TssESP0 = ((char *) newThread->kStackBase) + PROC_KSTACK_SIZE;
+
+			//Set TLS descriptor
+			GdtTLS = newThread->tlsDescriptor;
 
 			//Switch page directories if in a different process
 			if(newThread->parent != ProcCurrProcess)

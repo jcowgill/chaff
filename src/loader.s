@@ -1,5 +1,6 @@
 global _loader
 global TssESP0
+global GdtTLS
 extern kMain
 extern kernelPageDirectory
 
@@ -45,15 +46,18 @@ gdt_ptr:
 	db 0xFF, 0xFF, 0, 0, 0, 0x92, 0xCF, 0	;Selector 10h - Ring 0 Data
 	db 0xFF, 0xFF, 0, 0, 0, 0xFA, 0xCB, 0	;Selector 1Bh - Ring 3 Code (limited to user mode area)
 	db 0xFF, 0xFF, 0, 0, 0, 0xF2, 0xCB, 0	;Selector 23h - Ring 3 Data (limited to user mode area)
-	db 0x68, 0, 0, 0, 0, 0x89, 0, 0			;Selector 28h - Global Task State Segment
+GdtTLS:
+	db 0x00, 0x00, 0, 0, 0, 0xF6, 0xC0, 0	;Selector 2Bh - Ring 3 Thread Local Storage (limited to user mode area)
+											; This selector is modified by the scheduler
+	db 0x68,    0, 0, 0, 0, 0x89,    0, 0	;Selector 30h - Global Task State Segment
 		;TSS entry - assumes: TSS is 104 bytes.
 
 	;Positions of bytes to be loaded with the TSS's offset
 	; b1 Last Significant - b4 Most Significant
-	tss_b1 equ (gdt + 0x28 + 2)
-	tss_b2 equ (gdt + 0x28 + 3)
-	tss_b3 equ (gdt + 0x28 + 4)
-	tss_b4 equ (gdt + 0x28 + 7)
+	tss_b1 equ (gdt + 0x30 + 2)
+	tss_b2 equ (gdt + 0x30 + 3)
+	tss_b3 equ (gdt + 0x30 + 4)
+	tss_b4 equ (gdt + 0x30 + 7)
 
 gdt_end:
 	;Don't modify this marker
@@ -121,7 +125,7 @@ _loader:
 	lgdt [gdt_ptr]
 
 	; Load TSS
-	mov cx, 0x28
+	mov cx, 0x30
 	ltr cx
 
 	;Load new selectors
