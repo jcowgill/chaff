@@ -1,6 +1,5 @@
 TODO list
 --------------
-- Process and thread waiting (including SIGCLD)
 - System calls
 
 Then complete all non-io related TODO warnings
