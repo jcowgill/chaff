@@ -25,12 +25,12 @@ LDFLAGS = -x -m elf_i386
 #Calculate objects (changes to .obj and uses obj directory)
 OBJS = $(subst src/,obj/,$(addsuffix .obj,$(basename $(SOURCES))))
 
-#AUTO-DEPENDANCIES
--include $(OBJS:.obj=.dep)
-
 #TARGETS
 
 all: $(BINFILE)
+
+#AUTO-DEPENDANCIES
+#-include $(OBJS:.obj=.dep)
 
 install:
 	-mount bin/chaffdir
@@ -48,8 +48,10 @@ $(BINFILE): $(OBJS)
 obj/%.obj : %.c
 	mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -o $@ -c $<
-	$(CC) -MM $(CFLAGS) $< > obj/$*.d
+	$(CC) -MM -MT $@ $(CFLAGS) $< > obj/$*.dep
 
 obj/%.obj : %.s
 	mkdir -p $(dir $@)
 	$(ASM) $(ASMFLAGS) -o $@ $<
+
+-include $(OBJS:.obj=.dep)
