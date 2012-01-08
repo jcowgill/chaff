@@ -58,9 +58,9 @@ struct SProcProcess
 
 	//Process and thread hierarchy
 	struct SProcProcess * parent;
-	struct list_head processSibling;		//Sibling
-	struct list_head children;				//Head
-	struct list_head threads;				//Head
+	ListHead processSibling;		//Sibling
+	ListHead children;				//Head
+	ListHead threads;				//Head
 
 	//Zombie status
 	bool zombie;
@@ -96,7 +96,7 @@ struct SProcProcess
 	ProcSigSet sigPending;
 
 	//Process alarm
-	struct list_head * alarmPtr;
+	ListHead * alarmPtr;
 };
 
 struct SProcThread
@@ -106,7 +106,7 @@ struct SProcThread
 
 	//Parent process
 	struct SProcProcess * parent;
-	struct list_head threadSibling;			//Sibling
+	ListHead threadSibling;			//Sibling
 
 	//Exit code
 	unsigned int exitCode;
@@ -120,7 +120,7 @@ struct SProcThread
 	ProcWaitMode waitMode;
 
 	//Scheduler stuff (don't change this)
-	struct list_head schedQueueEntry;		//Place in scheduler queue
+	ListHead schedQueueEntry;				//Place in scheduler queue
 	int schedInterrupted;					//Weather thread was interrupted or not
 	void * kStackPointer;					//Current pointer to kernel stack
 	void * kStackBase;						//Base of kernel stack

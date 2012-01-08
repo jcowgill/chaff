@@ -36,12 +36,12 @@ typedef struct
 	};
 
 	TimerTime endTime;
-	struct list_head list;
+	ListHead list;
 
 } TimerQueue;
 
-struct list_head sleepQueueHead = LIST_HEAD_INIT(sleepQueueHead);
-struct list_head alarmQueueHead = LIST_HEAD_INIT(alarmQueueHead);
+static ListHead sleepQueueHead = LIST_INLINE_INIT(sleepQueueHead);
+static ListHead alarmQueueHead = LIST_INLINE_INIT(alarmQueueHead);
 
 static void TimerInterrupt(IntrContext * iContext);
 
@@ -92,28 +92,28 @@ void TimerSetTime(TimerTime newTime)
 }
 
 //Adds a timer queue item to a given timer queue
-static void AddTimerToQueue(TimerQueue * newItem, struct list_head * headPtr)
+static void AddTimerToQueue(TimerQueue * newItem, ListHead * headPtr)
 {
 	TimerTime time = newItem->endTime;
 
-	INIT_LIST_HEAD(&newItem->list);
+	ListHeadInit(&newItem->list);
 
 	//Find place to insert into queue
 	TimerQueue * currPos;
 
-	list_for_each_entry(currPos, headPtr, list)
+	ListForEachEntry(currPos, headPtr, list)
 	{
 		//Is this time more than ours?
 		if(time > currPos->endTime)
 		{
 			//Add before current pos
-			list_add_tail(&newItem->list, &currPos->list);
+			ListAddBefore(&newItem->list, &currPos->list);
 			return;
 		}
 	}
 
 	//Add list to end of queue
-	list_add_tail(&newItem->list, headPtr);
+	ListHeadAddLast(&newItem->list, headPtr);
 }
 
 //Waits time milliseconds until returning (current thread only)
@@ -135,7 +135,7 @@ TimerTime TimerSleep(TimerTime time)
 	if(ProcYieldBlock(true))
 	{
 		//Interrupted, we must manually remove the queue entry
-		list_del(&newQueueEntry->list);
+		ListDelete(&newQueueEntry->list);
 		MFree(newQueueEntry);
 
 		//Return difference between current time and given time
@@ -159,11 +159,11 @@ TimerTime TimerSetAlarm(TimerTime time)
 	if(ProcCurrProcess->alarmPtr != NULL)
 	{
 		//Get time left
-		queueHead = list_entry(ProcCurrProcess->alarmPtr, TimerQueue, list);
+		queueHead = ListEntry(ProcCurrProcess->alarmPtr, TimerQueue, list);
 		timeLeft = queueHead->endTime - currentTime;
 
 		//Remove from list + free
-		list_del(&queueHead->list);
+		ListDelete(&queueHead->list);
 		MFree(queueHead);
 
 		//Wipe from process
@@ -249,9 +249,9 @@ static void TimerInterrupt(IntrContext * iContext)
 	}
 
 	//Process sleep queue
-	if(!list_empty(&sleepQueueHead))
+	if(!ListHeadIsEmpty(&sleepQueueHead))
 	{
-		TimerQueue * head = list_entry(sleepQueueHead.next, TimerQueue, list);
+		TimerQueue * head = ListEntry(sleepQueueHead.next, TimerQueue, list);
 		TimerQueue * newHead;
 
 		while(currentTime >= head->endTime)
@@ -260,17 +260,17 @@ static void TimerInterrupt(IntrContext * iContext)
 			ProcWakeUp(head->thread);
 
 			//Get next head
-			newHead = list_entry(head->list.next, TimerQueue, list);
+			newHead = ListEntry(head->list.next, TimerQueue, list);
 
 			//Remove current from queue
-			list_del(&head->list);
+			ListDelete(&head->list);
 			MFree(head);
 
 			//Next head
 			head = newHead;
 
 			//Check wrapped
-			if(list_empty(&sleepQueueHead))
+			if(ListHeadIsEmpty(&sleepQueueHead))
 			{
 				break;
 			}
@@ -278,9 +278,9 @@ static void TimerInterrupt(IntrContext * iContext)
 	}
 
 	//Process alarm queue
-	if(!list_empty(&alarmQueueHead))
+	if(!ListHeadIsEmpty(&alarmQueueHead))
 	{
-		TimerQueue * head = list_entry(alarmQueueHead.next, TimerQueue, list);
+		TimerQueue * head = ListEntry(alarmQueueHead.next, TimerQueue, list);
 		TimerQueue * newHead;
 
 		while(currentTime >= head->endTime)
@@ -290,17 +290,17 @@ static void TimerInterrupt(IntrContext * iContext)
 			head->process->alarmPtr = NULL;
 
 			//Get next head
-			newHead = list_entry(head->list.next, TimerQueue, list);
+			newHead = ListEntry(head->list.next, TimerQueue, list);
 
 			//Remove current from queue
-			list_del(&head->list);
+			ListDelete(&head->list);
 			MFree(head);
 
 			//Next head
 			head = newHead;
 
 			//Check wrapped
-			if(list_empty(&alarmQueueHead))
+			if(ListHeadIsEmpty(&alarmQueueHead))
 			{
 				break;
 			}

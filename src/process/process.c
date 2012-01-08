@@ -45,9 +45,9 @@ void ProcInit()
 	ProcKernelProcessData.name = "kernel";
 	ProcKernelProcessData.memContext = MemKernelContext;
 
-	INIT_LIST_HEAD(&ProcKernelProcessData.threads);
-	INIT_LIST_HEAD(&ProcKernelProcessData.processSibling);
-	INIT_LIST_HEAD(&ProcKernelProcessData.children);
+	ListHeadInit(&ProcKernelProcessData.threads);
+	ListHeadInit(&ProcKernelProcessData.processSibling);
+	ListHeadInit(&ProcKernelProcessData.children);
 
 	//Set as current process
 	ProcCurrProcess = ProcKernelProcess;
@@ -67,7 +67,7 @@ ProcProcess * ProcGetProcessByID(unsigned int pid)
 
 	if(item)
 	{
-		return HASHT_ENTRY(item, ProcProcess, hItem);
+		return HashTableEntry(item, ProcProcess, hItem);
 	}
 	else
 	{
@@ -82,7 +82,7 @@ ProcThread * ProcGetThreadByID(unsigned int tid)
 
 	if(item)
 	{
-		return HASHT_ENTRY(item, ProcThread, hItem);
+		return HashTableEntry(item, ProcThread, hItem);
 	}
 	else
 	{
@@ -113,18 +113,18 @@ ProcProcess * ProcCreateProcess(const char * name, ProcProcess * parent)
 	{
 		//Null parent with no siblings
 		process->parent = NULL;
-		INIT_LIST_HEAD(&process->processSibling);
+		ListHeadInit(&process->processSibling);
 	}
 	else
 	{
 		//Add as sibling
 		process->parent = parent;
-		list_add_tail(&process->processSibling, &parent->children);
+		ListHeadAddLast(&process->processSibling, &parent->children);
 	}
 
 	//Init blank heads
-	INIT_LIST_HEAD(&process->children);
-	INIT_LIST_HEAD(&process->threads);
+	ListHeadInit(&process->children);
+	ListHeadInit(&process->threads);
 
 	//Set name
 	process->name = StrDup(name);
@@ -153,8 +153,8 @@ static ProcThread * ProcCreateRawThread(const char * name, ProcProcess * parent,
 
 	//Set thread parent
 	thread->parent = parent;
-	INIT_LIST_HEAD(&thread->threadSibling);
-	list_add_tail(&thread->threadSibling, &parent->threads);
+	ListHeadInit(&thread->threadSibling);
+	ListHeadAddLast(&thread->threadSibling, &parent->threads);
 
 	//Set thread name
 	thread->name = StrDup(name);
@@ -163,7 +163,7 @@ static ProcThread * ProcCreateRawThread(const char * name, ProcProcess * parent,
 	thread->state = PTS_STARTUP;
 
 	//Initialise scheduler head
-	INIT_LIST_HEAD(&thread->schedQueueEntry);
+	ListHeadInit(&thread->schedQueueEntry);
 
 	//Give thread a valid tls descriptor
 	thread->tlsDescriptor = PROC_NULL_TLS_DESCRIPTOR;
@@ -285,7 +285,7 @@ int ProcWaitProcess(int id, unsigned int * exitCode, int options)
 	else
 	{
 		//There must be a child process
-		if(list_empty(&ProcCurrProcess->children))
+		if(ListHeadIsEmpty(&ProcCurrProcess->children))
 		{
 			//Noone else
 			return -ECHILD;
@@ -304,7 +304,7 @@ int ProcWaitProcess(int id, unsigned int * exitCode, int options)
 		else
 		{
 			//Find zombie process
-			list_for_each_entry(chosenOne, &ProcCurrProcess->children, processSibling)
+			ListForEachEntry(chosenOne, &ProcCurrProcess->children, processSibling)
 			{
 				if(chosenOne->zombie)
 				{
@@ -408,7 +408,7 @@ int ProcWaitThread(int id, unsigned int * exitCode, int options)
 		else
 		{
 			//Find zombie thread
-			list_for_each_entry(chosenOne, &ProcCurrProcess->threads, threadSibling)
+			ListForEachEntry(chosenOne, &ProcCurrProcess->threads, threadSibling)
 			{
 				if(chosenOne->state == PTS_ZOMBIE)
 				{
@@ -469,7 +469,7 @@ void NORETURN ProcExitProcess(unsigned int exitCode)
 	if(ProcCurrProcess->threads.next != ProcCurrProcess->threads.prev)
 	{
 		ProcThread * thread;
-		list_for_each_entry(thread, &ProcCurrProcess->threads, threadSibling)
+		ListForEachEntry(thread, &ProcCurrProcess->threads, threadSibling)
 		{
 			if(thread != ProcCurrThread)
 			{
@@ -502,7 +502,7 @@ void NORETURN ProcExitProcess(unsigned int exitCode)
 
 		// Notify parent process
 		ProcThread * thread;
-		list_for_each_entry(thread, &ProcCurrProcess->parent->threads, threadSibling)
+		ListForEachEntry(thread, &ProcCurrProcess->parent->threads, threadSibling)
 		{
 			if(thread->state == PTS_INTR && thread->waitMode == PWM_PROCESS)
 			{
@@ -530,7 +530,7 @@ static void ProcReapProcess(ProcProcess * process)
 
 	//Reap any existing threads
 	ProcThread * thread, *threadTmp;
-	list_for_each_entry_safe(thread, threadTmp, &process->threads, threadSibling)
+	ListForEachEntrySafe(thread, threadTmp, &process->threads, threadSibling)
 	{
 		//Reap thread
 		ProcReapThread(thread);
@@ -540,7 +540,7 @@ static void ProcReapProcess(ProcProcess * process)
 	ProcDisownChildren(process);
 
 	//Remove as one of the parent's children
-	list_del(&process->processSibling);
+	ListDelete(&process->processSibling);
 
 	//Remove from hashtable
 	HashTableRemove(hTableProcess, process->hItem.id);
@@ -558,10 +558,10 @@ static void ProcDisownChildren(ProcProcess * process)
 	ProcProcess * child;
 	ProcProcess * childTmp;
 
-	list_for_each_entry_safe(child, childTmp, &process->children, processSibling)
+	ListForEachEntrySafe(child, childTmp, &process->children, processSibling)
 	{
-		list_del_init(&child->processSibling);
-		list_add_tail(&child->processSibling, &ProcKernelProcess->children);
+		ListDeleteInit(&child->processSibling);
+		ListHeadAddLast(&child->processSibling, &ProcKernelProcess->children);
 	}
 }
 
@@ -583,7 +583,7 @@ void NORETURN ProcExitThread(unsigned int exitCode)
 
 		// Notify other waiting threads
 		ProcThread * thread;
-		list_for_each_entry(thread, &ProcCurrProcess->threads, threadSibling)
+		ListForEachEntry(thread, &ProcCurrProcess->threads, threadSibling)
 		{
 			if(thread->state == PTS_INTR && thread->waitMode == PWM_THREAD)
 			{
@@ -618,7 +618,7 @@ static void ProcReapThread(ProcThread * thread)
 	HashTableRemove(hTableThread, thread->hItem.id);
 
 	//Remove from thread list
-	list_del(&thread->threadSibling);
+	ListDelete(&thread->threadSibling);
 
 	//Free kernel stack
 	MFree(thread->kStackBase);

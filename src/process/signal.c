@@ -234,7 +234,7 @@ void ProcSignalSendProcess(ProcProcess * process, int sigNum)
 
             case SIGSTOP:
                 //Sent to all threads instead of the process
-                list_for_each_entry(thread, &process->children, threadSibling)
+                ListForEachEntry(thread, &process->children, threadSibling)
                 {
                     ProcSignalSendThread(thread, sigNum);
                 }
@@ -243,7 +243,7 @@ void ProcSignalSendProcess(ProcProcess * process, int sigNum)
 
             case SIGCONT:
                 //Continue all threads, then handle like a normal signal
-                list_for_each_entry(thread, &process->children, threadSibling)
+            	ListForEachEntry(thread, &process->children, threadSibling)
                 {
                 	RemoteContinueThread(thread);
                 }
@@ -264,7 +264,7 @@ void ProcSignalSendProcess(ProcProcess * process, int sigNum)
                     // running threads
                     ProcThread * eligibleIntr = NULL;
 
-                    list_for_each_entry(thread, &process->children, threadSibling)
+                    ListForEachEntry(thread, &process->children, threadSibling)
                     {
                         //Check thread
                         if(!(thread->sigBlocked & (1 << sigNum)))
@@ -342,7 +342,7 @@ void ProcSignalSetAction(ProcProcess * process, int sigNum, ProcSigaction newAct
 		    process->sigPending &= mask;
 
 		    ProcThread * thread;
-            list_for_each_entry(thread, &process->children, threadSibling)
+		    ListForEachEntry(thread, &process->children, threadSibling)
             {
                 thread->sigPending &= mask;
             }

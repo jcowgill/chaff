@@ -36,6 +36,6 @@ bool HashTableRemove(HashTable table, unsigned int id);
 HashItem * HashTableFind(HashTable table, unsigned int id);
 
 //Gets the hash tale item corresponding to a given HashItem
-#define HASHT_ENTRY list_entry
+#define HashTableEntry ListEntry
 
 #endif /* HTABLE_H_ */

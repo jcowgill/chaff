@@ -18,7 +18,7 @@ PageDirectory kernelPageDirectory[1024] __attribute__((aligned(4096)));
 PageTable kernelPageTable254[1024] __attribute__((aligned(4096)));			//For physical reference table
 
 //Kernel context
-MemContext MemKernelContextData = { LIST_HEAD_INIT(MemKernelContextData.regions), 0, INVALID_PAGE, 0 };
+MemContext MemKernelContextData = { LIST_INLINE_INIT(MemKernelContextData.regions), 0, INVALID_PAGE, 0 };
 	//INVALID_PAGE changed in MemManagerInit
 
 //Current context
@@ -44,7 +44,7 @@ MemContext * MemContextInit()
 {
 	//Allocate new context
 	MemContext * newContext = MAlloc(sizeof(MemContext));
-	INIT_LIST_HEAD(&newContext->regions);
+	ListHeadInit(&newContext->regions);
 
 	//Allocate directory
 	newContext->physDirectory = MemPhysicalAlloc(1);
@@ -80,11 +80,11 @@ MemContext * MemContextClone()
 {
 	//Allocate new context
 	MemContext * newContext = MAlloc(sizeof(MemContext));
-	INIT_LIST_HEAD(&newContext->regions);
+	ListHeadInit(&newContext->regions);
 
 	//Copy regions
 	MemRegion * oldRegion;
-	list_for_each_entry(oldRegion, &MemCurrentContext->regions, listItem)
+	ListForEachEntry(oldRegion, &MemCurrentContext->regions, listItem)
 	{
 		//Allocate new region
 		MemRegion * newRegion = MAlloc(sizeof(MemRegion));
@@ -97,7 +97,7 @@ MemContext * MemContextClone()
 		newRegion->myContext = newContext;
 
 		//Add to new list
-		list_add_tail(&newRegion->listItem, &newContext->regions);
+		ListHeadAddLast(&newRegion->listItem, &newContext->regions);
 	}
 
 	//Allocate directory
@@ -254,7 +254,7 @@ void MemContextDelete(MemContext * context)
 
 	//Free regions
 	MemRegion * region, * tmpRegion;
-	list_for_each_entry_safe(region, tmpRegion, &context->regions, listItem)
+	ListForEachEntrySafe(region, tmpRegion, &context->regions, listItem)
 	{
 		//Deallocate region stuffs
 #warning TODO - Do we do something (like closing) the file handle here?
@@ -328,7 +328,7 @@ MemRegion * MemRegionFind(MemContext * context, void * address)
 
 	//Check each address
 	MemRegion * region;
-	list_for_each_entry(region, &context->regions, listItem)
+	ListForEachEntry(region, &context->regions, listItem)
 	{
 		//Is region beyond address?
 		if(region->start > addr)
@@ -420,9 +420,9 @@ bool MemIntRegionCreate(MemContext * context, void * startAddress,
 	//Find place to insert region
 	MemRegion * region = NULL;
 
-	if(!list_empty(&context->regions))
+	if(!ListHeadIsEmpty(&context->regions))
 	{
-		list_for_each_entry(region, &context->regions, listItem)
+		ListForEachEntry(region, &context->regions, listItem)
 		{
 			//Is region beyond address?
 			if(region->start > startAddr)
@@ -436,12 +436,12 @@ bool MemIntRegionCreate(MemContext * context, void * startAddress,
 
 		//Check previous region overlap
 		bool prevOverlap = false;
-		struct list_head * prev = region->listItem.prev;
+		ListHead * prev = region->listItem.prev;
 
 		if(prev != &context->regions)
 		{
 			//Check overlap
-			MemRegion * prevRegion = list_entry(prev, MemRegion, listItem);
+			MemRegion * prevRegion = ListEntry(prev, MemRegion, listItem);
 
 			prevOverlap = (startAddr >= prevRegion->start && startAddr < (prevRegion->start + prevRegion->length)) ||
 					(prevRegion->start >= startAddr && prevRegion->start < (startAddr + length));
@@ -459,15 +459,15 @@ bool MemIntRegionCreate(MemContext * context, void * startAddress,
 	//Validation complete!
 	// Actually allocate region
 	newRegion->myContext = context;
-	INIT_LIST_HEAD(&newRegion->listItem);
+	ListHeadInit(&newRegion->listItem);
 
 	if(region == NULL)
 	{
-		list_add_tail(&newRegion->listItem, &context->regions);
+		ListHeadAddLast(&newRegion->listItem, &context->regions);
 	}
 	else
 	{
-		list_add_tail(&newRegion->listItem, &region->listItem);
+		ListHeadAddLast(&newRegion->listItem, &region->listItem);
 	}
 
 	newRegion->flags = flags;
@@ -556,7 +556,7 @@ void MemRegionDelete(MemRegion * region)
 	MemRegionResize(region, 0);
 
 	//Remove file from region list
-	list_del(&region->listItem);
+	ListDelete(&region->listItem);
 
 	//Free region
 	MFree(region);
@@ -594,7 +594,7 @@ static bool MemUserChecks(unsigned int addr, unsigned int length, unsigned int f
 			return false;
 		}
 
-		region = list_entry(region->listItem.next, MemRegion, listItem);
+		region = ListEntry(region->listItem.next, MemRegion, listItem);
 
 		if (region->start == end)
 		{

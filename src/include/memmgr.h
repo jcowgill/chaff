@@ -1,5 +1,5 @@
 /*
- * chaff.h
+ * memmgr.h
  *
  *  Created on: 30 Sep 2010
  *      Author: James
@@ -184,7 +184,7 @@ struct STagMemContext;
 
 typedef struct STagMemRegion
 {
-	struct list_head listItem;		//Item in regions list
+	ListHead listItem;				//Item in regions list
 
 	struct STagMemContext * myContext;	//Context this region is assigned to
 
@@ -199,7 +199,7 @@ typedef struct STagMemRegion
 //A group of memory regions which make up the virtual memory space for a process
 typedef struct STagMemContext
 {
-	struct list_head regions;		//Regions in this context
+	ListHead regions;				//Regions in this context
 	unsigned int kernelVersion;		//Version of kernel page directory for this context
 	PhysPage physDirectory;			//Page directory physical page
 

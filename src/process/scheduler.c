@@ -16,7 +16,7 @@ ProcProcess * ProcCurrProcess;
 ProcThread * ProcCurrThread;
 
 //Thread queue
-struct list_head threadQueue = LIST_HEAD_INIT(threadQueue);
+static ListHead threadQueue = LIST_INLINE_INIT(threadQueue);
 
 //Special pointers and values
 extern void * TssESP0;				//Kernel stack
@@ -27,7 +27,7 @@ static void DoSchedule()
 {
 	//Pop next thread from list
 	ProcThread * newThread;
-	if(list_empty(&threadQueue))
+	if(ListHeadIsEmpty(&threadQueue))
 	{
 		//No next thread, use kernel idle thread
 		newThread = ProcIdleThread;
@@ -35,8 +35,8 @@ static void DoSchedule()
 	else
 	{
 		//Get new thread
-		newThread = list_entry(threadQueue.next, ProcThread, schedQueueEntry);
-		list_del_init(&newThread->schedQueueEntry);
+		newThread = ListEntry(threadQueue.next, ProcThread, schedQueueEntry);
+		ListDeleteInit(&newThread->schedQueueEntry);
 	}
 
 	//Perform context switch
@@ -77,17 +77,17 @@ void ProcYield()
 {
 	//Wipe scheduler data
 	ProcCurrThread->schedInterrupted = 0;
-	INIT_LIST_HEAD(&ProcCurrThread->schedQueueEntry);
+	ListHeadInit(&ProcCurrThread->schedQueueEntry);
 
 	//If there are no other thread to run, just return
-	if(list_empty(&threadQueue))
+	if(ListHeadIsEmpty(&threadQueue))
 	{
 		return;
 	}
 	else
 	{
 		//Add thread
-		list_add_tail(&ProcCurrThread->schedQueueEntry, &threadQueue);
+		ListHeadAddLast(&ProcCurrThread->schedQueueEntry, &threadQueue);
 
 		//Choose another thread
 		DoSchedule(false);
@@ -107,7 +107,7 @@ bool ProcYieldBlock(bool interruptable)
 
 	//Set scheduler data
 	ProcCurrThread->schedInterrupted = 0;
-	INIT_LIST_HEAD(&ProcCurrThread->schedQueueEntry);
+	ListHeadInit(&ProcCurrThread->schedQueueEntry);
 	ProcCurrThread->state = interruptable ? PTS_INTR : PTS_UNINTR;
 
 	//We don't add ourselves to the scheduler list since we're blocked
@@ -177,7 +177,7 @@ void ProcWakeUpSig(ProcThread * thread, bool isSignal)
 
 	//Wake up + add to queue
 	thread->state = PTS_RUNNING;
-	list_add_tail(&thread->schedQueueEntry, &threadQueue);
+	ListHeadAddLast(&thread->schedQueueEntry, &threadQueue);
 }
 
 //Removes the current thread from scheduler existence
