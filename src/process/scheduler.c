@@ -22,6 +22,7 @@
 #include "chaff.h"
 #include "process.h"
 #include "processInt.h"
+#include "timer.h"
 
 //Scheduler functions
 
@@ -73,6 +74,9 @@ static void DoSchedule()
 			{
 				MemContextSwitchTo(newThread->parent->memContext);
 			}
+
+			//Reset thread quantum for user mode thread
+			TimerResetQuantum();
 		}
 
 		//Set current thread
@@ -96,6 +100,8 @@ void ProcYield()
 	//If there are no other thread to run, just return
 	if(ListHeadIsEmpty(&threadQueue))
 	{
+		//Give myself another full quantum
+		TimerResetQuantum();
 		return;
 	}
 	else

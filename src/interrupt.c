@@ -24,6 +24,7 @@
 #include "interrupt.h"
 #include "inlineasm.h"
 #include "exceptions.h"
+#include "timer.h"
 
 //Interrupt gate structure
 typedef struct
@@ -186,9 +187,16 @@ void IntrHandler(IntrContext iContext)
 		Panic("Invalid interrupt encountered: %u", iContext.intrNum);
 	}
 
-	//Handle signals for user returns
+	//Post-interrupt user mode handlers
 	if(iContext.cs == 0x1B)
 	{
+		//Yield if run out of time
+		if(TimerShouldPreempt())
+		{
+			ProcYield();
+		}
+
+		//Handle signals
 		ProcSignalHandler(&iContext);
 	}
 }

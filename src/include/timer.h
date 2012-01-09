@@ -22,6 +22,7 @@
 #ifndef TIMER_H_
 #define TIMER_H_
 
+#include "chaff.h"
 #include "interrupt.h"
 
 //Initialises the PIT and PC Speaker
@@ -65,6 +66,22 @@ void TimerBeepAdv(unsigned int freq, TimerTime time);
 static inline void TimerBeep()
 {
 	TimerBeepAdv(1000, 1000);
+}
+
+//Quantum functions
+#define TIMER_INITIAL_QUANTUM 20		//Number of timer ticks per task
+extern unsigned int TimerQuantum;
+
+//Returns true if the scheduler should preempt the current thread
+static inline bool TimerShouldPreempt()
+{
+	return TimerQuantum == 0;
+}
+
+//Resets the current quantum
+static inline void TimerResetQuantum()
+{
+	TimerQuantum = TIMER_INITIAL_QUANTUM;
 }
 
 #endif /* TIMER_H_ */

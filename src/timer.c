@@ -40,6 +40,9 @@ TimerTime startupTime;
 //Time beep is schedule to end / 0 = unused
 TimerTime beepEndTime = 0;
 
+//Current timer quantum
+unsigned int TimerQuantum = TIMER_INITIAL_QUANTUM;
+
 //Timer sleep queues
 typedef struct
 {
@@ -255,6 +258,12 @@ static void TimerInterrupt(IntrContext * iContext)
 
 	//Update system time
 	currentTime += PIT_TICKS_PER_INTERRUPT;
+
+	//Decrement quantum
+	if(TimerQuantum > 0)
+	{
+		--TimerQuantum;
+	}
 
 	//Stop beep if run out of time
 	if(beepEndTime != 0 && currentTime >= beepEndTime)
