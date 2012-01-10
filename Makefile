@@ -33,7 +33,7 @@ LINK = ld
 CC = gcc
 ASM = nasm
 
-CFLAGS = -c -gdwarf-2 -m32 -Wall -Wextra -Isrc/include -DDEBUG -std=gnu99 -nostdlib -fno-builtin -nostartfiles -nodefaultlibs -fno-stack-protector
+CFLAGS = -c -gdwarf-2 -m32 -Wall -Wextra -Isrc/include -DDEBUG -std=gnu99 -nostdlib -fno-builtin -nostartfiles -nodefaultlibs -fno-stack-protector -ffreestanding
 ASMFLAGS = -Xgnu -f elf32 -F dwarf
 LDFLAGS = -x -m elf_i386
 
@@ -43,9 +43,6 @@ OBJS = $(subst src/,obj/,$(addsuffix .obj,$(basename $(SOURCES))))
 #TARGETS
 
 all: $(BINFILE)
-
-#AUTO-DEPENDANCIES
-#-include $(OBJS:.obj=.dep)
 
 install:
 	-mount bin/chaffdir
@@ -69,4 +66,5 @@ obj/%.obj : %.s
 	mkdir -p $(dir $@)
 	$(ASM) $(ASMFLAGS) -o $@ $<
 
+#AUTO-DEPENDANCIES
 -include $(OBJS:.obj=.dep)

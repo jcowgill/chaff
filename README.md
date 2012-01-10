@@ -15,14 +15,15 @@ Compiling
 ---------
 Compiling Chaff requires:
 
+* unix environment
 * gcc (for elf-i386)
 * binutils (for elf-i386)
 * make
 * nasm
 
-For Linux, everything except nasm should be installed on most distributions (you need to install nasm)
+For Linux, everything except nasm should already be installed on most distributions.
 
-For Windows, more complications arise (since you need a *cross compiler* version of gcc). Since its so complicated, I've put everything in a windows_tools.zip download file. Extract this somewhere and put the bin folder in your system path.
+For Windows, you need a unix environment to compile the code in. If you've installed [msysgit](http://code.google.com/p/msysgit/) (which I highly reccomend you do), you can use the "Git Bash" provided. All the other files nessesary for Windows can be found in the windows_tools.zip download. Extract this somewhere and put the bin folder in your system path - you may also need to set the environment variable CPATH to the include directory.
 
 Once you've done all this, go to the chaff source and type
 
