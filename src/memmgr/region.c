@@ -105,7 +105,6 @@ MemContext * MemContextClone()
 
 		//Copy region data
 		MemCpy(newRegion, oldRegion, sizeof(MemRegion));
-#warning Special handling for memory mapped files
 
 		//Set context
 		newRegion->myContext = newContext;
@@ -270,9 +269,6 @@ void MemContextDelete(MemContext * context)
 	MemRegion * region, * tmpRegion;
 	ListForEachEntrySafe(region, tmpRegion, &context->regions, listItem)
 	{
-		//Deallocate region stuffs
-#warning TODO - Do we do something (like closing) the file handle here?
-
 		//Free region
 		MFree(region);
 	}

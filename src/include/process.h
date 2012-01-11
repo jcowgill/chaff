@@ -135,6 +135,7 @@ struct SProcThread
 
 	//Scheduler stuff (don't change this)
 	ListHead schedQueueEntry;				//Place in scheduler queue
+											// (this is used by the reaper when thread is a zombie)
 	int schedInterrupted;					//Weather thread was interrupted or not
 	void * kStackPointer;					//Current pointer to kernel stack
 	void * kStackBase;						//Base of kernel stack
@@ -215,6 +216,7 @@ void NORETURN ProcExitThread(unsigned int exitCode);
 //	  <1, any process from given (negated) process group
 // exitCode = pointer to where to write exit code to (must be kernel mode)
 // options = one of the wait options above
+//Kernel threads cannot wait on any process
 //Returns
 // the process id on success,
 // 0 if WNOHANG was given and there are no waitable processes,
@@ -226,6 +228,7 @@ int ProcWaitProcess(int id, unsigned int * exitCode, int options);
 //	  >1, only the given pid
 //	  -1, any child process
 // options = one of the wait options above
+//Kernel threads cannot wait on any thread
 //Returns
 // the thread id on success,
 // 0 if WNOHANG was given and there are no waitable threads,

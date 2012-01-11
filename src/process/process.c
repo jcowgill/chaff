@@ -35,9 +35,6 @@ static HashTable hTableThread;
 static unsigned int processNextID;
 static unsigned int threadNextID;
 
-//Reapers
-static void ProcReapProcess(ProcProcess * process);
-static void ProcReapThread(ProcThread * thread);
 static void ProcDisownChildren(ProcProcess * process);
 
 //Raw thread creator
@@ -72,6 +69,9 @@ void ProcInit()
 	//Create interrupts thread
 	// This needs no stack since it isn't run
 	ProcInterruptsThread = ProcCreateRawThread("interrupts", ProcKernelProcess, false);
+
+	//Create Orphan Reaper Thread
+	ProcIntReaperInit();
 }
 
 //Gets a process from the given ID or returns NULL if the process doesn't exist
@@ -229,7 +229,6 @@ ProcThread * ProcCreateThread(const char * name, ProcProcess * process,
 // arg is a user defined argument to the function
 ProcThread * ProcCreateKernelThread(const char * name, int (* startAddr)(void *), void * arg)
 {
-#warning This causes kernel thread zombies to be created
 #warning TODO FPU / SSE support
 
 	//Create raw thread
@@ -272,6 +271,13 @@ int ProcWaitProcess(int id, unsigned int * exitCode, int options)
 	ProcProcess * chosenOne = NULL;
 	bool found = false;
 	bool interrupted = false;
+
+	//Not kernel mode
+	if(ProcCurrProcess == ProcKernelProcess)
+	{
+		PrintLog(Error, "ProcWaitProcess: kernel threads cannot wait on other processes");
+		return -EPERM;
+	}
 
 	//Check valid ids
 	if(id < 0 && id != -1)
@@ -365,7 +371,7 @@ int ProcWaitProcess(int id, unsigned int * exitCode, int options)
 	unsigned int pid = chosenOne->hItem.id;
 
 	//Reap chosen thread and return
-	ProcReapProcess(chosenOne);
+	ProcIntReapProcess(chosenOne);
 	return pid;
 }
 
@@ -383,6 +389,13 @@ int ProcWaitThread(int id, unsigned int * exitCode, int options)
 	ProcThread * chosenOne = NULL;
 	bool found = false;
 	bool interrupted = false;
+
+	//Not kernel mode
+	if(ProcCurrProcess == ProcKernelProcess)
+	{
+		PrintLog(Error, "ProcWaitThread: kernel threads cannot wait on other threads");
+		return -EPERM;
+	}
 
 	//Check valid ids
 	if(id < 0 && id != -1)
@@ -469,7 +482,7 @@ int ProcWaitThread(int id, unsigned int * exitCode, int options)
 	unsigned int tid = chosenOne->hItem.id;
 
 	//Reap chosen thread and return
-	ProcReapThread(chosenOne);
+	ProcIntReapThread(chosenOne);
 	return tid;
 }
 
@@ -514,19 +527,27 @@ void NORETURN ProcExitProcess(unsigned int exitCode)
 		// Zombieize
 		ProcCurrProcess->zombie = true;
 
-		// Notify parent process
-		ProcThread * thread;
-		ListForEachEntry(thread, &ProcCurrProcess->parent->threads, threadSibling)
+		// If the owner is the kernel, auto-reap
+		if(ProcCurrProcess->parent == ProcKernelProcess)
 		{
-			if(thread->state == PTS_INTR && thread->waitMode == PWM_PROCESS)
-			{
-				//Wake up
-				ProcWakeUp(thread);
-			}
+			ProcIntReaperAdd(ProcCurrThread);
 		}
+		else
+		{
+			// Notify parent process
+			ProcThread * thread;
+			ListForEachEntry(thread, &ProcCurrProcess->parent->threads, threadSibling)
+			{
+				if(thread->state == PTS_INTR && thread->waitMode == PWM_PROCESS)
+				{
+					//Wake up
+					ProcWakeUp(thread);
+				}
+			}
 
-		// Send SIGCLD signal
-		ProcSignalSendProcess(ProcCurrProcess->parent, SIGCLD);
+			// Send SIGCLD signal
+			ProcSignalSendProcess(ProcCurrProcess->parent, SIGCLD);
+		}
 
 		// Exit thread
 		ProcIntSchedulerExitSelf();
@@ -534,7 +555,7 @@ void NORETURN ProcExitProcess(unsigned int exitCode)
 }
 
 //Reaps the given process
-static void ProcReapProcess(ProcProcess * process)
+void ProcIntReapProcess(ProcProcess * process)
 {
 	//Do not reap running process
 	if(!process->zombie)
@@ -547,7 +568,7 @@ static void ProcReapProcess(ProcProcess * process)
 	ListForEachEntrySafe(thread, threadTmp, &process->threads, threadSibling)
 	{
 		//Reap thread
-		ProcReapThread(thread);
+		ProcIntReapThread(thread);
 	}
 
 	//Any child processes should be inherited by the kernel
@@ -595,14 +616,22 @@ void NORETURN ProcExitThread(unsigned int exitCode)
 		// Set exit code
 		ProcCurrThread->exitCode = exitCode;
 
-		// Notify other waiting threads
-		ProcThread * thread;
-		ListForEachEntry(thread, &ProcCurrProcess->threads, threadSibling)
+		// Auto-reap kernel threads
+		if(ProcCurrProcess == ProcKernelProcess)
 		{
-			if(thread->state == PTS_INTR && thread->waitMode == PWM_THREAD)
+			ProcIntReaperAdd(ProcCurrThread);
+		}
+		else
+		{
+			// Notify other waiting threads
+			ProcThread * thread;
+			ListForEachEntry(thread, &ProcCurrProcess->threads, threadSibling)
 			{
-				//Wake up thread
-				ProcWakeUp(thread);
+				if(thread->state == PTS_INTR && thread->waitMode == PWM_THREAD)
+				{
+					//Wake up thread
+					ProcWakeUp(thread);
+				}
 			}
 		}
 
@@ -614,7 +643,7 @@ void NORETURN ProcExitThread(unsigned int exitCode)
 }
 
 //Reaps the given thread
-static void ProcReapThread(ProcThread * thread)
+void ProcIntReapThread(ProcThread * thread)
 {
 	//Do not reap the current thread
 	if(ProcCurrThread == thread)
