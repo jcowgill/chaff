@@ -299,7 +299,7 @@ int ProcWaitProcess(int id, unsigned int * exitCode, int options)
 	else
 	{
 		//There must be a child process
-		if(ListHeadIsEmpty(&ProcCurrProcess->children))
+		if(ListEmpty(&ProcCurrProcess->children))
 		{
 			//Noone else
 			return -ECHILD;

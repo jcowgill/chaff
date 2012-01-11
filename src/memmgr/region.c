@@ -434,7 +434,7 @@ bool MemIntRegionCreate(MemContext * context, void * startAddress,
 	//Find place to insert region
 	MemRegion * region = NULL;
 
-	if(!ListHeadIsEmpty(&context->regions))
+	if(!ListEmpty(&context->regions))
 	{
 		ListForEachEntry(region, &context->regions, listItem)
 		{

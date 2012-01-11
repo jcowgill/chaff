@@ -272,7 +272,7 @@ static void TimerInterrupt(IntrContext * iContext)
 	}
 
 	//Process sleep queue
-	if(!ListHeadIsEmpty(&sleepQueueHead))
+	if(!ListEmpty(&sleepQueueHead))
 	{
 		TimerQueue * head = ListEntry(sleepQueueHead.next, TimerQueue, list);
 		TimerQueue * newHead;
@@ -293,7 +293,7 @@ static void TimerInterrupt(IntrContext * iContext)
 			head = newHead;
 
 			//Check wrapped
-			if(ListHeadIsEmpty(&sleepQueueHead))
+			if(ListEmpty(&sleepQueueHead))
 			{
 				break;
 			}
@@ -301,7 +301,7 @@ static void TimerInterrupt(IntrContext * iContext)
 	}
 
 	//Process alarm queue
-	if(!ListHeadIsEmpty(&alarmQueueHead))
+	if(!ListEmpty(&alarmQueueHead))
 	{
 		TimerQueue * head = ListEntry(alarmQueueHead.next, TimerQueue, list);
 		TimerQueue * newHead;
@@ -323,7 +323,7 @@ static void TimerInterrupt(IntrContext * iContext)
 			head = newHead;
 
 			//Check wrapped
-			if(ListHeadIsEmpty(&alarmQueueHead))
+			if(ListEmpty(&alarmQueueHead))
 			{
 				break;
 			}

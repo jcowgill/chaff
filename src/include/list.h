@@ -52,7 +52,7 @@ static inline void ListHeadInit(ListHead * head)
 }
 
 //Returns true if the list with the given head is empty
-static inline bool ListHeadIsEmpty(ListHead * head)
+static inline bool ListEmpty(ListHead * head)
 {
 	return head->next == head;
 }

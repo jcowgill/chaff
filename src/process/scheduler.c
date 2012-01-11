@@ -42,7 +42,7 @@ static void DoSchedule()
 {
 	//Pop next thread from list
 	ProcThread * newThread;
-	if(ListHeadIsEmpty(&threadQueue))
+	if(ListEmpty(&threadQueue))
 	{
 		//No next thread, use kernel idle thread
 		newThread = ProcIdleThread;
@@ -98,7 +98,7 @@ void ProcYield()
 	ListHeadInit(&ProcCurrThread->schedQueueEntry);
 
 	//If there are no other thread to run, just return
-	if(ListHeadIsEmpty(&threadQueue))
+	if(ListEmpty(&threadQueue))
 	{
 		//Give myself another full quantum
 		TimerResetQuantum();
