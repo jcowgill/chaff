@@ -67,6 +67,9 @@ typedef struct SProcSigaction
 
 struct SProcProcess
 {
+	//Process ID
+	unsigned int pid;
+
 	//Hash map item
 	HashItem hItem;
 
@@ -115,6 +118,9 @@ struct SProcProcess
 
 struct SProcThread
 {
+	//Thread ID
+	unsigned int tid;
+
 	//Hash map item
 	HashItem hItem;
 

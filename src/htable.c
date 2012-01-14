@@ -24,70 +24,66 @@
 
 //Simple 256 bucket hash table
 
-static inline unsigned int HashFunction(unsigned int id)
-{
-	//Simplest function
-	return id % HASHT_BUCKET_COUNT;
-}
-
 //Insert an item into the hashmap
 // You must set the ID in the HashItem
 // Returns false if that ID already exists
-bool HashTableInsert(HashTable table, HashItem * item)
+bool HashTableInsert(HashTable * table, HashItem * item)
 {
 	//Get bucket for hash
-	HashItem ** ptrToItem = &table[HashFunction(item->id)];
-	HashItem * currItem = *ptrToItem;
+	const void * key = table->key(item);
+	unsigned int hash = table->hash(key);
 
-	//Find id
+	HashItem * currItem = table->table[hash];
+
+	//Setup new item
+	item->next = currItem;
+
+	//Check if in table
 	while(currItem != NULL)
 	{
-		if(currItem->id > item->id)
-		{
-			//Insert before this item
-			item->next = currItem;
-			*ptrToItem = item;
-			return true;
-		}
-		else if(currItem->id == item->id)
+		if(table->compare(key, table->key(currItem)))
 		{
 			//Already in hash table
 			return false;
 		}
 
-		//Next item
-		ptrToItem = &currItem->next;
-		currItem = *ptrToItem;
+		currItem = currItem->next;
 	}
 
-	//Insert at end
-	item->next = NULL;
-	*ptrToItem = item;
+	//Insert at beginning
+	table->table[hash] = item;
+	table->count++;
 	return true;
 }
 
-//Removes the given ID from the hash table
+//Removes the given ID from the hash table (provide 1 key after table)
 // Returns false if that ID doesn't exist
-bool HashTableRemove(HashTable table, unsigned int id)
+bool HashTableRemove(HashTable * table, ...)
 {
+	//Get key
+	const void * key;
+
+	va_list args;
+	va_start(args, table);
+	key = va_arg(args, const void *);
+	va_end(args);
+
 	//Get bucket for hash
-	HashItem ** ptrToItem = &table[HashFunction(id)];
+	unsigned int hash = table->hash(key);
+
+	HashItem ** ptrToItem = &table->table[hash];
 	HashItem * currItem = *ptrToItem;
 
-	//Find id
+	//Find item
 	while(currItem != NULL)
 	{
-		if(currItem->id == id)
+		if(table->compare(key, table->key(currItem)))
 		{
 			//Change pointer to item to this item's next value
 			*ptrToItem = currItem->next;
 			currItem->next = NULL;
+			table->count--;
 			return true;
-		}
-		else if(currItem->id > id)
-		{
-			//Not found
-			return false;
 		}
 
 		//Next item
@@ -99,18 +95,35 @@ bool HashTableRemove(HashTable table, unsigned int id)
 	return false;
 }
 
-//Returns the HashItem corresponding to a given ID
-// Returns NULL if that ID doesn't exist
-HashItem * HashTableFind(HashTable table, unsigned int id)
+//Removes the given item from the hash table
+// Returns false if that ID doesn't exist
+bool HashTableRemoveItem(HashTable * table, HashItem * item)
 {
-	//Get first item in bucket
-	HashItem * item = table[HashFunction(id)];
+	return HashTableRemove(table, table->key(item));
+}
+
+//Returns the HashItem corresponding to a given ID (provide 1 key after table)
+// Returns NULL if that ID doesn't exist
+HashItem * HashTableFind(HashTable * table, ...)
+{
+	//Get key
+	const void * key;
+
+	va_list args;
+	va_start(args, table);
+	key = va_arg(args, const void *);
+	va_end(args);
+
+	//Get bucket for hash
+	unsigned int hash = table->hash(key);
+
+	HashItem * item = table->table[hash];
 
 	//Find the item, starting with the first bucket
 	while(item != NULL)
 	{
 		//Check ID
-		if(item->id == id)
+		if(table->compare(key, table->key(item)))
 		{
 			//Found item
 			return item;
@@ -122,4 +135,50 @@ HashItem * HashTableFind(HashTable table, unsigned int id)
 
 	//Item not found
 	return NULL;
+}
+
+unsigned int HashTableIntHash(const void * num)
+{
+	return HashTableIntHashHelp((unsigned int) num);
+}
+
+unsigned int HashTableStrHash(const void * str)
+{
+	return HashTableStrHashHelp(str);
+}
+
+unsigned int HashTableMemHash(const void * memIn, unsigned int size)
+{
+	//This is the FNV hash algorithm
+	const char * mem = memIn;
+	unsigned int hash = 2166136261;
+
+	while(size-- > 0)
+	{
+		hash ^= *mem++;
+		hash *= 16777619;
+	}
+
+	return hash;
+}
+
+bool HashTableCompare(const void * num1, const void * num2)
+{
+	return num1 == num2;
+}
+
+bool HashTableStrCompare(const void * inStr1, const void * inStr2)
+{
+	const char * str1 = inStr1;
+	const char * str2 = inStr2;
+
+	while(*str1)
+	{
+		if(*str1++ != *str2++)
+		{
+			return false;
+		}
+	}
+
+	return *str2 == '\0';
 }

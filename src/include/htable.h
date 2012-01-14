@@ -22,6 +22,7 @@
 #ifndef HTABLE_H_
 #define HTABLE_H_
 
+#include "chaff.h"
 #include "list.h"
 
 //Simple 256 bucket hash table
@@ -29,27 +30,59 @@
 
 typedef struct tagSHashItem
 {
-	unsigned int id;
 	struct tagSHashItem * next;
 
 } HashItem;
 
-typedef HashItem * HashTable[HASHT_BUCKET_COUNT];
+//Hash table data
+typedef struct
+{
+	const void * (* key)(HashItem * item);		//Gets a key from an item
+	unsigned int (* hash)(const void * key);
+	bool (* compare)(const void * key1, const void * key2);
+
+	HashItem * table[HASHT_BUCKET_COUNT];
+	int count;
+
+} HashTable;
 
 //Insert an item into the hashmap
 // You must set the ID in the HashItem
 // Returns false if that ID already exists
-bool HashTableInsert(HashTable table, HashItem * item);
+bool HashTableInsert(HashTable * table, HashItem * item);
 
-//Removes the given ID from the hash table
+//Removes the given ID from the hash table (provide 1 key after table)
 // Returns false if that ID doesn't exist
-bool HashTableRemove(HashTable table, unsigned int id);
+bool HashTableRemove(HashTable * table, ...);
 
-//Returns the HashItem corresponding to a given ID
+//Removes the given item from the hash table
+// Returns false if that ID doesn't exist
+bool HashTableRemoveItem(HashTable * table, HashItem * item);
+
+//Returns the HashItem corresponding to a given ID (provide 1 key after table)
 // Returns NULL if that ID doesn't exist
-HashItem * HashTableFind(HashTable table, unsigned int id);
+HashItem * HashTableFind(HashTable * table, ...);
 
 //Gets the hash tale item corresponding to a given HashItem
 #define HashTableEntry ListEntry
+
+//Helper hash functions
+unsigned int HashTableIntHash(const void * num);
+unsigned int HashTableStrHash(const void * str);
+
+unsigned int HashTableMemHash(const void * mem, unsigned int size);
+
+static inline unsigned int HashTableIntHashHelp(unsigned int num)
+{
+	return HashTableMemHash(&num, sizeof(unsigned int));
+}
+
+static inline unsigned int HashTableStrHashHelp(const char * str)
+{
+	return HashTableMemHash(str, StrLen(str));
+}
+
+bool HashTableCompare(const void * num1, const void * num2);		//Compares the pointers given - use for ints and ptrs
+bool HashTableStrCompare(const void * str1, const void * str2);		//Compares the strings given
 
 #endif /* HTABLE_H_ */

@@ -29,8 +29,13 @@
 //Process management functions
 
 // Process hash table
-static HashTable hTableProcess;
-static HashTable hTableThread;
+static const void * ProcGetKey(HashItem * item)
+{
+	return (const void *) (HashTableEntry(item, ProcProcess, hItem)->pid);
+}
+
+static HashTable hTableProcess = { ProcGetKey, HashTableIntHash, HashTableCompare };
+static HashTable hTableThread = { ProcGetKey, HashTableIntHash, HashTableCompare };
 
 static unsigned int processNextID;
 static unsigned int threadNextID;
@@ -50,8 +55,8 @@ void ProcInit()
 {
 	//Create kernel process
 	// Malloc need this so we must do it with no dynamic memory
-	ProcKernelProcessData.hItem.id = 0;
-	HashTableInsert(hTableProcess, &ProcKernelProcessData.hItem);
+	ProcKernelProcessData.pid = 0;
+	HashTableInsert(&hTableProcess, &ProcKernelProcessData.hItem);
 
 	ProcKernelProcessData.name = "kernel";
 	ProcKernelProcessData.memContext = MemKernelContext;
@@ -77,7 +82,7 @@ void ProcInit()
 //Gets a process from the given ID or returns NULL if the process doesn't exist
 ProcProcess * ProcGetProcessByID(unsigned int pid)
 {
-	HashItem * item = HashTableFind(hTableProcess, pid);
+	HashItem * item = HashTableFind(&hTableProcess, pid);
 
 	if(item)
 	{
@@ -92,7 +97,7 @@ ProcProcess * ProcGetProcessByID(unsigned int pid)
 //Gets a thread from the given ID or returns NULL if the thread doesn't exist
 ProcThread * ProcGetThreadByID(unsigned int tid)
 {
-	HashItem * item = HashTableFind(hTableThread, tid);
+	HashItem * item = HashTableFind(&hTableThread, tid);
 
 	if(item)
 	{
@@ -118,9 +123,9 @@ ProcProcess * ProcCreateProcess(const char * name, ProcProcess * parent)
 	//Allocate process id
 	do
 	{
-		process->hItem.id = processNextID++;
+		process->pid = processNextID++;
 	}
-	while(!HashTableInsert(hTableProcess, &process->hItem));
+	while(!HashTableInsert(&hTableProcess, &process->hItem));
 
 	//Set process parent
 	if(parent == NULL)
@@ -161,9 +166,9 @@ static ProcThread * ProcCreateRawThread(const char * name, ProcProcess * parent,
 	//Allocate thread id
 	do
 	{
-		thread->hItem.id = threadNextID++;
+		thread->tid = threadNextID++;
 	}
-	while(!HashTableInsert(hTableThread, &thread->hItem));
+	while(!HashTableInsert(&hTableThread, &thread->hItem));
 
 	//Set thread parent
 	thread->parent = parent;
@@ -368,7 +373,7 @@ int ProcWaitProcess(int id, unsigned int * exitCode, int options)
 		*exitCode = chosenOne->exitCode;
 	}
 
-	unsigned int pid = chosenOne->hItem.id;
+	unsigned int pid = chosenOne->pid;
 
 	//Reap chosen thread and return
 	ProcIntReapProcess(chosenOne);
@@ -479,7 +484,7 @@ int ProcWaitThread(int id, unsigned int * exitCode, int options)
 		*exitCode = chosenOne->exitCode;
 	}
 
-	unsigned int tid = chosenOne->hItem.id;
+	unsigned int tid = chosenOne->tid;
 
 	//Reap chosen thread and return
 	ProcIntReapThread(chosenOne);
@@ -578,7 +583,7 @@ void ProcIntReapProcess(ProcProcess * process)
 	ListDelete(&process->processSibling);
 
 	//Remove from hashtable
-	HashTableRemove(hTableProcess, process->hItem.id);
+	HashTableRemove(&hTableProcess, process->pid);
 
 	//Free name
 	MFree(process->name);
@@ -658,7 +663,7 @@ void ProcIntReapThread(ProcThread * thread)
 	}
 
 	//Remove from hash table
-	HashTableRemove(hTableThread, thread->hItem.id);
+	HashTableRemove(&hTableThread, thread->tid);
 
 	//Remove from thread list
 	ListDelete(&thread->threadSibling);
