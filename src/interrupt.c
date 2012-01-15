@@ -25,6 +25,7 @@
 #include "inlineasm.h"
 #include "exceptions.h"
 #include "timer.h"
+#include "process.h"
 
 //Interrupt gate structure
 typedef struct

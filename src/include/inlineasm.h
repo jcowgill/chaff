@@ -49,7 +49,7 @@ static inline void invlpg(void * address)
 }
 
 //Load interrupt descriptor table
-// This is not inline but implemented in interrupt.s
+// This is not inline but implemented in interruptAsm.s
 void lidt(unsigned short len, void * ptr);
 
 //IO commands
