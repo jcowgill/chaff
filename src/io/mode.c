@@ -1,5 +1,5 @@
 /*
- * io.h
+ * mode.c
  *
  *  Copyright 2012 James Cowgill
  *
@@ -15,14 +15,29 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  *
- *  Created on: 5 Oct 2010
- *      Author: James
+ *  Created on: 13 Jan 2012
+ *      Author: james
  */
 
-#ifndef IO_H_
-#define IO_H_
+#include "chaff.h"
+#include "process.h"
+#include "io/mode.h"
 
-//File handle
-typedef unsigned int FileHandle;
-
-#endif /* IO_H_ */
+//Determines if the given process can read / write / execute the file with the given mode and ids
+bool IoModeCanAccess(IoMode accessMode, IoMode mode, unsigned int uid, unsigned int gid,
+		ProcProcess * process)
+{
+	//Test user permissions
+	if(process->euid == uid)
+	{
+		return mode & accessMode;
+	}
+	else if(process->egid == gid)
+	{
+		return mode & (accessMode << 3);
+	}
+	else
+	{
+		return mode & (accessMode << 6);
+	}
+}

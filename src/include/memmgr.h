@@ -24,7 +24,6 @@
 
 //Memory management code
 
-#include "io.h"
 #include "list.h"
 #include "multiboot.h"
 #include "interrupt.h"

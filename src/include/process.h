@@ -56,6 +56,7 @@ typedef enum
 //Process and thread structures
 struct SProcProcess;
 struct SProcThread;
+struct IoContext;
 
 typedef struct SProcSigaction
 {
@@ -79,6 +80,14 @@ struct SProcProcess
 	ListHead children;				//Head
 	ListHead threads;				//Head
 
+	//Real, effective and saved user and group identifiers
+	// Real = launcher of the process
+	// Effective = permissions currently using (eg for files)
+	// Saved = allows setuid files to change effective id and go back again
+	//To test if a process is running as root, test EUID == 0
+	unsigned int ruid, euid, suid;
+	unsigned int rgid, egid, sgid;
+
 	//Zombie status
 	bool zombie;
 
@@ -91,6 +100,9 @@ struct SProcProcess
 
 	//Process memory context
 	MemContext * memContext;
+
+	//IO Context
+	struct IoContext * ioContext;
 
 	//Process signal handlers
 	/*
