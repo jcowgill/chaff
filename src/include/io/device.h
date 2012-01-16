@@ -87,9 +87,8 @@ typedef struct IoDevice
 	unsigned int gid;
 
 	//DevFs relationships
-	struct IoDevice * parent;	//Parent or NULL of this is a top-level node
-	ListHead sibling;
-	ListHead children;
+	ListHead devFsSiblings;
+	unsigned int devFsINode;
 
 	//(block device only) Pointer to the block cache for this device
 	struct IoBlockCache * blockCache;
@@ -101,5 +100,18 @@ typedef struct IoDevice
 	void * custom;
 
 } IoDevice;
+
+//DevFs functions
+//
+
+//Registers the devfs filesystem
+void IoDevFsInit();
+
+//Register a device with devfs using the name given in the device
+// You cannot register a device with the same name as another device
+int IoDevFsRegister(IoDevice * device);
+
+//Unregisters an existing device with devfs
+int IoDevFsUnRegister(IoDevice * device);
 
 #endif /* IO_DEVICE_H_ */
