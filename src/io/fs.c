@@ -21,35 +21,71 @@
 
 #include "chaff.h"
 #include "io/fs.h"
+#include "list.h"
+
+//Filesystem list
+static ListHead fsTypeHead = LIST_INLINE_INIT(fsTypeHead);
 
 //Registers a filesystem type with the kernel
-int IoFilesystemRegister(IoFilesystemType * type)
+bool IoFilesystemRegister(IoFilesystemType * type)
 {
-	//
+	//Check that there isn't already a filesystem
+	if(IoFilesystemFind(type->name) == NULL)
+	{
+		//Add filesystem
+		ListHeadInit(&fsTypeHead);
+		ListHeadAddLast(&fsTypeHead, &type->fsTypes);
+		return true;
+	}
+	else
+	{
+		return false;
+	}
 }
 
 //Unregisters a filesystem type with the kernel
 // You cannot unregister a filesystem in use
-int IoFilesystemUnRegister(IoFilesystemType * type)
+bool IoFilesystemUnRegister(IoFilesystemType * type)
 {
-	//
+	//Check if in use
+	if(type->refCount != 0)
+	{
+		return false;
+	}
+
+	//Remove from list
+	ListDelete(&type->fsTypes);
 }
 
 //Finds a registered filesystem
 IoFilesystemType * IoFilesystemFind(const char * name)
 {
-	//
+	IoFilesystemType * type;
+
+	//Find existing filesystem
+	ListForEachEntry(type, &fsTypeHead, fsTypes)
+	{
+		//Same name?
+		if(StrCmp(type->name, name) == 0)
+		{
+			//This one
+			return type;
+		}
+	}
+
+	//None found
+	return NULL;
 }
 
 //Mounts a new filesystem
 int IoFilesystemMount(IoFilesystemType * type, struct IoDevice * device,
-		struct IoFileSystem * onto, unsigned int ontoINode, int flags)
+		IoFilesystem * onto, unsigned int ontoINode, int flags)
 {
 	//
 }
 
 //UnMounts a filesystem
-int IoFilesystemUnMount(struct IoFileSystem * onto)
+int IoFilesystemUnMount(IoFilesystem * onto)
 {
 	//
 }

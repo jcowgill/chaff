@@ -54,8 +54,8 @@ typedef enum
 } ProcWaitMode;
 
 //Process and thread structures
-struct SProcProcess;
-struct SProcThread;
+struct ProcProcess;
+struct ProcThread;
 struct IoContext;
 
 typedef struct SProcSigaction
@@ -66,7 +66,7 @@ typedef struct SProcSigaction
 
 } ProcSigaction;
 
-struct SProcProcess
+typedef struct ProcProcess
 {
 	//Process ID
 	unsigned int pid;
@@ -75,7 +75,7 @@ struct SProcProcess
 	HashItem hItem;
 
 	//Process and thread hierarchy
-	struct SProcProcess * parent;
+	struct ProcProcess * parent;
 	ListHead processSibling;		//Sibling
 	ListHead children;				//Head
 	ListHead threads;				//Head
@@ -126,9 +126,10 @@ struct SProcProcess
 
 	//Process alarm
 	ListHead * alarmPtr;
-};
 
-struct SProcThread
+} ProcProcess;
+
+typedef struct ProcThread
 {
 	//Thread ID
 	unsigned int tid;
@@ -137,7 +138,7 @@ struct SProcThread
 	HashItem hItem;
 
 	//Parent process
-	struct SProcProcess * parent;
+	struct ProcProcess * parent;
 	ListHead threadSibling;			//Sibling
 
 	//Exit code
@@ -162,12 +163,10 @@ struct SProcThread
 	//Signal masks
 	ProcSigSet sigPending;
 	ProcSigSet sigBlocked;
-};
+
+} ProcThread;
 
 #define PROC_KSTACK_SIZE 0x1000		//4KB Kernel Stack
-
-typedef struct SProcProcess ProcProcess;
-typedef struct SProcThread ProcThread;
 
 //Scheduler functions
 

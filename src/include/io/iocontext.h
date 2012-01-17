@@ -27,11 +27,10 @@
 
 #include "chaff.h"
 #include "io/mode.h"
+#include "io/fs.h"
 
 #define IO_MAX_OPEN_FILES 1024
 
-struct IoFilesystem;
-struct IoFileOps;
 struct ProcProcess;
 
 //A file opened by an IoContext
@@ -50,7 +49,7 @@ typedef struct IoFile
 	void * fsData;
 
 	//File ops
-	struct IoFileOps * ops;
+	IoFileOps * ops;
 
 } IoFile;
 
@@ -60,10 +59,10 @@ typedef struct IoContext
 	//Open files
 	IoFile * files[IO_MAX_OPEN_FILES];
 	char descriptorFlags[IO_MAX_OPEN_FILES];	//Flags associated with a DESCRIPTOR
-	int nextFreeFile;							//First free file id or -1 for unknown
+	int nextFreeFile;							//First free file id is at least this
 
 	//Current directory
-	struct IoFilesystem * dirFs;
+	IoFilesystem * dirFs;
 	unsigned int dirINode;
 
 } IoContext;
@@ -82,9 +81,13 @@ typedef struct IoContext
 #define IO_O_APPEND		0x10
 #define IO_O_EXCL		0x20
 #define IO_O_CLOEXEC	0x40
+#define IO_O_DIRECT		0x80
 
 //Gets an open file from the current process's context
 IoFile * IoGetFile(int fd);
+
+//Gets an open file from the given context
+IoFile * IoGetFileWithContext(IoContext * context, int fd);
 
 //Finds the next avaliable file descriptor at least as large as fd
 // Returns the file descriptor or -1 if there are none avaliable
@@ -100,6 +103,10 @@ int IoOpen(struct ProcProcess * process, const char * path, int flags, IoMode mo
 //Closes the file with the given descriptor
 int IoClose(IoContext * context, int fd);
 
+//Closes all files marked as CLOEXEC
+// Any errors are discarded
+void IoCloseForExec(IoContext * context);
+
 //Reads some bytes from a file descriptor
 int IoRead(IoContext * context, int fd, void * buffer, int count);
 
@@ -112,5 +119,21 @@ int IoIoctl(IoContext * context, int fd, int request, void * data);
 //Duplicates a file descriptor
 // flags can be the IO_DUP_ flags or IO_O_CLOEXEC
 int IoDup(IoContext * context, int fd, int newFd, int flags);
+
+//Structure used as the output to readdir requests
+typedef struct
+{
+	//INode of this file
+	unsigned int iNode;
+
+	//Name of this file (null terminated)
+	char name[256];
+
+} IoReadDirEntry;
+
+//Reads up to count directories from the directory opened by the given file descriptor
+// Returns the number of directories read (if less than count, there are no more) or a negative
+// number on error.
+int IoReadDir(IoContext * context, int fd, IoReadDirEntry * buffer, int count);
 
 #endif /* IO_CONTEXT_H_ */

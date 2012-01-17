@@ -36,7 +36,7 @@ struct IoDevice;
 struct IoFilesystem;
 
 //Callback function when a directory name if found
-typedef int (* IoDirectoryFiller)(void * buf, const char * name, int len);
+typedef int (* IoDirectoryFiller)(void * buf, unsigned int iNode, const char * name, int len);
 
 //File Ops
 // Things that can be done to file nodes (these are all implemented by filesystems)
@@ -48,17 +48,18 @@ typedef struct
 
 	//Closes the file
 	// This is called when the last reference to a file is closed
+	// If the result is not 0, the file is not completely closed
 	int (* close)(struct IoFile * file);
 
-	//Attempts to read count bytes into the given buffer at position off
+	//Attempts to read count bytes into the given buffer
 	// Character devices are allowed to ignore off
 	// Returns actual number of bytes or a negative number on error
-	int (* read)(struct IoFile * file, unsigned int off, void * buffer, unsigned int count);
+	int (* read)(struct IoFile * file, void * buffer, unsigned int count);
 
-	//Attempts to write count bytes from the given buffer at position off
+	//Attempts to write count bytes from the given buffer
 	// Character devices are allowed to ignore off
 	// Returns actual number of bytes written or a negative number on error
-	int (* write)(struct IoFile * file, unsigned int off, void * buffer, unsigned int count);
+	int (* write)(struct IoFile * file, void * buffer, unsigned int count);
 
 	//Performs device-dependent request
 	// All parameters and return code
@@ -177,9 +178,9 @@ IoFilesystemType * IoFilesystemFind(const char * name);
 
 //Mounts a new filesystem
 int IoFilesystemMount(IoFilesystemType * type, struct IoDevice * device,
-		struct IoFileSystem * onto, unsigned int ontoINode, int flags);
+		IoFilesystem * onto, unsigned int ontoINode, int flags);
 
 //UnMounts a filesystem
-int IoFilesystemUnMount(struct IoFileSystem * onto);
+int IoFilesystemUnMount(IoFilesystem * onto);
 
 #endif /* IO_FS_H_ */
