@@ -23,6 +23,12 @@
 #include "process.h"
 #include "io/iocontext.h"
 
+//Gets an open file from the current process's context
+IoFile * IoGetFile(int fd)
+{
+	//
+}
+
 //Finds the next avaliable file descriptor at least as large as fd
 // Returns the file descriptor or -1 if there are none avaliable
 int IoFindNextDescriptor(IoContext * context, int fd)

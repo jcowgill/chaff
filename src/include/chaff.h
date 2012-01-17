@@ -93,6 +93,9 @@ void MFree(void * data);
 //Determines string length
 #define StrLen __builtin_strlen
 
+//Compares 2 zero-terminated strings
+#define StrCmp __builtin_strcmp
+
 //Returns the offset of the last 1 bit in the given data
 // If data == 0, the result is undefined
 #define BitScanForward __builtin_ctz

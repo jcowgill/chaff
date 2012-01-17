@@ -21,6 +21,7 @@
 
 #include "chaff.h"
 #include "io/device.h"
+#include "io/fs.h"
 
 //Registers the devfs filesystem
 void IoDevFsInit()

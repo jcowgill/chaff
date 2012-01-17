@@ -167,3 +167,28 @@ unsigned int strlen(const char * s)
 	//Return pointer difference
 	return s - strStart;
 }
+
+//Strcmp implementation
+int strcmp(const char * s1, const char * s2)
+{
+	//Compare each character in turn
+	while(*s1 && *s1 == *s2)
+	{
+		s1++;
+		s2++;
+	}
+
+	//Return correct result
+	if(*s1 == *s2)
+	{
+		return 0;
+	}
+	else if(*s1 < *s2)
+	{
+		return -1;
+	}
+	else
+	{
+		return 1;
+	}
+}

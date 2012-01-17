@@ -35,6 +35,9 @@ struct IoFile;
 struct IoDevice;
 struct IoFilesystem;
 
+//Callback function when a directory name if found
+typedef int (* IoDirectoryFiller)(void * buf, const char * name, int len);
+
 //File Ops
 // Things that can be done to file nodes (these are all implemented by filesystems)
 typedef struct
@@ -60,6 +63,11 @@ typedef struct
 	//Performs device-dependent request
 	// All parameters and return code
 	int (* ioctl)(struct IoFile * file, int request, void * data);
+
+	//Reads files from the given directory (opened as a file)
+	// Should start reading at the position (off) stored in the file
+	// buf should be passed to filler and not interpreted
+	int (* readdir)(struct IoFile * file, void * buf, IoDirectoryFiller filler, int count);
 
 } IoFileOps;
 
@@ -96,12 +104,6 @@ typedef struct
 	// You must set IoFileOps in the iNode
 	int (* readINode)(struct IoFilesystem * fs, unsigned int id, IoINode * iNode);
 
-	//Reads the nth inode of a directory into iNodeNum
-	// parent = directory to read
-	// child = the nth child
-	// iNodeNum = fill with the inode number
-	int (* getNthINode)(struct IoFilesystem * fs, IoINode * parent, unsigned int child, unsigned int * iNodeNum);
-
 	//Finds the inode of a file in a directory
 	// parent = directory to read
 	// name = string name of the file to find - NOT null terminated
@@ -110,6 +112,10 @@ typedef struct
 	// The name paremeter is invalidated after blocking
 	int (* findINode)(struct IoFilesystem * fs, IoINode * parent,
 			const char * name, int nameLen, unsigned int * iNodeNum);
+
+	//Creates a new empty file with the given name and mode (see findINode for params)
+	int (* create)(struct IoFilesystem * fs, IoINode * parent,
+			const char * name, int nameLen, IoMode mode, unsigned int * iNodeNum);
 
 } IoFilesystemOps;
 
@@ -156,12 +162,15 @@ typedef struct
 //Filesystem functions
 // Most filesystem access stuff is implemented with the io-context
 
+//Filesystem mount flags (global)
+#define IO_MOUNT_RDONLY 1
+
 //Registers a filesystem type with the kernel
-int IoFilesystemRegister(IoFilesystemType * type);
+bool IoFilesystemRegister(IoFilesystemType * type);
 
 //Unregisters a filesystem type with the kernel
 // You cannot unregister a filesystem in use
-int IoFilesystemUnRegister(IoFilesystemType * type);
+bool IoFilesystemUnRegister(IoFilesystemType * type);
 
 //Finds a registered filesystem
 IoFilesystemType * IoFilesystemFind(const char * name);
