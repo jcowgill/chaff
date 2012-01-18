@@ -52,9 +52,6 @@ int IoOpen(ProcProcess * process, const char * path, int flags, IoMode mode, int
 {
 	IoContext * context = process->ioContext;
 
-#warning Check that all other syscalls (read, write, readdir etc check for CORRECT open flags)
-		//Also, dirs can be opened without IO_O_DIRECTORY
-
 	//Check if fd exists and is not reserved
 	if(fd < 0 || fd >= IO_MAX_OPEN_FILES || context->files[fd] != NULL ||
 			(context->descriptorFlags[fd] & IO_O_FDERSERVED))
@@ -105,15 +102,21 @@ int IoOpen(ProcProcess * process, const char * path, int flags, IoMode mode, int
 			break;
 
 		case -EISDIR:
-			//Force directory flag
-			flags |= IO_O_DIRECTORY;
-
 			//Check if an exclusive create was requested
 			if((flags & IO_O_CREAT) && (flags & IO_O_EXCL))
 			{
 				//File already exists
 				return -EEXIST;
 			}
+
+			//Cannot open a directory in write mode
+			if(flags & IO_O_WRONLY)
+			{
+				return -EISDIR;
+			}
+
+			//Force directory flag
+			flags |= IO_O_DIRECTORY;
 
 			break;
 
