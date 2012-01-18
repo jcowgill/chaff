@@ -22,11 +22,18 @@
 #include "chaff.h"
 #include "process.h"
 #include "io/mode.h"
+#include "io/fs.h"
 
 //Determines if the given process can read / write / execute the file with the given mode and ids
 bool IoModeCanAccess(IoMode accessMode, IoMode mode, unsigned int uid, unsigned int gid,
-		ProcProcess * process)
+		struct ProcProcess * process)
 {
+	//Test root
+	if(process->euid == 0)
+	{
+		return true;
+	}
+
 	//Test user permissions
 	if(process->euid == uid)
 	{
@@ -40,4 +47,10 @@ bool IoModeCanAccess(IoMode accessMode, IoMode mode, unsigned int uid, unsigned 
 	{
 		return mode & (accessMode << 6);
 	}
+}
+
+//Determines if the given process can read / write / execute the file with the given iNode
+bool IoModeCanAccessINode(IoMode accessMode, IoINode * iNode, ProcProcess * process)
+{
+	return IoModeCanAccess(accessMode, iNode->mode, iNode->uid, iNode->gid, process);
 }

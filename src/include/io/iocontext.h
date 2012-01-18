@@ -80,8 +80,12 @@ typedef struct IoContext
 #define IO_O_TRUNC		0x08
 #define IO_O_APPEND		0x10
 #define IO_O_EXCL		0x20
-#define IO_O_CLOEXEC	0x40
-#define IO_O_DIRECT		0x80
+#define IO_O_CLOEXEC	0x40		//Descriptor flag
+#define IO_O_DIRECTORY	0x80
+
+#define IO_O_ALLFLAGS	0xFF
+
+#define IO_O_FDERSERVED	0x01		//Descriptor flag (used internally)
 
 //Gets an open file from the current process's context
 IoFile * IoGetFile(int fd);

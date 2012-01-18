@@ -44,6 +44,7 @@ typedef struct
 {
 	//Opens this file into a new file structure
 	// This is not called for file duplications
+	// This must handle the IO_O_TRUNC flag
 	int (* open)(struct IoINode * iNode, struct IoFile * file);
 
 	//Closes the file
@@ -75,19 +76,19 @@ typedef struct
 //A representation of a node in the filesystem
 typedef struct IoINode
 {
+	//iNode number
+	unsigned int number;
+
 	//Filesystem this iNode belongs to
 	struct IoFilesystem * fs;
 
 	//File ops with this iNode
-	IoFileOps ops;
+	IoFileOps * ops;
 
 	//File mode (including type) and users
 	IoMode mode;
 	unsigned int uid;
 	unsigned int gid;
-
-	//Time of: access, create, modification
-	int atime, ctime, mtime;
 
 	//File size in bytes
 	unsigned long long size;
@@ -103,10 +104,11 @@ typedef struct
 
 	//Reads information about an inode into the iNode structure given
 	// You must set IoFileOps in the iNode
-	int (* readINode)(struct IoFilesystem * fs, unsigned int id, IoINode * iNode);
+	// The iNode number and filesystem will be set in iNode and the rest is undefined
+	int (* readINode)(struct IoFilesystem * fs, IoINode * iNode);
 
 	//Finds the inode of a file in a directory
-	// parent = directory to read
+	// parent = directory to read or NULL to read the root directory
 	// name = string name of the file to find - NOT null terminated
 	// nameLen = length of name
 	// iNodeNum = fill with the inode number
@@ -127,7 +129,7 @@ typedef struct IoFilesystem
 	struct IoDevice * device;	//Can be NULL
 
 	//Filesystem functions
-	IoFilesystemOps ops;
+	IoFilesystemOps * ops;
 
 	//Filesystem specific data
 	int flags;
@@ -138,6 +140,7 @@ typedef struct IoFilesystem
 	unsigned int parentINode;
 
 	//Mount points mounted on this filesystem
+	// These are iNode -> IoFilesystem * mappings
 	HashTable mountPoints;
 
 } IoFilesystem;

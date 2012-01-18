@@ -24,6 +24,9 @@
 #include "io/iocontext.h"
 #include "errno.h"
 
+//This file contains most io front-end functions except open
+// which is located in open.c
+
 //Structure used for readDirFiller
 typedef struct
 {
@@ -127,7 +130,7 @@ int IoFindNextDescriptor(IoContext * context, int fd)
 	for(int i = start; i < IO_MAX_OPEN_FILES; i++)
 	{
 		//Free?
-		if(context->files[i] == NULL)
+		if(context->files[i] == NULL && (context->descriptorFlags[i] & IO_O_FDERSERVED) == 0)
 		{
 			//Return this id
 			return i;
@@ -136,16 +139,6 @@ int IoFindNextDescriptor(IoContext * context, int fd)
 
 	//None found
 	return -1;
-}
-
-//Opens a new file descriptor in the io context of process
-// path = path of file to open
-// flags = flags to open file
-// mode = mode to create new file with
-// fd = file descriptor to use (this will not replace a descriptor)
-int IoOpen(ProcProcess * process, const char * path, int flags, IoMode mode, int fd)
-{
-#warning TODO IoOpen
 }
 
 //Closes the file with the given descriptor
@@ -186,7 +179,7 @@ int IoRead(IoContext * context, int fd, void * buffer, int count)
 	{
 		res = -EBADF;
 	}
-	else if(file->flags & IO_O_DIRECT)
+	else if(file->flags & IO_O_DIRECTORY)
 	{
 		res = -EISDIR;
 	}
@@ -216,7 +209,7 @@ int IoWrite(IoContext * context, int fd, void * buffer, int count)
 	{
 		res = -EBADF;
 	}
-	else if(file->flags & IO_O_DIRECT)
+	else if(file->flags & IO_O_DIRECTORY)
 	{
 		res = -EISDIR;
 	}
@@ -278,6 +271,11 @@ int IoDup(IoContext * context, int fd, int newFd, int flags)
 	{
 		//Invalid descriptor
 		res = -EBADF;
+	}
+	else if(context->descriptorFlags[newFd] & IO_O_FDERSERVED)
+	{
+		//Cannot duplicate into reserved descriptor
+		res = -EBUSY;
 	}
 	else if(context->files[newFd] != NULL)
 	{
@@ -344,7 +342,7 @@ int IoReadDir(IoContext * context, int fd, IoReadDirEntry * buffer, int count)
 	IO_GET_FILE(file, context, fd);
 
 	//Must be a directory
-	if(!(file->flags & IO_O_DIRECT))
+	if(!(file->flags & IO_O_DIRECTORY))
 	{
 		res = -ENOTDIR;
 	}

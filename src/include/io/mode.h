@@ -61,17 +61,19 @@
 #define IO_ISDIR(mode) 		(((mode) & IO_ALL_TYPES) == IO_DIR)
 #define IO_ISREGULAR(mode) 	(((mode) & IO_ALL_TYPES) == IO_REGULAR)
 #define IO_ISFIFO(mode) 	(((mode) & IO_ALL_TYPES) == IO_FIFO)
-#define IO_ISSYMLINK(mode) 	(((mode) & IO_ALL_TYPES) == IO_SYMBLINK)
+#define IO_ISSYMLINK(mode) 	(((mode) & IO_ALL_TYPES) == IO_SYMLINK)
 #define IO_ISSOCKET(mode) 	(((mode) & IO_ALL_TYPES) == IO_SOCKET)
 
 //IO Mode type
 typedef unsigned short IoMode;
 
 struct ProcProcess;
+struct IoINode;
 
-//Determines if the given process can read / write / execute the file with the given mode and ids
+//Determines if the given process can read / write / execute the file with the iNode / given permissions
 // Use the "WORLD" permissions in access mode
 bool IoModeCanAccess(IoMode accessMode, IoMode mode, unsigned int uid, unsigned int gid,
 		struct ProcProcess * process);
+bool IoModeCanAccessINode(IoMode accessMode, struct IoINode * iNode, struct ProcProcess * process);
 
 #endif /* IO_MODE_H_ */
