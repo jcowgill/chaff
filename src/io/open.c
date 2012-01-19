@@ -85,6 +85,12 @@ int IoLookupPath(ProcProcess * process, const char * path, IoINode * output, con
 		return res;
 	}
 
+	//Do checks for top level
+	if(!IoModeCanAccessINode(IO_WORLD_EXEC, output, process))
+	{
+		return -EACCES;
+	}
+
 	//Start looking up inodes
 	for(;;)
 	{
@@ -162,6 +168,12 @@ int IoLookupPath(ProcProcess * process, const char * path, IoINode * output, con
 				{
 					return res;
 				}
+
+				//Do checks
+				if(!IoModeCanAccessINode(IO_WORLD_EXEC, output, process))
+				{
+					return -EACCES;
+				}
 			}
 		}
 
@@ -201,6 +213,12 @@ int IoLookupPath(ProcProcess * process, const char * path, IoINode * output, con
 		if(res != 0)
 		{
 			return res;
+		}
+
+		//Do checks
+		if(IO_ISDIR(output->mode) && !IoModeCanAccessINode(IO_WORLD_EXEC, output, process))
+		{
+			return -EACCES;
 		}
 
 		//Exit if this is the last part
