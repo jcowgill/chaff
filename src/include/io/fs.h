@@ -44,7 +44,6 @@ typedef struct
 {
 	//Opens this file into a new file structure
 	// This is not called for file duplications
-	// This must handle the IO_O_TRUNC flag
 	int (* open)(struct IoINode * iNode, struct IoFile * file);
 
 	//Closes the file
@@ -61,6 +60,10 @@ typedef struct
 	// Character devices are allowed to ignore off
 	// Returns actual number of bytes written or a negative number on error
 	int (* write)(struct IoFile * file, void * buffer, unsigned int count);
+
+	//Truncates a file to the given length
+	// This can also make a file larger
+	int (* truncate)(struct IoFile * file, unsigned long long size);
 
 	//Performs device-dependent request
 	// All parameters and return code

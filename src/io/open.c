@@ -392,7 +392,7 @@ int IoOpen(ProcProcess * process, const char * path, int flags, IoMode mode, int
 	IoFile * file = MAlloc(sizeof(IoFile));
 	file->refCount = 1;
 	file->off = 0;
-	file->flags = flags & (IO_O_RDWR | IO_O_TRUNC | IO_O_APPEND | IO_O_DIRECTORY);
+	file->flags = flags & (IO_O_RDWR | IO_O_APPEND | IO_O_DIRECTORY);
 	file->fs = iNode.fs;
 	file->iNode = iNode.number;
 	file->ops = iNode.ops;
@@ -404,8 +404,16 @@ int IoOpen(ProcProcess * process, const char * path, int flags, IoMode mode, int
 		goto returnError;
 	}
 
-	//Trim truncate flag
-	file->flags &= ~IO_O_TRUNC;
+	//Truncate file
+	if(flags & IO_O_TRUNC)
+	{
+		res = file->ops->truncate(file, 0);
+		if(res != 0)
+		{
+			MFree(file);
+			goto returnError;
+		}
+	}
 
 	//Place in context
 	context->files[fd] = file;
