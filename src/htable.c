@@ -31,7 +31,7 @@ bool HashTableInsert(HashTable * table, HashItem * item)
 {
 	//Get bucket for hash
 	const void * key = table->key(item);
-	unsigned int hash = table->hash(key);
+	unsigned int hash = table->hash(key) % HASHT_BUCKET_COUNT;
 
 	HashItem * currItem = table->table[hash];
 
@@ -69,7 +69,7 @@ bool HashTableRemove(HashTable * table, ...)
 	va_end(args);
 
 	//Get bucket for hash
-	unsigned int hash = table->hash(key);
+	unsigned int hash = table->hash(key) % HASHT_BUCKET_COUNT;
 
 	HashItem ** ptrToItem = &table->table[hash];
 	HashItem * currItem = *ptrToItem;
@@ -115,7 +115,7 @@ HashItem * HashTableFind(HashTable * table, ...)
 	va_end(args);
 
 	//Get bucket for hash
-	unsigned int hash = table->hash(key);
+	unsigned int hash = table->hash(key) % HASHT_BUCKET_COUNT;
 
 	HashItem * item = table->table[hash];
 
@@ -169,16 +169,5 @@ bool HashTableCompare(const void * num1, const void * num2)
 
 bool HashTableStrCompare(const void * inStr1, const void * inStr2)
 {
-	const char * str1 = inStr1;
-	const char * str2 = inStr2;
-
-	while(*str1)
-	{
-		if(*str1++ != *str2++)
-		{
-			return false;
-		}
-	}
-
-	return *str2 == '\0';
+	return StrCmp((const char *) inStr1, (const char *) inStr2) == 0;
 }
