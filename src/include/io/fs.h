@@ -165,7 +165,7 @@ typedef struct
 	unsigned int refCount;
 
 	//Mounts a device using this filesystem
-	// newFs contains everything already set
+	// newFs contains everything already set exept ops and fsData
 	int (* mount)(IoFilesystem ** newFs);
 
 } IoFilesystemType;
