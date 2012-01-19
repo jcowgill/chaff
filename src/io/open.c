@@ -24,6 +24,7 @@
 #include "io/fs.h"
 #include "errno.h"
 #include "process.h"
+#include "htable.h"
 
 //IoOpen and IoLookupPath calls
 //
@@ -33,14 +34,184 @@
 // Returns one of:
 //  0 		= File found and placed in output
 //  -ENOENT = File not found.
-//				If the parent directory was found:
+//				If the parent directory (of the file) was found:
 //				 output is set to the parent and fileStart is set to the beginning of the unknown file
 //				If not, fileStart is set to NULL
 //  -EISDIR = Path represents a directory - the dir is placed in output
 //  other   = Another error, the value in output is undefined
 int IoLookupPath(ProcProcess * process, const char * path, IoINode * output, const char ** fileStart)
 {
-	//
+	IoContext * context = process->ioContext;
+	IoFilesystem * currFs;
+	unsigned int currINode;
+	int res;
+
+	*fileStart = NULL;
+
+	//Find top level directory
+	if(*path == '\0')
+	{
+		//Invalid path
+		return -ENOENT;
+	}
+	else if(*path == '/')
+	{
+		//Use root directory
+		if(IoFilesystemRoot == NULL)
+		{
+			//No files avaliable
+			return -ENOENT;
+		}
+
+		currFs = IoFilesystemRoot;
+		currINode = currFs->ops->getRootINode(currFs);
+
+		path++;
+	}
+	else
+	{
+		//Use current directory
+		currFs = context->cdirFs;
+		currINode = context->cdirINode;
+	}
+
+	//Read top level iNode
+	output->fs = currFs;
+	output->number = currINode;
+	res = currFs->ops->readINode(currFs, output);
+
+	if(res != 0)
+	{
+		return res;
+	}
+
+	//Start looking up inodes
+	for(;;)
+	{
+		//Find next path element
+		int len = 0;
+		while(len < IO_NAME_MAX && path[len] != '\0' && path[len] != '/')
+		{
+			len++;
+		}
+
+		//Test for errors and special cases
+		if(len == IO_NAME_MAX)
+		{
+			return -ENAMETOOLONG;
+		}
+		else if(len == 0)
+		{
+			//Empty path element
+			if(*path == '\0')
+			{
+				//End of path with trailing /
+				// INode must refer to a directory
+				if(IO_ISDIR(output->mode))
+				{
+					//OK
+					return -EISDIR;
+				}
+				else
+				{
+					return -ENOTDIR;
+				}
+			}
+			else
+			{
+				//Ignore multiple slashes in a row
+				path++;
+				continue;
+			}
+		}
+
+		//Can only read into a directory
+		if(!IO_ISDIR(output->mode))
+		{
+			return -ENOTDIR;
+		}
+
+		//Test (some) special paths
+		if(len == 1 && *path == '.')
+		{
+			//Ignore dot path
+			path += 2;
+			continue;
+		}
+		else if(len == 2 && path[0] == '.' && path[1] == '.' && currINode == currFs->ops->getRootINode(currFs))
+		{
+			//Go to parent mount point
+			if(currFs->parentFs == NULL)
+			{
+				//This is the root fs, ignore this
+				path += 3;
+				continue;
+			}
+			else
+			{
+				//Go up
+				currINode = currFs->parentINode;
+				currFs = currFs->parentFs;
+
+				//Get the iNode
+				output->fs = currFs;
+				output->number = currINode;
+				res = currFs->ops->readINode(currFs, output);
+
+				if(res != 0)
+				{
+					return res;
+				}
+			}
+		}
+
+		//Lookup this name
+		res = currFs->ops->findINode(currFs, currINode, path, len, &currINode);
+		if(res == -ENOENT)
+		{
+			//File / path not found
+			// Was this the last part of the file?
+			if(path[len] == '\0')
+			{
+				//Yes - so the parent dir was found (and is already in the iNode structure)
+				*fileStart = path;
+			}
+
+			return -ENOENT;
+		}
+		else
+		{
+			return res;
+		}
+
+		//Handle mount points
+		HashItem * mountPoint = HashTableFind(&currFs->mountPoints, currINode);
+		if(mountPoint != NULL)
+		{
+			//Translate mount point
+			currFs = HashTableEntry(mountPoint, IoFilesystem, mountItem);
+			currINode = currFs->ops->getRootINode(currFs);
+		}
+
+		//Get the iNode
+		output->fs = currFs;
+		output->number = currINode;
+		res = currFs->ops->readINode(currFs, output);
+
+		if(res != 0)
+		{
+			return res;
+		}
+
+		//Exit if this is the last part
+		if(path[len] == '\0')
+		{
+			return 0;
+		}
+
+		//Move path on and repeat
+		path += len + 1;
+	}
 }
 
 //Opens a new file descriptor in the io context of process

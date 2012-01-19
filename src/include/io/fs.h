@@ -102,18 +102,21 @@ typedef struct
 	//Unmounts the filesystem
 	int (* umount)(struct IoFilesystem * fs);
 
+	//Gets the root inode number
+	unsigned int (* getRootINode)(struct IoFilesystem * fs);
+
 	//Reads information about an inode into the iNode structure given
 	// You must set IoFileOps in the iNode
 	// The iNode number and filesystem will be set in iNode and the rest is undefined
 	int (* readINode)(struct IoFilesystem * fs, IoINode * iNode);
 
 	//Finds the inode of a file in a directory
-	// parent = directory to read or NULL to read the root directory
+	// parent = directory to read
 	// name = string name of the file to find - NOT null terminated
 	// nameLen = length of name
 	// iNodeNum = fill with the inode number
 	// The name paremeter is invalidated after blocking
-	int (* findINode)(struct IoFilesystem * fs, IoINode * parent,
+	int (* findINode)(struct IoFilesystem * fs, unsigned int parent,
 			const char * name, int nameLen, unsigned int * iNodeNum);
 
 	//Creates a new empty file with the given name and mode (see findINode for params)
@@ -142,6 +145,7 @@ typedef struct IoFilesystem
 	//Mount points mounted on this filesystem
 	// These are iNode -> IoFilesystem * mappings
 	HashTable mountPoints;
+	HashItem mountItem;		//Mount item for the fs this is mounted onto
 
 } IoFilesystem;
 
@@ -185,5 +189,8 @@ int IoFilesystemMount(IoFilesystemType * type, struct IoDevice * device,
 
 //UnMounts a filesystem
 int IoFilesystemUnMount(IoFilesystem * onto);
+
+//The root filesystem
+extern IoFilesystem * IoFilesystemRoot;
 
 #endif /* IO_FS_H_ */

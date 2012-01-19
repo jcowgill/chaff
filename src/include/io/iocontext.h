@@ -30,6 +30,7 @@
 #include "io/fs.h"
 
 #define IO_MAX_OPEN_FILES 1024
+#define IO_NAME_MAX 255
 
 struct ProcProcess;
 
@@ -62,8 +63,8 @@ typedef struct IoContext
 	int nextFreeFile;							//First free file id is at least this
 
 	//Current directory
-	IoFilesystem * dirFs;
-	unsigned int dirINode;
+	IoFilesystem * cdirFs;
+	unsigned int cdirINode;
 
 } IoContext;
 
@@ -96,6 +97,18 @@ IoFile * IoGetFileWithContext(IoContext * context, int fd);
 //Finds the next avaliable file descriptor at least as large as fd
 // Returns the file descriptor or -1 if there are none avaliable
 int IoFindNextDescriptor(IoContext * context, int fd);
+
+//Looks up a path in the filesystem using the given process context
+// This performs tranverse directory permission checks (any dir in output also has these checks)
+// Returns one of:
+//  0 		= File found and placed in output
+//  -ENOENT = File not found.
+//				If the parent directory (of the file) was found:
+//				 output is set to the parent and fileStart is set to the beginning of the unknown file
+//				If not, fileStart is set to NULL
+//  -EISDIR = Path represents a directory - the dir is placed in output
+//  other   = Another error, the value in output is undefined
+int IoLookupPath(struct ProcProcess * process, const char * path, IoINode * output, const char ** fileStart);
 
 //Opens a new file descriptor in the io context of process
 // path = path of file to open

@@ -26,6 +26,9 @@
 //Filesystem list
 static ListHead fsTypeHead = LIST_INLINE_INIT(fsTypeHead);
 
+//Root Fs
+IoFilesystem * IoFilesystemRoot;
+
 //Registers a filesystem type with the kernel
 bool IoFilesystemRegister(IoFilesystemType * type)
 {
