@@ -80,9 +80,15 @@ int IoBlockCacheRead(struct IoDevice * device, unsigned long long off, IoBlock *
 //Decrements the reference count on a block from the cache
 void IoBlockCacheUnlock(struct IoDevice * device, IoBlock * block);
 
+//Uses the block cache to read /copy data into a buffer
+// Returns a negative value on error or the number of bytes actually read
+// Nothing needs to be unlocked after this
+int IoBlockCacheReadBuffer(struct IoDevice * device, unsigned long long off,
+		void * buffer, unsigned int length);
+
 //Writes data to disk and to the block cache
 // Returns a negative value on error or the number of bytes actually written
 // (currently the block cache is always write-through)
-int IoBlockCacheWrite(struct IoDevice * device, unsigned long long off, void * buffer, int length);
+int IoBlockCacheWrite(struct IoDevice * device, unsigned long long off, void * buffer, unsigned int length);
 
 #endif /* BCACHE_H_ */

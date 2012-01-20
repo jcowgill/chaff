@@ -23,7 +23,7 @@
 #define IO_DEVICE_H_
 
 #include "chaff.h"
-#include "list.h"
+#include "htable.h"
 #include "io/mode.h"
 
 //Devices
@@ -42,7 +42,7 @@ struct IoBlockCache;
 typedef struct
 {
 	//Called when the device is opened
-	int (* open)(struct IoDevice * device, unsigned int flags);
+	int (* open)(struct IoDevice * device);
 
 	//Called when a device is closed
 	void (* close)(struct IoDevice * device);
@@ -69,7 +69,7 @@ typedef struct
 typedef struct IoDevice
 {
 	//Filename of the device
-	char name[64];
+	char * name;
 
 	//The mode of the device
 	// This handles permissions etc and soem device options
@@ -87,7 +87,7 @@ typedef struct IoDevice
 	unsigned int gid;
 
 	//DevFs relationships
-	ListHead devFsSiblings;
+	HashItem devFsHItem;
 	unsigned int devFsINode;
 
 	//(block device only) Pointer to the block cache for this device

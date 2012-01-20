@@ -54,7 +54,7 @@ void IoBlockCacheUnlock(IoDevice * device, IoBlock * block)
 //Writes data to disk and to the block cache
 // Returns a negative value on error or the number of bytes actually written
 // (currently the block cache is always write-through)
-int IoBlockCacheWrite(IoDevice * device, unsigned long long off, void * buffer, int length)
+int IoBlockCacheWrite(IoDevice * device, unsigned long long off, void * buffer, unsigned int count)
 {
 	//
 }

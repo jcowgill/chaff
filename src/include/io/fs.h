@@ -166,7 +166,7 @@ typedef struct
 
 	//Mounts a device using this filesystem
 	// newFs contains everything already set exept ops and fsData
-	int (* mount)(IoFilesystem ** newFs);
+	int (* mount)(IoFilesystem * newFs);
 
 } IoFilesystemType;
 
