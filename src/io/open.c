@@ -23,13 +23,12 @@
 #include "io/iocontext.h"
 #include "io/fs.h"
 #include "errno.h"
-#include "process.h"
 #include "htable.h"
 
 //IoOpen and IoLookupPath calls
 //
 
-//Looks up a path in the filesystem using the given process context
+//Looks up a path in the filesystem
 // This performs tranverse directory permission checks (any dir in output also has these checks)
 // Returns one of:
 //  0 		= File found and placed in output
@@ -39,9 +38,9 @@
 //				If not, fileStart is set to NULL
 //  -EISDIR = Path represents a directory - the dir is placed in output
 //  other   = Another error, the value in output is undefined
-int IoLookupPath(ProcProcess * process, const char * path, IoINode * output, const char ** fileStart)
+int IoLookupPath(SecContext * secContext, IoContext * ioContext, const char * path,
+		IoINode * output, const char ** fileStart)
 {
-	IoContext * context = process->ioContext;
 	IoFilesystem * currFs;
 	unsigned int currINode;
 	int res;
@@ -71,8 +70,8 @@ int IoLookupPath(ProcProcess * process, const char * path, IoINode * output, con
 	else
 	{
 		//Use current directory
-		currFs = context->cdirFs;
-		currINode = context->cdirINode;
+		currFs = ioContext->cdirFs;
+		currINode = ioContext->cdirINode;
 	}
 
 	//Read top level iNode
@@ -86,7 +85,7 @@ int IoLookupPath(ProcProcess * process, const char * path, IoINode * output, con
 	}
 
 	//Do checks for top level
-	if(!IoModeCanAccessINode(IO_WORLD_EXEC, output, process))
+	if(!IoModeCanAccessINode(IO_WORLD_EXEC, output, secContext))
 	{
 		return -EACCES;
 	}
@@ -170,7 +169,7 @@ int IoLookupPath(ProcProcess * process, const char * path, IoINode * output, con
 				}
 
 				//Do checks
-				if(!IoModeCanAccessINode(IO_WORLD_EXEC, output, process))
+				if(!IoModeCanAccessINode(IO_WORLD_EXEC, output, secContext))
 				{
 					return -EACCES;
 				}
@@ -216,7 +215,7 @@ int IoLookupPath(ProcProcess * process, const char * path, IoINode * output, con
 		}
 
 		//Do checks
-		if(IO_ISDIR(output->mode) && !IoModeCanAccessINode(IO_WORLD_EXEC, output, process))
+		if(IO_ISDIR(output->mode) && !IoModeCanAccessINode(IO_WORLD_EXEC, output, secContext))
 		{
 			return -EACCES;
 		}
@@ -232,18 +231,17 @@ int IoLookupPath(ProcProcess * process, const char * path, IoINode * output, con
 	}
 }
 
-//Opens a new file descriptor in the io context of process
+//Opens a new file descriptor in an io context
 // path = path of file to open
 // flags = flags to open file
 // mode = mode to create new file with
 // fd = file descriptor to use (this will not replace a descriptor)
-int IoOpen(ProcProcess * process, const char * path, int flags, IoMode mode, int fd)
+int IoOpen(SecContext * secContext, IoContext * ioContext, const char * path,
+		int flags, IoMode mode, int fd)
 {
-	IoContext * context = process->ioContext;
-
 	//Check if fd exists and is not reserved
-	if(fd < 0 || fd >= IO_MAX_OPEN_FILES || context->files[fd] != NULL ||
-			(context->descriptorFlags[fd] & IO_O_FDERSERVED))
+	if(fd < 0 || fd >= IO_MAX_OPEN_FILES || ioContext->files[fd] != NULL ||
+			(ioContext->descriptorFlags[fd] & IO_O_FDERSERVED))
 	{
 		//Already Exists
 		return -EINVAL;
@@ -263,14 +261,14 @@ int IoOpen(ProcProcess * process, const char * path, int flags, IoMode mode, int
 	}
 
 	//Mark descriptor as reserved
-	context->descriptorFlags[fd] = IO_O_FDERSERVED;
+	ioContext->descriptorFlags[fd] = IO_O_FDERSERVED;
 
 	//Search for path
 	IoINode iNode;
 	const char * fileStart;
 	bool fileCreated = false;
 
-	int res = IoLookupPath(process, path, &iNode, &fileStart);
+	int res = IoLookupPath(secContext, ioContext, path, &iNode, &fileStart);
 
 	switch(res)
 	{
@@ -325,7 +323,7 @@ int IoOpen(ProcProcess * process, const char * path, int flags, IoMode mode, int
 					return -EROFS;
 				}
 
-				if(!IoModeCanAccessINode(IO_WORLD_WRITE, &iNode, process))
+				if(!IoModeCanAccessINode(IO_WORLD_WRITE, &iNode, secContext))
 				{
 					return -EACCES;
 				}
@@ -400,7 +398,7 @@ int IoOpen(ProcProcess * process, const char * path, int flags, IoMode mode, int
 		permsRequired |= IO_WORLD_WRITE;
 	}
 
-	if(!IoModeCanAccessINode(permsRequired, &iNode, process))
+	if(!IoModeCanAccessINode(permsRequired, &iNode, secContext))
 	{
 		res = -EACCES;
 		goto returnError;
@@ -434,8 +432,8 @@ int IoOpen(ProcProcess * process, const char * path, int flags, IoMode mode, int
 	}
 
 	//Place in context
-	context->files[fd] = file;
-	context->descriptorFlags[fd] = flags & IO_O_CLOEXEC;
+	ioContext->files[fd] = file;
+	ioContext->descriptorFlags[fd] = flags & IO_O_CLOEXEC;
 	return 0;
 
 	//Returns if an error occured
@@ -447,6 +445,6 @@ returnError:
 	}
 
 	//Unreserve fd
-	context->descriptorFlags[fd] = 0;
+	ioContext->descriptorFlags[fd] = 0;
 	return res;
 }

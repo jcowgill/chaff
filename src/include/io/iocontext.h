@@ -28,11 +28,10 @@
 #include "chaff.h"
 #include "io/mode.h"
 #include "io/fs.h"
+#include "secContext.h"
 
 #define IO_MAX_OPEN_FILES 1024
 #define IO_NAME_MAX 255
-
-struct ProcProcess;
 
 //A file opened by an IoContext
 typedef struct IoFile
@@ -98,7 +97,7 @@ IoFile * IoGetFileWithContext(IoContext * context, int fd);
 // Returns the file descriptor or -1 if there are none avaliable
 int IoFindNextDescriptor(IoContext * context, int fd);
 
-//Looks up a path in the filesystem using the given process context
+//Looks up a path in the filesystem
 // This performs tranverse directory permission checks (any dir in output also has these checks)
 // Returns one of:
 //  0 		= File found and placed in output
@@ -108,14 +107,16 @@ int IoFindNextDescriptor(IoContext * context, int fd);
 //				If not, fileStart is set to NULL
 //  -EISDIR = Path represents a directory - the dir is placed in output
 //  other   = Another error, the value in output is undefined
-int IoLookupPath(struct ProcProcess * process, const char * path, IoINode * output, const char ** fileStart);
+int IoLookupPath(SecContext * secContext, IoContext * ioContext, const char * path,
+		IoINode * output, const char ** fileStart);
 
-//Opens a new file descriptor in the io context of process
+//Opens a new file descriptor in an io context
 // path = path of file to open
 // flags = flags to open file
 // mode = mode to create new file with
 // fd = file descriptor to use (this will not replace a descriptor)
-int IoOpen(struct ProcProcess * process, const char * path, int flags, IoMode mode, int fd);
+int IoOpen(SecContext * secContext, IoContext * ioContext, const char * path,
+		int flags, IoMode mode, int fd);
 
 //Closes the file with the given descriptor
 int IoClose(IoContext * context, int fd);

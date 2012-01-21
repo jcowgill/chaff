@@ -30,6 +30,7 @@
 #include "memmgr.h"
 #include "interrupt.h"
 #include "signalNums.h"
+#include "secContext.h"
 
 //Thread state
 typedef enum
@@ -80,14 +81,6 @@ typedef struct ProcProcess
 	ListHead children;				//Head
 	ListHead threads;				//Head
 
-	//Real, effective and saved user and group identifiers
-	// Real = launcher of the process
-	// Effective = permissions currently using (eg for files)
-	// Saved = allows setuid files to change effective id and go back again
-	//To test if a process is running as root, test EUID == 0
-	unsigned int ruid, euid, suid;
-	unsigned int rgid, egid, sgid;
-
 	//Zombie status
 	bool zombie;
 
@@ -103,6 +96,9 @@ typedef struct ProcProcess
 
 	//IO Context
 	struct IoContext * ioContext;
+
+	//Security context
+	SecContext secContext;
 
 	//Process signal handlers
 	/*
