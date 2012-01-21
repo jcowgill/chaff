@@ -206,6 +206,13 @@ ProcThread * ProcCreateKernelThread(const char * name, int (* startAddr)(void *)
 // This works for both user and kernel threads
 void NORETURN ProcExitThread(unsigned int exitCode);
 
+//Forks the current process creating a new process which runs at the given location
+// This can ONLY be called from a syscall of a process - and the parameters should
+// be obtained from the interrupt context
+// Returns the new process
+//  (the new process is already started)
+ProcProcess * ProcFork(void (* startAddr)(), void * userStackPtr);
+
 #define WNOHANG 1		//Causes ProcWait not to block
 
 //Waits for a child process to exit

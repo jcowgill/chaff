@@ -254,6 +254,44 @@ ProcThread * ProcCreateKernelThread(const char * name, int (* startAddr)(void *)
 	return thread;
 }
 
+//Forks the current process creating a new process which runs at the given location
+// This can ONLY be called from a syscall of a process - and the parameters should
+// be obtained from the interrupt context
+// Returns the new process
+//  (the new process is already started)
+ProcProcess * ProcFork(void (* startAddr)(), void * userStackPtr)
+{
+	//Cannot be done by kernel process
+	if(ProcCurrProcess == ProcKernelProcess)
+	{
+		PrintLog(Error, "ProcFork: attempt to fork kernel process");
+		return NULL;
+	}
+
+	//Create the new process
+	ProcProcess * newProc = ProcCreateProcess(ProcCurrProcess->name, ProcCurrProcess);
+
+	//Copy signal handlers
+	MemCpy(newProc->sigHandlers, ProcCurrProcess->sigHandlers, sizeof(newProc->sigHandlers));
+
+	//Clone memory context
+	newProc->memContext = MemContextClone();
+
+	//Clone IO context
+#warning Clone IO context
+
+	//Create new thread
+	ProcThread * newThread = ProcCreateThread(ProcCurrThread->name, newProc, startAddr, userStackPtr);
+
+	//Copy blocked signals and tls descriptor
+	newThread->sigBlocked = ProcCurrThread->sigBlocked;
+	newThread->tlsDescriptor = ProcCurrThread->tlsDescriptor;
+
+	//Start thread and return new process
+	ProcWakeUp(newThread);
+	return newProc;
+}
+
 //Waits for a child process to exit
 // id
 //	  >1, only the given pid
