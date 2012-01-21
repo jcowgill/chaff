@@ -106,14 +106,17 @@ typedef struct
 	int (* umount)(struct IoFilesystem * fs);
 
 	//Gets the root inode number
+	// REQUIRED
 	unsigned int (* getRootINode)(struct IoFilesystem * fs);
 
 	//Reads information about an inode into the iNode structure given
+	// REQUIRED
 	// You must set IoFileOps in the iNode
 	// The iNode number and filesystem will be set in iNode and the rest is undefined
 	int (* readINode)(struct IoFilesystem * fs, IoINode * iNode);
 
 	//Finds the inode of a file in a directory
+	// REQUIRED
 	// parent = directory to read
 	// name = string name of the file to find - NOT null terminated
 	// nameLen = length of name

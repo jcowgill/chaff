@@ -238,7 +238,15 @@ static int DevFsOpen(IoINode * iNode, IoFile * file)
 {
 	//Forward to device
 	GET_DEVICE(device, iNode->number);
-	return device->devOps->open(device);
+
+	if(device->devOps->open)
+	{
+		return device->devOps->open(device);
+	}
+	else
+	{
+		return -ENOSYS;
+	}
 }
 
 static int DevFsClose(IoFile * file)
@@ -246,7 +254,7 @@ static int DevFsClose(IoFile * file)
 	unsigned int iNode = file->iNode;
 
 	//We don't return an error if the device is not found here
-	if(iNode < MAX_DEVICES && devices[iNode] != NULL)
+	if(iNode < MAX_DEVICES && devices[iNode] != NULL && devices[iNode]->devOps->close)
 	{
 		//Call close on device
 		devices[iNode]->devOps->close(devices[iNode]);
@@ -270,7 +278,14 @@ static int DevFsRead(IoFile * file, void * buffer, unsigned int count)
 	else
 	{
 		//Go directly to device
-		res = device->devOps->read(device, file->off, buffer, count);
+		if(device->devOps->read)
+		{
+			res = device->devOps->read(device, file->off, buffer, count);
+		}
+		else
+		{
+			return -ENOSYS;
+		}
 	}
 
 	//Adjust offset
@@ -300,7 +315,14 @@ static int DevFsWrite(IoFile * file, void * buffer, unsigned int count)
 	else
 	{
 		//Go directly to device
-		res = device->devOps->write(device, file->off, buffer, count);
+		if(device->devOps->write)
+		{
+			res = device->devOps->write(device, file->off, buffer, count);
+		}
+		else
+		{
+			return -ENOSYS;
+		}
 	}
 
 	//Adjust offset
@@ -319,7 +341,15 @@ static int DevFsIoCtl(IoFile * file, int request, void * data)
 {
 	//Forward to device
 	GET_DEVICE(device, file->iNode);
-	return device->devOps->ioctl(device, request, data);
+
+	if(device->devOps->ioctl)
+	{
+		return device->devOps->ioctl(device, request, data);
+	}
+	else
+	{
+		return -ENOTTY;
+	}
 }
 
 static int DevFsReadDir(IoFile * file, void * buf, IoDirectoryFiller filler, int count)

@@ -330,6 +330,12 @@ int IoOpen(ProcProcess * process, const char * path, int flags, IoMode mode, int
 					return -EACCES;
 				}
 
+				//Check if create is implemented
+				if(!iNode.fs->ops->create)
+				{
+					return -ENOSYS;
+				}
+
 				//Set mode to use regular files
 				mode &= IO_OWNER_ALL | IO_GROUP_ALL | IO_WORLD_ALL;
 				mode |= IO_REGULAR;
@@ -425,7 +431,17 @@ int IoOpen(ProcProcess * process, const char * path, int flags, IoMode mode, int
 	//Truncate file
 	if(flags & IO_O_TRUNC)
 	{
-		res = file->ops->truncate(file, 0);
+		//Can truncate?
+		if(file->ops->truncate)
+		{
+			res = file->ops->truncate(file, 0);
+		}
+		else
+		{
+			res = -ENOSYS;
+		}
+
+		//Test result
 		if(res != 0)
 		{
 			MFree(file);

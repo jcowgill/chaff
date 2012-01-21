@@ -56,10 +56,13 @@ static int IoReleaseFile(IoFile * file, IoContext * context, int fd)
 	if(file->refCount <= 1)
 	{
 		//Destroy file
-		int res = file->ops->close(file);
-		if(res != 0)
+		if(file->ops->close)
 		{
-			return res;
+			int res = file->ops->close(file);
+			if(res != 0)
+			{
+				return res;
+			}
 		}
 
 		//Ensure file still exists (close may block)
@@ -189,7 +192,14 @@ int IoRead(IoContext * context, int fd, void * buffer, int count)
 #warning Extra checks (like memory fault or very large count)
 
 		//Forward to filesystem
-		res = file->ops->read(file, buffer, count);
+		if(file->ops->read)
+		{
+			res = file->ops->read(file, buffer, count);
+		}
+		else
+		{
+			res = -ENOSYS;
+		}
 	}
 
 	//Release file and return
@@ -216,7 +226,14 @@ int IoWrite(IoContext * context, int fd, void * buffer, int count)
 	else
 	{
 		//Forward to filesystem
-		res = file->ops->write(file, buffer, count);
+		if(file->ops->write)
+		{
+			res = file->ops->write(file, buffer, count);
+		}
+		else
+		{
+			res = -ENOSYS;
+		}
 	}
 
 	//Release file and return
@@ -231,7 +248,17 @@ int IoIoctl(IoContext * context, int fd, int request, void * data)
 	IO_GET_FILE(file, context, fd);
 
 	//Forward to filesystem
-	int res = file->ops->ioctl(file, request, data);
+	int res;
+
+	if(file->ops->ioctl)
+	{
+		res = file->ops->ioctl(file, request, data);
+	}
+	else
+	{
+		res = -ENOTTY;		//Not a device
+	}
+
 	IoReleaseFile(file, context, fd);
 	return res;
 }
@@ -350,12 +377,19 @@ int IoReadDir(IoContext * context, int fd, IoReadDirEntry * buffer, int count)
 	{
 		//Forward to filesystem
 		ReadDirFillerBuf buf = { buffer, count };
-		res = file->ops->readdir(file, &buf, readDirFiller, count);
-
-		//If sucessful, return the number found
-		if(res == 0)
+		if(file->ops->readdir)
 		{
-			res = count - buf.count;
+			res = file->ops->readdir(file, &buf, readDirFiller, count);
+
+			//If sucessful, return the number found
+			if(res == 0)
+			{
+				res = count - buf.count;
+			}
+		}
+		else
+		{
+			res = -ENOSYS;
 		}
 	}
 
