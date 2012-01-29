@@ -103,6 +103,7 @@ bool HashTableRemove(HashTable * table, ...)
 // Returns false if that ID doesn't exist
 bool HashTableRemoveItem(HashTable * table, HashItem * item)
 {
+#warning must only remove if the item itself is the same
 	return HashTableRemove(table, table->key(item));
 }
 

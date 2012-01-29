@@ -34,6 +34,7 @@ struct IoINode;
 struct IoFile;
 struct IoDevice;
 struct IoFilesystem;
+struct IoFilesystemType;
 
 //Callback function when a directory name if found
 typedef int (* IoDirectoryFiller)(void * buf, unsigned int iNode, const char * name, int len);
@@ -140,6 +141,9 @@ typedef struct IoFilesystem
 	//Filesystem functions
 	IoFilesystemOps * ops;
 
+	//Reference counter
+	unsigned int refCount;
+
 	//Filesystem specific data
 	int flags;
 	void * fsData;
@@ -156,7 +160,7 @@ typedef struct IoFilesystem
 } IoFilesystem;
 
 //Represents a type of supported filssyetem
-typedef struct
+typedef struct IoFilesystemType
 {
 	//Name of this filesystem
 	char * name;
@@ -168,7 +172,7 @@ typedef struct
 	unsigned int refCount;
 
 	//Mounts a device using this filesystem
-	// newFs contains everything already set exept ops and fsData
+	// newFs contains type, device and flags set
 	int (* mount)(IoFilesystem * newFs);
 
 } IoFilesystemType;
@@ -191,10 +195,13 @@ IoFilesystemType * IoFilesystemFind(const char * name);
 
 //Mounts a new filesystem
 int IoFilesystemMount(IoFilesystemType * type, struct IoDevice * device,
-		IoFilesystem * onto, unsigned int ontoINode, int flags);
+		IoINode * onto, int flags);
+
+//Mounts a new root filesystem
+int IoFilesystemMountRoot(IoFilesystemType * type, struct IoDevice * device, int flags);
 
 //UnMounts a filesystem
-int IoFilesystemUnMount(IoFilesystem * onto);
+int IoFilesystemUnMount(IoFilesystem * fs);
 
 //The root filesystem
 extern IoFilesystem * IoFilesystemRoot;

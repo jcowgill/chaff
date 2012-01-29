@@ -93,6 +93,9 @@ typedef struct IoDevice
 	//(block device only) Pointer to the block cache for this device
 	struct IoBlockCache * blockCache;
 
+	//Mounted?
+	bool mounted;
+
 	//Device functions
 	IoDeviceOps * devOps;
 
