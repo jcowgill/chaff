@@ -22,6 +22,9 @@
 #ifndef IO_MODE_H_
 #define IO_MODE_H_
 
+#include "chaff.h"
+#include "secContext.h"
+
 //Unix file modes
 // The modes here correspond (with different names) to the standard unix modes
 // All numbers are in OCTAL
@@ -67,13 +70,13 @@
 //IO Mode type
 typedef unsigned short IoMode;
 
-struct ProcProcess;
 struct IoINode;
 
-//Determines if the given process can read / write / execute the file with the iNode / given permissions
+//Determines if the given security context can read / write / execute
+// the file with the iNode / given permissions
 // Use the "WORLD" permissions in access mode
 bool IoModeCanAccess(IoMode accessMode, IoMode mode, unsigned int uid, unsigned int gid,
-		struct ProcProcess * process);
-bool IoModeCanAccessINode(IoMode accessMode, struct IoINode * iNode, struct ProcProcess * process);
+		SecContext * secContext);
+bool IoModeCanAccessINode(IoMode accessMode, struct IoINode * iNode, SecContext * secContext);
 
 #endif /* IO_MODE_H_ */

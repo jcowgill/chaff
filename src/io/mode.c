@@ -20,26 +20,25 @@
  */
 
 #include "chaff.h"
-#include "process.h"
 #include "io/mode.h"
 #include "io/fs.h"
 
-//Determines if the given process can read / write / execute the file with the given mode and ids
+//Determines if the given security context can read / write / execute the file with the given mode and ids
 bool IoModeCanAccess(IoMode accessMode, IoMode mode, unsigned int uid, unsigned int gid,
-		struct ProcProcess * process)
+		SecContext * secContext)
 {
 	//Test root
-	if(process->euid == 0)
+	if(secContext->euid == 0)
 	{
 		return true;
 	}
 
 	//Test user permissions
-	if(process->euid == uid)
+	if(secContext->euid == uid)
 	{
 		return mode & accessMode;
 	}
-	else if(process->egid == gid)
+	else if(secContext->egid == gid)
 	{
 		return mode & (accessMode << 3);
 	}
@@ -49,8 +48,8 @@ bool IoModeCanAccess(IoMode accessMode, IoMode mode, unsigned int uid, unsigned 
 	}
 }
 
-//Determines if the given process can read / write / execute the file with the given iNode
-bool IoModeCanAccessINode(IoMode accessMode, IoINode * iNode, ProcProcess * process)
+//Determines if the given security context can read / write / execute the file with the given iNode
+bool IoModeCanAccessINode(IoMode accessMode, IoINode * iNode, SecContext * secContext)
 {
-	return IoModeCanAccess(accessMode, iNode->mode, iNode->uid, iNode->gid, process);
+	return IoModeCanAccess(accessMode, iNode->mode, iNode->uid, iNode->gid, secContext);
 }
