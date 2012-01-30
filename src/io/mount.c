@@ -1,5 +1,5 @@
 /*
- * fs.c
+ * mount.c
  *
  *  Copyright 2012 James Cowgill
  *
@@ -31,6 +31,12 @@ static ListHead fsTypeHead = LIST_INLINE_INIT(fsTypeHead);
 
 //Root Fs
 IoFilesystem * IoFilesystemRoot;
+
+//Key used in the mount hash table
+static const void * MountPointsKey(HashItem * item)
+{
+	return (const void *) HashTableEntry(item, IoFilesystem, mountItem)->parentINode;
+}
 
 //Registers a filesystem type with the kernel
 bool IoFilesystemRegister(IoFilesystemType * type)
@@ -87,7 +93,7 @@ IoFilesystemType * IoFilesystemFind(const char * name)
 //Internal fs mounter
 // *fs is only accessed when sucessful
 static int IoFilesystemMountInternal(IoFilesystemType * type, IoDevice * device,
-		int flags, IoFilesystem ** fs)
+		int flags, IoFilesystem ** fs, IoFilesystem * parentFs, unsigned int parentINode)
 {
 	if(device)
 	{
@@ -112,6 +118,11 @@ static int IoFilesystemMountInternal(IoFilesystemType * type, IoDevice * device,
 	newFs->fsType = type;
 	newFs->device = device;
 	newFs->flags = flags;
+	newFs->parentFs = parentFs;
+	newFs->parentINode = parentINode;
+	newFs->mountPoints.key = MountPointsKey;
+	newFs->mountPoints.hash = HashTableIntHash;
+	newFs->mountPoints.compare = HashTableCompare;
 
 	//Mount fs
 	int res = type->mount(newFs);
@@ -155,7 +166,7 @@ int IoFilesystemMount(IoFilesystemType * type, struct IoDevice * device,
 
 	//Do mounting
 	IoFilesystem * newFs;
-	int res = IoFilesystemMountInternal(type, device, flags, &newFs);
+	int res = IoFilesystemMountInternal(type, device, flags, &newFs, parent, parentINode);
 
 	//Insert mount point
 	if(res == 0 && HashTableInsert(&parent->mountPoints, &newFs->mountItem))
@@ -184,7 +195,7 @@ int IoFilesystemMountRoot(IoFilesystemType * type, struct IoDevice * device, int
 
 	//Do mounting
 	IoFilesystem * newFs;
-	int res = IoFilesystemMountInternal(type, device, flags, &newFs);
+	int res = IoFilesystemMountInternal(type, device, flags, &newFs, NULL, 0);
 
 	//Insert mount point
 	if(res == 0 && IoFilesystemRoot == NULL)
