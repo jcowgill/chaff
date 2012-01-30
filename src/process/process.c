@@ -181,8 +181,9 @@ static ProcThread * ProcCreateRawThread(const char * name, ProcProcess * parent,
 	//Set startup state
 	thread->state = PTS_STARTUP;
 
-	//Initialise scheduler head
+	//Initialise lists
 	ListHeadInit(&thread->schedQueueEntry);
+	ListHeadInit(&thread->waitQueue);
 
 	//Give thread a valid tls descriptor
 	thread->tlsDescriptor = PROC_NULL_TLS_DESCRIPTOR;

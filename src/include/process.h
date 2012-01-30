@@ -160,6 +160,9 @@ typedef struct ProcThread
 	ProcSigSet sigPending;
 	ProcSigSet sigBlocked;
 
+	//Current wait queue
+	ListHead waitQueue;
+
 } ProcThread;
 
 #define PROC_KSTACK_SIZE 0x1000		//4KB Kernel Stack
