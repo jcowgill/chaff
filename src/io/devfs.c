@@ -310,7 +310,7 @@ static int DevFsWrite(IoFile * file, void * buffer, unsigned int count)
 	if(device->blockCache != NULL && IO_ISBLOCK(device->mode))
 	{
 		//Go via block cache
-		res = IoBlockCacheWrite(device, file->off, buffer, count);
+		res = IoBlockCacheWriteBuffer(device, file->off, buffer, count);
 	}
 	else
 	{
