@@ -34,8 +34,10 @@ static const void * ProcGetKey(HashItem * item)
 	return (const void *) (HashTableEntry(item, ProcProcess, hItem)->pid);
 }
 
-static HashTable hTableProcess = { ProcGetKey, HashTableIntHash, HashTableCompare };
-static HashTable hTableThread = { ProcGetKey, HashTableIntHash, HashTableCompare };
+static HashTable hTableProcess =
+	{ .key = ProcGetKey, .hash = HashTableIntHash, .compare = HashTableCompare };
+static HashTable hTableThread =
+	{ .key = ProcGetKey, .hash = HashTableIntHash, .compare = HashTableCompare };
 
 static unsigned int processNextID;
 static unsigned int threadNextID;
