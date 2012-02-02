@@ -112,7 +112,7 @@ ProcThread * ProcGetThreadByID(unsigned int tid)
 }
 
 //Creates a completely empty process from nothing
-// The memory context is left blank and must be created manually
+// The memory and io context is left blank and must be created manually
 // No threads are added to the process either
 ProcProcess * ProcCreateProcess(const char * name, ProcProcess * parent)
 {

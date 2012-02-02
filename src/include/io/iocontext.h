@@ -36,7 +36,8 @@
 //A file opened by an IoContext
 typedef struct IoFile
 {
-	//Number of times this file has been opened per context
+	//Number of times this file has been opened
+	// (can be opened in more than one context after forking)
 	unsigned int refCount;
 
 	//File specific info
@@ -65,6 +66,9 @@ typedef struct IoContext
 	IoFilesystem * cdirFs;
 	unsigned int cdirINode;
 
+	//References to this io context
+	unsigned int refCount;
+
 } IoContext;
 
 //IO "front-end" functions
@@ -86,6 +90,25 @@ typedef struct IoContext
 #define IO_O_ALLFLAGS	0xFF
 
 #define IO_O_FDERSERVED	0x01		//Descriptor flag (used internally)
+
+//Creates a new io context using the root directory as the current directory
+IoContext * IoContextCreate();
+
+//Creates a copy of an IO context including all open files
+// The files in the new context refer to THE SAME file (sharing offset etc)
+IoContext * IoContextClone(IoContext * context);
+
+//Adds a reference to an io context
+static inline void IoContextAddReference(IoContext * context)
+{
+	context->refCount++;
+}
+
+//Removes a reference to an IO context
+// This must NOT be used when the io context could be in use by another thread
+//  (io contexts are not locked)
+// This will close all open files
+void IoContextDeleteReference(IoContext * context);
 
 //Gets an open file from the current process's context
 IoFile * IoGetFile(int fd);

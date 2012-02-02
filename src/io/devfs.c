@@ -214,6 +214,8 @@ static int DevFsReadINode(IoFilesystem * fs, IoINode * iNode)
 static int DevFsFindINode(IoFilesystem * fs, unsigned int parent,
 		const char * name, int nameLen, unsigned int * iNodeNum)
 {
+	IGNORE_PARAM fs;
+
 	//Parent must be root inode
 	if(parent == 0)
 	{
@@ -225,7 +227,8 @@ static int DevFsFindINode(IoFilesystem * fs, unsigned int parent,
 		}
 
 		//Return device iNode
-		return HashTableEntry(item, IoDevice, devFsHItem)->devFsINode;
+		*iNodeNum = HashTableEntry(item, IoDevice, devFsHItem)->devFsINode;
+		return 0;
 	}
 	else
 	{
@@ -236,6 +239,8 @@ static int DevFsFindINode(IoFilesystem * fs, unsigned int parent,
 
 static int DevFsOpen(IoINode * iNode, IoFile * file)
 {
+	IGNORE_PARAM file;
+
 	//Forward to device
 	GET_DEVICE(device, iNode->number);
 
@@ -288,15 +293,6 @@ static int DevFsRead(IoFile * file, void * buffer, unsigned int count)
 		}
 	}
 
-	//Adjust offset
-#warning Move this to iocontext.c ?
-	if(res > 0)
-	{
-		//Advance offset
-		file->off += res;
-		res = 0;
-	}
-
 	return res;
 }
 
@@ -323,15 +319,6 @@ static int DevFsWrite(IoFile * file, void * buffer, unsigned int count)
 		{
 			return -ENOSYS;
 		}
-	}
-
-	//Adjust offset
-#warning Move this to iocontext.c ?
-	if(res > 0)
-	{
-		//Advance offset
-		file->off += res;
-		res = 0;
 	}
 
 	return res;

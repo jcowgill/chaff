@@ -90,6 +90,91 @@ static int IoReleaseFile(IoFile * file, IoContext * context, int fd)
 	return 0;
 }
 
+//Creates a new io context using the root directory as the current directory
+IoContext * IoContextCreate()
+{
+	//Get filesystem root
+	IoFilesystem * fs = IoFilesystemRoot;
+	unsigned int rootINode;
+
+	if(fs == NULL || !fs->ops->getRootINode)
+	{
+		return NULL;
+	}
+
+	rootINode = fs->ops->getRootINode(fs);
+
+	//Allocate context
+	IoContext * context = MAlloc(sizeof(IoContext));
+
+	//Wipe stuff
+	MemSet(context->files, 0, sizeof(context->files));
+	MemSet(context->descriptorFlags, 0, sizeof(context->descriptorFlags));
+	context->nextFreeFile = 0;
+
+	//Use root filesystem as current directory
+	context->cdirFs = fs;
+	context->cdirINode = rootINode;
+
+	//Init ref count
+	context->refCount = 1;
+
+	return context;
+}
+
+//Creates a copy of an IO context including all file positions as flags
+IoContext * IoContextClone(IoContext * context)
+{
+	//Allocate context
+	IoContext * newContext = MAlloc(sizeof(IoContext));
+
+	//Copy the entire context
+	MemCpy(newContext, context, sizeof(IoContext));
+
+	//Ref count of new context is 1
+	newContext->refCount = 1;
+
+	//Increment ref counts on all files
+	for(int i = 0; i < IO_MAX_OPEN_FILES; i++)
+	{
+		if(newContext->files[i])
+		{
+			newContext->files[i]->refCount++;
+		}
+	}
+
+	return newContext;
+}
+
+//Removes a reference to an IO context
+// This must NOT be used when the io context could be in use by another thread
+//  (io contexts are not locked)
+// This will close all open files
+void IoContextDeleteReference(IoContext * context)
+{
+	//Decrement ref count
+	if(context->refCount <= 1)
+	{
+		//Check each file in the context
+		for(int i = 0; i < IO_MAX_OPEN_FILES; i++)
+		{
+			//Is file open?
+			if(context->files[i])
+			{
+				//Close our reference
+				IoReleaseFile(context->files[i], context, i);
+			}
+		}
+
+		//Free context
+		MFree(context);
+	}
+	else
+	{
+		context->refCount--;
+	}
+}
+
 //Gets an open file from the current process's context
 IoFile * IoGetFile(int fd)
 {
@@ -195,6 +280,12 @@ int IoRead(IoContext * context, int fd, void * buffer, int count)
 		if(file->ops->read)
 		{
 			res = file->ops->read(file, buffer, count);
+
+			//Advance offset
+			if(res > 0)
+			{
+				file->off += res;
+			}
 		}
 		else
 		{
@@ -229,6 +320,12 @@ int IoWrite(IoContext * context, int fd, void * buffer, int count)
 		if(file->ops->write)
 		{
 			res = file->ops->write(file, buffer, count);
+
+			//Advance offset
+			if(res > 0)
+			{
+				file->off += res;
+			}
 		}
 		else
 		{

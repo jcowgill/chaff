@@ -190,7 +190,7 @@ int IoLookupPath(SecContext * secContext, IoContext * ioContext, const char * pa
 
 			return -ENOENT;
 		}
-		else
+		else if(res != 0)
 		{
 			return res;
 		}

@@ -25,6 +25,7 @@
 #include "process.h"
 #include "interrupt.h"
 #include "timer.h"
+#include "io/device.h"
 
 void NORETURN kMain(unsigned int mBootCode, multiboot_info_t * mBootInfo)
 {
@@ -49,6 +50,9 @@ void NORETURN kMain(unsigned int mBootCode, multiboot_info_t * mBootInfo)
 
 	// Initialize process manager and scheduler
 	ProcInit();
+
+	// Initialize devfs
+	IoDevFsInit();
 
 	// Exit boot mode
 	ProcExitBootMode();
