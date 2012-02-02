@@ -31,11 +31,15 @@
 //The wait queue which threads can wait for
 typedef ListHead ProcWaitQueue;
 
+//Initializes a wait queue
+#define ProcWaitQueueInit ListHeadInit
+
 //Causes this thread to wait for an event on the wait queue
 bool ProcWaitQueueWait(ProcWaitQueue * queue, bool interruptable);
 
 //Wakes up one thread on the wait queue (the oldest)
-void ProcWaitQueueWakeOne(ProcWaitQueue * queue);
+// Returns true if there was a thread to wakeup
+bool ProcWaitQueueWakeOne(ProcWaitQueue * queue);
 
 //Wakes up all the threads on the wait queue
 void ProcWaitQueueWakeAll(ProcWaitQueue * queue);

@@ -42,13 +42,23 @@ bool ProcWaitQueueWait(ProcWaitQueue * queue, bool interruptable)
 }
 
 //Wakes up one thread on the wait queue (the oldest)
-void ProcWaitQueueWakeOne(ProcWaitQueue * queue)
+// Returns true if there was a thread to wakeup
+bool ProcWaitQueueWakeOne(ProcWaitQueue * queue)
 {
 	//Wake up first thread
-	ProcThread * thread = ListEntry(queue->next, ProcThread, waitQueue);
+	if(!ListEmpty((ListHead *) queue))
+	{
+		ProcThread * thread = ListEntry(queue->next, ProcThread, waitQueue);
 
-	ListDeleteInit(&thread->waitQueue);
-	ProcWakeUp(thread);
+		ListDeleteInit(&thread->waitQueue);
+		ProcWakeUp(thread);
+
+		return true;
+	}
+	else
+	{
+		return false;
+	}
 }
 
 //Wakes up all the threads on the wait queue
