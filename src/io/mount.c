@@ -32,12 +32,6 @@ static ListHead fsTypeHead = LIST_INLINE_INIT(fsTypeHead);
 //Root Fs
 IoFilesystem * IoFilesystemRoot;
 
-//Key used in the mount hash table
-static const void * MountPointsKey(HashItem * item)
-{
-	return (const void *) HashTableEntry(item, IoFilesystem, mountItem)->parentINode;
-}
-
 //Registers a filesystem type with the kernel
 bool IoFilesystemRegister(IoFilesystemType * type)
 {
@@ -120,9 +114,6 @@ static int IoFilesystemMountInternal(IoFilesystemType * type, IoDevice * device,
 	newFs->flags = flags;
 	newFs->parentFs = parentFs;
 	newFs->parentINode = parentINode;
-	newFs->mountPoints.key = MountPointsKey;
-	newFs->mountPoints.hash = HashTableIntHash;
-	newFs->mountPoints.compare = HashTableCompare;
 
 	//Mount fs
 	int res = type->mount(newFs);
@@ -156,7 +147,7 @@ int IoFilesystemMount(IoFilesystemType * type, struct IoDevice * device,
 	unsigned int parentINode = onto->number;
 
 	//Check if mount point is already mounted
-	if(HashTableFind(&parent->mountPoints, parentINode) != NULL)
+	if(HashTableFind(&parent->mountPoints, &parentINode, sizeof(unsigned int)) != NULL)
 	{
 		return -EBUSY;
 	}
@@ -169,7 +160,8 @@ int IoFilesystemMount(IoFilesystemType * type, struct IoDevice * device,
 	int res = IoFilesystemMountInternal(type, device, flags, &newFs, parent, parentINode);
 
 	//Insert mount point
-	if(res == 0 && HashTableInsert(&parent->mountPoints, &newFs->mountItem))
+	if(res == 0 && HashTableInsert(&parent->mountPoints, &newFs->mountItem,
+			&newFs->parentINode, sizeof(unsigned int)))
 	{
 		//Mounted
 		return 0;
@@ -218,7 +210,7 @@ int IoFilesystemMountRoot(IoFilesystemType * type, struct IoDevice * device, int
 int IoFilesystemUnMount(IoFilesystem * fs)
 {
 	//Check if filesystem is in use
-	if(fs->refCount > 0 || fs->mountPoints.count > 0)
+	if(fs->refCount > 0 || HashTableCount(&fs->mountPoints) > 0)
 	{
 		return -EBUSY;
 	}

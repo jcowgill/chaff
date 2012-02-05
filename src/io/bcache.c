@@ -24,23 +24,24 @@
 #include "io/device.h"
 #include "errno.h"
 
-//Returns offset key used by blocks in the cache
-static const void * BlockCacheKey(HashItem * item)
+//Insert into block cache table
+static inline bool IoBlockHashInsert(IoBlockCache * cache, IoBlock * block)
 {
-	return &HashTableEntry(item, IoBlock, hItem)->offset;
+	return HashTableInsert(&cache->blockTable, &block->hItem, &block->offset, sizeof(unsigned long long));
 }
 
-//Hashes the 8 byte number
-static unsigned int BlockCacheHash(const void * key)
+static inline IoBlock * IoBlockHashFind(IoBlockCache * cache, unsigned long long off)
 {
-	//use 8 byte memory hash
-	return HashTableMemHash(key, sizeof(unsigned long long));
-}
+	HashItem * item = HashTableFind(&cache->blockTable, &off, sizeof(unsigned long long));
 
-//Compares the 8 byte number
-static bool BlockCacheCompare(const void * key1, const void * key2)
-{
-	return MemCmp(key1, key2, sizeof(unsigned long long)) == 0;
+	if(item)
+	{
+		return HashTableEntry(item, IoBlock, hItem);
+	}
+	else
+	{
+		return NULL;
+	}
 }
 
 //Initializes a block cache
@@ -63,9 +64,6 @@ void IoBlockCacheInit(IoBlockCache * cache, int blockSize)
 
 	//Setup cache structures
 	ListHeadInit(&cache->blockList);
-	cache->blockTable.key = BlockCacheKey;
-	cache->blockTable.hash = BlockCacheHash;
-	cache->blockTable.compare = BlockCacheCompare;
 }
 
 //Destroys a block cache
@@ -111,7 +109,7 @@ static IoBlock * CreateEmptyBlock(IoBlockCache * bCache, unsigned long long off)
 	block->address = MAlloc(bCache->blockSize);
 
 	// Insert block into hash map
-	HashTableInsert(&bCache->blockTable, &block->hItem);
+	IoBlockHashInsert(bCache, block);
 	return block;
 }
 
@@ -128,10 +126,9 @@ int IoBlockCacheRead(IoDevice * device, unsigned long long off, IoBlock ** block
 	off &= ~(bCache->blockSize - 1);
 
 	//Lookup block in hash table
-	HashItem * item = HashTableFind(&bCache->blockTable, off);
-	IoBlock * readBlock;
+	IoBlock * readBlock = IoBlockHashFind(bCache, off);
 
-	if(item == 0)
+	if(readBlock == NULL)
 	{
 		//Read block from disk
 		// Require device reader
@@ -171,8 +168,7 @@ int IoBlockCacheRead(IoDevice * device, unsigned long long off, IoBlock ** block
 	}
 	else
 	{
-		//Read block from item
-		readBlock = HashTableEntry(item, IoBlock, hItem);
+		//Increment item ref count
 		readBlock->refCount++;
 
 		//If block is being read, wait until finished
@@ -327,18 +323,13 @@ int IoBlockCacheWriteBuffer(IoDevice * device, unsigned long long off,
 		{
 			//Replace block or create a new block
 			unsigned long long alignedOff = off & ~(blockSize - 1);
-			HashItem * item = HashTableFind(&bCache->blockTable, alignedOff);
+			block = IoBlockHashFind(bCache, alignedOff);
 
-			if(item == NULL)
+			if(block == NULL)
 			{
 				//Create new block
 				block = CreateEmptyBlock(bCache, alignedOff);
 				block->state = IO_BLOCK_OK;
-			}
-			else
-			{
-				//Use this block
-				block = HashTableEntry(item, IoBlock, hItem);
 			}
 		}
 
@@ -373,6 +364,9 @@ int IoBlockCacheWriteBuffer(IoDevice * device, unsigned long long off,
 		else
 		{
 			block->state = IO_BLOCK_ERROR;
+
+			//Also, remove block from cache
+			HashTableRemoveItem(&bCache->blockTable, &block->hItem);
 		}
 
 		//Wake up other threads and release block

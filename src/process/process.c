@@ -28,20 +28,30 @@
 
 //Process management functions
 
-// Process hash table
-static const void * ProcGetKey(HashItem * item)
+//Process and thread hash tables
+static HashTable hTableProcess, hTableThread;
+
+//Simple hash table manipulators
+static inline bool ProcHashInsert(ProcProcess * process)
 {
-	return (const void *) (HashTableEntry(item, ProcProcess, hItem)->pid);
+	return HashTableInsert(&hTableProcess, &process->hItem, &process->pid, sizeof(unsigned int));
 }
 
-static HashTable hTableProcess =
-	{ .key = ProcGetKey, .hash = HashTableIntHash, .compare = HashTableCompare };
-static HashTable hTableThread =
-	{ .key = ProcGetKey, .hash = HashTableIntHash, .compare = HashTableCompare };
+static inline bool ThreadHashInsert(ProcThread * thread)
+{
+	return HashTableInsert(&hTableThread, &thread->hItem, &thread->tid, sizeof(unsigned int));
+}
 
+#define PHASH_INSERT(table, field, item) \
+	HashTableInsert(&(table), &(item)->hItem, &(item)->field, sizeof(unsigned int))
+#define PHASH_FIND(table, field, id) \
+	HashTableFind(&(table), &(item)->field, sizeof(unsigned int))
+
+//Next ids to use
 static unsigned int processNextID;
 static unsigned int threadNextID;
 
+//Changes parent of all children to the kernel
 static void ProcDisownChildren(ProcProcess * process);
 
 //Raw thread creator
@@ -58,7 +68,7 @@ void ProcInit()
 	//Create kernel process
 	// Malloc need this so we must do it with no dynamic memory
 	ProcKernelProcessData.pid = 0;
-	HashTableInsert(&hTableProcess, &ProcKernelProcessData.hItem);
+	ProcHashInsert(&ProcKernelProcessData);
 
 	ProcKernelProcessData.name = "kernel";
 	ProcKernelProcessData.memContext = MemKernelContext;
@@ -84,7 +94,7 @@ void ProcInit()
 //Gets a process from the given ID or returns NULL if the process doesn't exist
 ProcProcess * ProcGetProcessByID(unsigned int pid)
 {
-	HashItem * item = HashTableFind(&hTableProcess, pid);
+	HashItem * item = HashTableFind(&hTableProcess, &pid, sizeof(unsigned int));
 
 	if(item)
 	{
@@ -99,7 +109,7 @@ ProcProcess * ProcGetProcessByID(unsigned int pid)
 //Gets a thread from the given ID or returns NULL if the thread doesn't exist
 ProcThread * ProcGetThreadByID(unsigned int tid)
 {
-	HashItem * item = HashTableFind(&hTableThread, tid);
+	HashItem * item = HashTableFind(&hTableThread, &tid, sizeof(unsigned int));
 
 	if(item)
 	{
@@ -127,7 +137,7 @@ ProcProcess * ProcCreateProcess(const char * name, ProcProcess * parent)
 	{
 		process->pid = processNextID++;
 	}
-	while(!HashTableInsert(&hTableProcess, &process->hItem));
+	while(!ProcHashInsert(process));
 
 	//Set process parent
 	if(parent == NULL)
@@ -170,7 +180,7 @@ static ProcThread * ProcCreateRawThread(const char * name, ProcProcess * parent,
 	{
 		thread->tid = threadNextID++;
 	}
-	while(!HashTableInsert(&hTableThread, &thread->hItem));
+	while(!ThreadHashInsert(thread));
 
 	//Set thread parent
 	thread->parent = parent;
@@ -586,7 +596,7 @@ void ProcIntReapProcess(ProcProcess * process)
 	ListDelete(&process->processSibling);
 
 	//Remove from hashtable
-	HashTableRemove(&hTableProcess, process->pid);
+	HashTableRemoveItem(&hTableProcess, &process->hItem);
 
 	//Free name
 	MFree(process->name);
@@ -666,7 +676,7 @@ void ProcIntReapThread(ProcThread * thread)
 	}
 
 	//Remove from hash table
-	HashTableRemove(&hTableThread, thread->tid);
+	HashTableRemoveItem(&hTableThread, &thread->hItem);
 
 	//Remove from thread list
 	ListDelete(&thread->threadSibling);

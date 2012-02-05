@@ -25,48 +25,57 @@
 #include "chaff.h"
 #include "list.h"
 
-//Simple 256 bucket hash table
-#define HASHT_BUCKET_COUNT 256
+//Generic Variable-Sized Hash Table
+//
 
-typedef struct tagSHashItem
+//Hash table thresholds (these affect all hash tables)
+#define HASH_INITIAL_SIZE		256
+
+//Thresholds work like fractions of (threshold / HASH_THRESHOLD_REF)
+#define HASH_THRESHOLD_REF		8
+#define HASH_THRESHOLD_GROW		7		// 7/8 = 87.5% load
+#define HASH_THRESHOLD_SHRINK	1		// 1/8 = 12.5% load
+
+//Hash Item
+// Add this to all items in the hash table
+typedef struct HashItem
 {
-	struct tagSHashItem * next;
+	//Pointer and length of key
+	const void * keyPtr;
+	unsigned int keyLen;
+
+	//Hash of this key
+	unsigned int hashValue;
+
+	//Next item in this bucket
+	struct HashItem * next;
 
 } HashItem;
 
-//Hash table data
-typedef struct
+//Hash Table
+// This structure contains the buckets at the root of the table
+// This must be initialized to 0
+typedef struct HashTable
 {
-	const void * (* key)(HashItem * item);		//Gets a key from an item
-	unsigned int (* hash)(const void * key);
-	bool (* compare)(const void * key1, const void * key2);
+	//Pointer to array of buckets and number of items in array
+	HashItem ** buckets;
+	unsigned int bucketCount;
 
-	HashItem * table[HASHT_BUCKET_COUNT];
-	int count;
+	//Numer of items in the hash table
+	unsigned int itemCount;
 
 } HashTable;
 
-//String hash table which will also handle strings specified by length
-// instead of being null terminated
-typedef struct
-{
-	//Gets the key (and possibly length) for a string hash item
-	// Returns true if length is used. Otherwise str must be null terminated.
-	bool (* key)(HashItem * item, const char ** str, int * len);
+//Gets the structure associated with a hash item
+#define HashTableEntry ListEntry
 
-	HashItem * table[HASHT_BUCKET_COUNT];
-	int count;
-
-} HashTableString;
-
-//Insert an item into the hashmap
-// You must set the ID in the HashItem
-// Returns false if that ID already exists
-bool HashTableInsert(HashTable * table, HashItem * item);
+//Inserts an item into the hash map
+// The key passed must remain in memory after this returns
+bool HashTableInsert(HashTable * table, HashItem * item, const void * keyPtr, unsigned int keyLen);
 
 //Removes the given ID from the hash table (provide 1 key after table)
 // Returns false if that ID doesn't exist
-bool HashTableRemove(HashTable * table, ...);
+bool HashTableRemove(HashTable * table, const void * keyPtr, unsigned int keyLen);
 
 //Removes the given item from the hash table
 // Returns false if that ID doesn't exist
@@ -74,66 +83,23 @@ bool HashTableRemoveItem(HashTable * table, HashItem * item);
 
 //Returns the HashItem corresponding to a given ID (provide 1 key after table)
 // Returns NULL if that ID doesn't exist
-HashItem * HashTableFind(HashTable * table, ...);
+HashItem * HashTableFind(HashTable * table, const void * keyPtr, unsigned int keyLen);
 
+//Causes the hash table to grow if it will reach the grow threshold when
+//storing the given number of items
+// Does not gaurentee that a later HashTableInsert will not grow the table
+void HashTableReserve(HashTable * table, unsigned int count);
 
-//Insert an item into the string hashmap
-// You must set the ID in the HashItem
-// Returns false if that ID already exists
-bool HashTableStringInsert(HashTableString * table, HashItem * item);
+//Shrinks the hash table if there are very few items in it
+void HashTableShrink(HashTable * table);
 
-//Generic remove - dont use this, use one of the other removers
-bool HashTableStringRemoveGeneric(HashTableString * table, bool usingLen, const char * str, int len);
-
-//Removes the given item from the string hash table (using null terminated string)
-// Returns false if that ID doesn't exist
-static inline bool HashTableStringRemove(HashTableString * table, const char * str)
+//Returns the number of items in the hash table
+static inline unsigned int HashTableCount(HashTable * table)
 {
-	return HashTableStringRemoveGeneric(table, false, str, 0);
+	return table->itemCount;
 }
 
-//Removes the given item from the string hash table (using string length)
-// Returns false if that ID doesn't exist
-static inline bool HashTableStringRemoveLen(HashTableString * table, const char * str, int len)
-{
-	return HashTableStringRemoveGeneric(table, true, str, len);
-}
-
-//Removes the given item from the hash table
-// Returns false if that ID doesn't exist
-bool HashTableStringRemoveItem(HashTableString * table, HashItem * item);
-
-//Generic find - don't use this, use one of the other removers
-HashItem * HashTableStringFindGeneric(HashTableString * table, bool usingLen, const char * str, int len);
-
-//Returns the HashItem corresponding to a given string (using null terminated string)
-// Returns NULL if that ID doesn't exist
-static inline HashItem * HashTableStringFind(HashTableString * table, const char * str)
-{
-	return HashTableStringFindGeneric(table, false, str, 0);
-}
-
-//Returns the HashItem corresponding to a given string (using string length)
-// Returns NULL if that ID doesn't exist
-static inline HashItem * HashTableStringFindLen(HashTableString * table, const char * str, int len)
-{
-	return HashTableStringFindGeneric(table, false, str, len);
-}
-
-
-//Gets the hash tale item corresponding to a given HashItem
-#define HashTableEntry ListEntry
-
-//Helper hash functions
-unsigned int HashTableIntHash(const void * num);
-unsigned int HashTableMemHash(const void * mem, unsigned int size);
-
-static inline unsigned int HashTableIntHashHelp(unsigned int num)
-{
-	return HashTableMemHash(&num, sizeof(unsigned int));
-}
-
-//Compares the pointers given - use for ints and ptrs
-bool HashTableCompare(const void * num1, const void * num2);
+//Hashes the key using the built-in hashing function
+unsigned int HashTableHash(const void * keyPtr, unsigned int keyLen);
 
 #endif /* HTABLE_H_ */

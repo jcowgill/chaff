@@ -22,305 +22,274 @@
 #include "chaff.h"
 #include "htable.h"
 
-//Simple 256 bucket hash table
+//Generic Variable-Sized Hash Table
+//
 
-static bool HashTableStringMixedCompare(HashTableString * table, bool usingLen,
-		const char * str, int len, HashItem * other);
-static unsigned int HashTableStringHash(bool usingLen, const char * str, int len);
-
-//Insert an item into the hashmap
-// You must set the ID in the HashItem
-// Returns false if that ID already exists
-bool HashTableInsert(HashTable * table, HashItem * item)
+//Resizes an existing hash table
+static void HashTableResize(HashTable * table, unsigned int newSize)
 {
-	//Get bucket for hash
-	const void * key = table->key(item);
-	unsigned int hash = table->hash(key) % HASHT_BUCKET_COUNT;
-
-	HashItem * currItem = table->table[hash];
-
-	//Setup new item
-	item->next = currItem;
-
-	//Check if in table
-	while(currItem != NULL)
+	//Ignore size 0
+	if(newSize == 0)
 	{
-		if(table->compare(key, table->key(currItem)))
+		return;
+	}
+
+	//Allocate new bucket table and wipe it
+	HashItem ** buckets = MAlloc(sizeof(HashItem *) * newSize);
+	MemSet(buckets, 0, sizeof(HashItem *) * newSize);
+
+	//Re-add all items to buckets
+	for(unsigned int i = 0; i < table->bucketCount; i++)
+	{
+		HashItem * currItem = table->buckets[i];
+		HashItem * nextItem;
+
+		while(currItem)
 		{
-			//Already in hash table
-			return false;
+			//Get next item (temp)
+			nextItem = currItem->next;
+
+			//Store in new bucket
+			unsigned int bucketID = currItem->hashValue % newSize;
+			currItem->next = buckets[bucketID];
+			buckets[bucketID] = currItem;
+
+			//Advance pointer
+			currItem = nextItem;
+		}
+	}
+
+	//Replace old bucket pointer
+	if(table->buckets)
+	{
+		MFree(table->buckets);
+	}
+
+	table->buckets = buckets;
+	table->bucketCount = newSize;
+}
+
+//Compares 2 keys to see if their equal
+static inline bool HashTableKeyCompare(const void * keyPtr1, const void * keyPtr2,
+		unsigned int keyLen1, unsigned int keyLen2)
+{
+	//Do memory comparison
+	return keyLen1 == keyLen2 && MemCmp(keyPtr1, keyPtr2, keyLen1) == 0;
+}
+
+//Checks if the hash table has reached the growing threshold
+static inline bool HashTableGrowCheck(HashTable * table, unsigned int count)
+{
+	return count > ((table->bucketCount * HASH_THRESHOLD_GROW) / HASH_THRESHOLD_REF);
+}
+
+//Finds the hash item from a given key in a pre-calculated bucket
+// Or returns NULL if it wasn't found
+static inline HashItem * HashTableFindFromBucket(HashItem * bucket, const void * keyPtr, unsigned int keyLen)
+{
+	//Search for item
+	HashItem * currItem = bucket;
+
+	while(currItem)
+	{
+		//Is this the item we want?
+		if(HashTableKeyCompare(currItem->keyPtr, keyPtr, currItem->keyLen, keyLen))
+		{
+			//This one
+			return currItem;
 		}
 
+		//Advance pointer
 		currItem = currItem->next;
 	}
 
-	//Insert at beginning
-	table->table[hash] = item;
-	table->count++;
+	//Not found
+	return NULL;
+}
+
+//Inserts an item into the hash map
+// The key passed must remain in memory after this returns
+bool HashTableInsert(HashTable * table, HashItem * item, const void * keyPtr, unsigned int keyLen)
+{
+	//Calculate hash and store in item
+	item->keyPtr = keyPtr;
+	item->keyLen = keyLen;
+	item->hashValue = HashTableHash(keyPtr, keyLen);
+
+	//Ensure table is large enough
+	if(HashTableGrowCheck(table, table->itemCount + 1))
+	{
+		//Resize
+		if(table->bucketCount == 0)
+		{
+			HashTableResize(table, HASH_INITIAL_SIZE);
+		}
+		else
+		{
+			HashTableResize(table, table->bucketCount * 2);
+		}
+	}
+
+	//Lookup bucket
+	unsigned int bucketID = item->hashValue % table->bucketCount;
+	HashItem * bucket = table->buckets[bucketID];
+
+	//Check if this item is in the table
+	if(HashTableFindFromBucket(bucket, keyPtr, keyLen) != NULL)
+	{
+		return false;
+	}
+
+	//Insert at beginning of this bucket
+	item->next = bucket;
+	table->buckets[bucketID] = item;
+	table->itemCount++;
+
 	return true;
 }
 
-//Removes the given ID from the hash table (provide 1 key after table)
-// Returns false if that ID doesn't exist
-bool HashTableRemove(HashTable * table, ...)
+//Removes an entry in the hash table with the given key or which is the given item
+// If item is NULL, it is ignored otherwise keyPtr and keyLen MUST be the same as in item
+static bool HashTableRemoveKeyItem(HashTable * table, HashItem * item,
+		const void * keyPtr, unsigned int keyLen)
 {
-	//Get key
-	const void * key;
-
-	va_list args;
-	va_start(args, table);
-	key = va_arg(args, const void *);
-	va_end(args);
-
-	//Get bucket for hash
-	unsigned int hash = table->hash(key) % HASHT_BUCKET_COUNT;
-
-	HashItem ** ptrToItem = &table->table[hash];
-	HashItem * currItem = *ptrToItem;
-
-	//Find item
-	while(currItem != NULL)
+	//Ignore if count == 0
+	if(table->itemCount == 0)
 	{
-		if(table->compare(key, table->key(currItem)))
+		return false;
+	}
+
+	//Calculate hash
+	unsigned int bucketID;
+	if(item == NULL)
+	{
+		bucketID = HashTableHash(keyPtr, keyLen) % table->bucketCount;
+	}
+	else
+	{
+		bucketID = item->hashValue % table->bucketCount;
+	}
+
+	//Search for item
+	HashItem ** currItemPtr = &table->buckets[bucketID];
+	HashItem * currItem = *currItemPtr;
+
+	while(currItem)
+	{
+		//Is this the item we want?
+		if(currItem == item || (item == NULL &&
+				HashTableKeyCompare(currItem->keyPtr, keyPtr, currItem->keyLen, keyLen)))
 		{
-			//Change pointer to item to this item's next value
-			*ptrToItem = currItem->next;
+			//Adjust previous pointer
+			*currItemPtr = currItem->next;
 			currItem->next = NULL;
-			table->count--;
+
+			//Decrement number of items
+			table->itemCount--;
 			return true;
 		}
 
-		//Next item
-		ptrToItem = &currItem->next;
-		currItem = *ptrToItem;
+		//Advance pointer
+		currItemPtr = &currItem->next;
+		currItem = *currItemPtr;
 	}
 
 	//Not found
 	return false;
+}
+
+//Removes the given ID from the hash table (provide 1 key after table)
+// Returns false if that ID doesn't exist
+bool HashTableRemove(HashTable * table, const void * keyPtr, unsigned int keyLen)
+{
+	return HashTableRemoveKeyItem(table, NULL, keyPtr, keyLen);
 }
 
 //Removes the given item from the hash table
 // Returns false if that ID doesn't exist
 bool HashTableRemoveItem(HashTable * table, HashItem * item)
 {
-#warning must only remove if the item itself is the same
-	return HashTableRemove(table, table->key(item));
+	return HashTableRemoveKeyItem(table, item, item->keyPtr, item->keyLen);
 }
 
 //Returns the HashItem corresponding to a given ID (provide 1 key after table)
 // Returns NULL if that ID doesn't exist
-HashItem * HashTableFind(HashTable * table, ...)
+HashItem * HashTableFind(HashTable * table, const void * keyPtr, unsigned int keyLen)
 {
-	//Get key
-	const void * key;
-
-	va_list args;
-	va_start(args, table);
-	key = va_arg(args, const void *);
-	va_end(args);
-
-	//Get bucket for hash
-	unsigned int hash = table->hash(key) % HASHT_BUCKET_COUNT;
-
-	HashItem * item = table->table[hash];
-
-	//Find the item, starting with the first bucket
-	while(item != NULL)
+	//Ignore if count == 0
+	if(table->itemCount == 0)
 	{
-		//Check ID
-		if(table->compare(key, table->key(item)))
-		{
-			//Found item
-			return item;
-		}
-
-		//Next item
-		item = item->next;
+		return NULL;
 	}
 
-	//Item not found
-	return NULL;
+	//Calculate hash and get bucket
+	unsigned int bucketID = HashTableHash(keyPtr, keyLen) % table->bucketCount;
+	HashItem * bucket = table->buckets[bucketID];
+
+	//Find from bucket
+	return HashTableFindFromBucket(bucket, keyPtr, keyLen);
 }
 
-//Insert an item into the string hashmap
-// You must set the ID in the HashItem
-// Returns false if that ID already exists
-bool HashTableStringInsert(HashTableString * table, HashItem * item)
+//Causes the hash table to grow if it will reach the grow threshold when
+//storing the given number of items
+// Does not gaurentee that a later HashTableInsert will not grow the table
+void HashTableReserve(HashTable * table, unsigned int count)
 {
-	//Get key
-	const char * str;
-	int len;
-	bool usingLen = table->key(item, &str, &len);
-
-	//Get hash
-	unsigned int hash = HashTableStringHash(usingLen, str, len);
-
-	//Get bucket
-	HashItem * currItem = table->table[hash];
-
-	//Setup new item
-	item->next = currItem;
-
-	//Check if in table
-	while(currItem != NULL)
+	//Force count to be less than 1 billion
+	if(count > 0x40000000)
 	{
-		if(HashTableStringMixedCompare(table, usingLen, str, len, currItem))
-		{
-			//Already in hash table
-			return false;
-		}
-
-		currItem = currItem->next;
+		count = 0x40000000;
 	}
 
-	//Insert at beginning
-	table->table[hash] = item;
-	table->count++;
-	return true;
-}
-
-//Removes the given item from the string hash table
-// Returns false if that ID doesn't exist
-bool HashTableStringRemoveGeneric(HashTableString * table, bool usingLen, const char * str, int len)
-{
-	//Get bucket for hash
-	unsigned int hash = HashTableStringHash(usingLen, str, len);
-
-	HashItem ** ptrToItem = &table->table[hash];
-	HashItem * currItem = *ptrToItem;
-
-	//Find item
-	while(currItem != NULL)
+	//Resize if too small
+	if(HashTableGrowCheck(table, count))
 	{
-		if(HashTableStringMixedCompare(table, usingLen, str, len, currItem))
+		//Double size until large enough
+		unsigned int currSize = table->bucketCount;
+		while(currSize < count)
 		{
-			//Change pointer to item to this item's next value
-			*ptrToItem = currItem->next;
-			currItem->next = NULL;
-			table->count--;
-			return true;
+			currSize *= 2;
 		}
 
-		//Next item
-		ptrToItem = &currItem->next;
-		currItem = *ptrToItem;
+		//Resize
+		HashTableResize(table, currSize);
 	}
-
-	//Not found
-	return false;
 }
 
-//Removes the given item from the hash table
-// Returns false if that ID doesn't exist
-bool HashTableStringRemoveItem(HashTableString * table, HashItem * item)
+//Shrinks the hash table if there are very few items in it
+void HashTableShrink(HashTable * table)
 {
-	const char * str;
-	int len;
-	bool usingLen = table->key(item, &str, &len);
-
-	return HashTableStringRemoveGeneric(table, usingLen, str, len);
-}
-
-//Returns the HashItem corresponding to a given string
-// Returns NULL if that ID doesn't exist
-HashItem * HashTableStringFindGeneric(HashTableString * table, bool usingLen, const char * str, int len)
-{
-	//Get bucket for hash
-	unsigned int hash = HashTableStringHash(usingLen, str, len);
-
-	HashItem * item = table->table[hash];
-
-	//Find the item, starting with the first bucket
-	while(item != NULL)
+	//Check shrink threshold
+	unsigned int shrinkThreshold = (table->bucketCount * HASH_THRESHOLD_SHRINK) / HASH_THRESHOLD_REF;
+	if(table->bucketCount < shrinkThreshold)
 	{
-		//Chrck ID
-		if(HashTableStringMixedCompare(table, usingLen, str, len, item))
+		//Divide size until small enough
+		unsigned int currSize = table->bucketCount;
+		while(currSize > shrinkThreshold)
 		{
-			//Found item
-			return item;
+			currSize /= 2;
 		}
 
-		//Next item
-		item = item->next;
+		//Resize table
+		if(currSize != 0)
+		{
+			HashTableResize(table, currSize);
+		}
 	}
-
-	//Item not found
-	return NULL;
 }
 
-
-//Hash related functions
-unsigned int HashTableIntHash(const void * num)
+//Hashes the key using the built-in hashing function
+unsigned int HashTableHash(const void * keyPtr, unsigned int keyLen)
 {
-	return HashTableIntHashHelp((unsigned int) num);
-}
-
-unsigned int HashTableMemHash(const void * memIn, unsigned int size)
-{
-	//This is the FNV hash algorithm
-	const char * mem = memIn;
+	//FNV Hash Algorithm
+	const char * mem = keyPtr;
 	unsigned int hash = 2166136261;
 
-	while(size-- > 0)
+	while(keyLen-- > 0)
 	{
 		hash ^= *mem++;
 		hash *= 16777619;
 	}
 
 	return hash;
-}
-
-bool HashTableCompare(const void * num1, const void * num2)
-{
-	return num1 == num2;
-}
-
-//Internal string helpers
-
-//Compares a hash item which possibly uses mixed types (null terminated and length given)
-static bool HashTableStringMixedCompare(HashTableString * table, bool usingLen,
-		const char * str, int len, HashItem * other)
-{
-	//Get other key
-	const char * oStr;
-	int oLen;
-
-	if(table->key(other, &oStr, &oLen))
-	{
-		//Other uses len
-		if(!usingLen)
-		{
-			len = StrLen(str);
-		}
-	}
-	else
-	{
-		//Other uses zterm
-		if(usingLen)
-		{
-			//Do a memory comparison
-			oLen = StrLen(oStr);
-		}
-		else
-		{
-			//Quicker than doing 2 strlens
-			return StrCmp(str, oStr) == 0;
-		}
-	}
-
-	//If we're here, both are using lengths so we can do a memory compraison
-	return len == oLen && MemCmp(str, oStr, len) == 0;
-}
-
-//Hashes the given string
-static unsigned int HashTableStringHash(bool usingLen, const char * str, int len)
-{
-	if(usingLen)
-	{
-		return HashTableMemHash(str, len) % HASHT_BUCKET_COUNT;
-	}
-	else
-	{
-		return HashTableMemHash(str, StrLen(str)) % HASHT_BUCKET_COUNT;
-	}
 }

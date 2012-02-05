@@ -196,7 +196,7 @@ int IoLookupPath(SecContext * secContext, IoContext * ioContext, const char * pa
 		}
 
 		//Handle mount points
-		HashItem * mountPoint = HashTableFind(&currFs->mountPoints, currINode);
+		HashItem * mountPoint = HashTableFind(&currFs->mountPoints, &currINode, sizeof(unsigned int));
 		if(mountPoint != NULL)
 		{
 			//Translate mount point

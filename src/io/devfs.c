@@ -33,7 +33,6 @@
 	var = devices[(inode)];
 
 //Internal functions
-static bool DevFsGetKey(HashItem * item, const char ** str, int * len);
 static int DevFsMount(IoFilesystem * newFs);
 static unsigned int DevFsGetRootINode(IoFilesystem * fs);
 static int DevFsReadINode(IoFilesystem * fs, IoINode * iNode);
@@ -50,10 +49,7 @@ static int DevFsReadDir(IoFile * file, void * buf, IoDirectoryFiller filler, int
 static IoDevice * devices[MAX_DEVICES];
 static unsigned int nextFreeINode = 0;
 
-static HashTableString files =
-	{
-			.key = DevFsGetKey,
-	};
+static HashTable files;
 
 static IoFilesystemType fsType =
 	{
@@ -117,7 +113,7 @@ int IoDevFsRegister(IoDevice * device)
 	}
 
 	//Attempt to add to hash table
-	if(HashTableStringInsert(&files, &device->devFsHItem))
+	if(HashTableInsert(&files, &device->devFsHItem, device->name, StrLen(device->name)))
 	{
 		//Add to devices
 		devices[freeINode] = device;
@@ -143,7 +139,7 @@ int IoDevFsUnRegister(IoDevice * device)
 	}
 
 	//Remove from hashtable and devices
-	HashTableStringRemove(&files, device->name);
+	HashTableRemoveItem(&files, &device->devFsHItem);
 	devices[device->devFsINode] = NULL;
 
 	//Make nextFreeINode lower if nessesary
@@ -157,14 +153,6 @@ int IoDevFsUnRegister(IoDevice * device)
 }
 
 //Internal DevFs implementation
-static bool DevFsGetKey(HashItem * item, const char ** str, int * len)
-{
-	IGNORE_PARAM len;
-
-	*str = HashTableEntry(item, IoDevice, devFsHItem)->name;
-	return false;
-}
-
 static int DevFsMount(IoFilesystem * newFs)
 {
 	//Set ops and return
@@ -220,7 +208,7 @@ static int DevFsFindINode(IoFilesystem * fs, unsigned int parent,
 	if(parent == 0)
 	{
 		//Lookup device
-		HashItem * item = HashTableStringFindLen(&files, name, nameLen);
+		HashItem * item = HashTableFind(&files, name, nameLen);
 		if(item == NULL)
 		{
 			return -ENOENT;
