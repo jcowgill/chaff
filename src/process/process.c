@@ -25,6 +25,7 @@
 #include "htable.h"
 #include "timer.h"
 #include "errno.h"
+#include "io/iocontext.h"
 
 //Process management functions
 
@@ -296,7 +297,7 @@ ProcProcess * ProcFork(void (* startAddr)(), void * userStackPtr)
 	newProc->memContext = MemContextClone();
 
 	//Clone IO context
-#warning Clone IO context
+	newProc->ioContext = IoContextClone(ProcCurrProcess->ioContext);
 
 	//Create new thread
 	ProcThread * newThread = ProcCreateThread(ProcCurrThread->name, newProc, startAddr, userStackPtr);
