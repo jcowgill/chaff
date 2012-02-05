@@ -28,7 +28,7 @@ SECTIONS {
    
    /* .text, .data and .bss contain the main kernel code and data */
    .text ALIGN (0x1000) : AT(ADDR(.text) - 0xC0000000) {
-       obj/loader.obj(.text)
+       obj/kernel/src/loader.o(.text)
        *(.text)
    }
    

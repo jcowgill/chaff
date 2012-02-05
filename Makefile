@@ -1,4 +1,4 @@
-# Chaff basic makefile
+# Top level Makefile rules
 #
 #  Copyright 2012 James Cowgill
 #
@@ -15,56 +15,55 @@
 #  limitations under the License.
 #
 
-# All source files are relative to src/
-#  Supported types:
-#	.c - C Source, compiled with GCC
-#	.s - Assembly Source, compiled with NASM
+# Targets:
+#  all 		= Build everything
+#  clean 	= Clean everything
+#  
+#  kernel	= Build kernel
+#
 
-VPATH = src
-DIRS = src src/memmgr src/process src/io
+# Compilers
+LD			= ld
+CC			= gcc
+ASM			= nasm
 
-SOURCES = $(foreach DIR, $(DIRS), $(wildcard $(DIR)/*.c))
-SOURCES += $(foreach DIR, $(DIRS), $(wildcard $(DIR)/*.s))
+# Global flags (apply to kernel and user mode)
+CF_ALL		= -gdwarf-2 -m32 -Wall -Wextra -DDEBUG -std=gnu99 -nodefaultlibs
+LF_ALL		= -x -m elf_i386
+AF_ALL		= -Xgnu -f elf32 -F dwarf
 
-BINFILE = chaff.elf
+# Compiling commands
+ASMCOMP		= $(ASM) $(AF_ALL) $(AF_TGT) -o $@ $<
+COMP		= $(CC) $(CF_ALL) $(CF_TGT) -MD -o $@ -c $<
+LINK		= $(LD) $(LF_ALL) $(LF_TGT) -o $@ $?
 
-#Set compiler stuff
-LINK = ld
-CC = gcc
-ASM = nasm
+# Main target
+.PHONY:	all
+all:	targets
 
-CFLAGS = -c -gdwarf-2 -m32 -Wall -Wextra -Isrc/include -DDEBUG -std=gnu99 -nostdlib -fno-builtin -nostartfiles -nodefaultlibs -fno-stack-protector -ffreestanding
-ASMFLAGS = -Xgnu -f elf32 -F dwarf
-LDFLAGS = -x -m elf_i386
+# Things to build
+dir		:= kernel
+include $(dir)/Rules.mk
 
-#Calculate objects (changes to .obj and uses obj directory)
-OBJS = $(subst src/,obj/,$(addsuffix .obj,$(basename $(SOURCES))))
+# General rules
+obj/%.o : %.c
+	@mkdir -p $(dir $@)
+	$(COMP)
 
-#TARGETS
+obj/%.o : %.s
+	@mkdir -p $(dir $@)
+	$(ASMCOMP)
 
-all: $(BINFILE)
+bin/% : %.o
+	@mkdir -p $(dir $@)
+	$(LINK)
+	
+# Top-level make rules
+#  Add top-level tagrets to TGT_BIN
+.PHONY: targets
+targets:	$(TGT_BIN)
 
-install:
-	-mount bin/chaffdir
-	cp bin/chaff.elf bin/chaffdir/chaff.elf
-	sync
-
+.PHONY:	clean
 clean:
-	rm -rf obj
-	rm -f bin/$(BINFILE)
-
-$(BINFILE): $(OBJS)
-	mkdir -p bin
-	$(LINK) $(LDFLAGS) -o bin/$@ -T src/linker.ld $(OBJS)
-
-obj/%.obj : %.c
-	mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -o $@ -c $<
-	$(CC) -MM -MT $@ $(CFLAGS) $< > obj/$*.dep
-
-obj/%.obj : %.s
-	mkdir -p $(dir $@)
-	$(ASM) $(ASMFLAGS) -o $@ $<
-
-#AUTO-DEPENDANCIES
--include $(OBJS:.obj=.dep)
+		rm -f $(TGT_BIN)
+		rm -rf obj/
