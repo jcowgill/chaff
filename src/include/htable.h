@@ -22,34 +22,84 @@
 #ifndef HTABLE_H_
 #define HTABLE_H_
 
+#include "chaff.h"
 #include "list.h"
 
-//Simple 256 bucket hash table
-#define HASHT_BUCKET_COUNT 256
+//Generic Variable-Sized Hash Table
+//
 
-typedef struct tagSHashItem
+//Hash table thresholds (these affect all hash tables)
+#define HASH_INITIAL_SIZE		256
+
+//Thresholds work like fractions of (threshold / HASH_THRESHOLD_REF)
+#define HASH_THRESHOLD_REF		8
+#define HASH_THRESHOLD_GROW		7		// 7/8 = 87.5% load
+#define HASH_THRESHOLD_SHRINK	1		// 1/8 = 12.5% load
+
+//Hash Item
+// Add this to all items in the hash table
+typedef struct HashItem
 {
-	unsigned int id;
-	struct tagSHashItem * next;
+	//Pointer and length of key
+	const void * keyPtr;
+	unsigned int keyLen;
+
+	//Hash of this key
+	unsigned int hashValue;
+
+	//Next item in this bucket
+	struct HashItem * next;
 
 } HashItem;
 
-typedef HashItem * HashTable[HASHT_BUCKET_COUNT];
+//Hash Table
+// This structure contains the buckets at the root of the table
+// This must be initialized to 0
+typedef struct HashTable
+{
+	//Pointer to array of buckets and number of items in array
+	HashItem ** buckets;
+	unsigned int bucketCount;
 
-//Insert an item into the hashmap
-// You must set the ID in the HashItem
-// Returns false if that ID already exists
-bool HashTableInsert(HashTable table, HashItem * item);
+	//Numer of items in the hash table
+	unsigned int itemCount;
 
-//Removes the given ID from the hash table
-// Returns false if that ID doesn't exist
-bool HashTableRemove(HashTable table, unsigned int id);
+} HashTable;
 
-//Returns the HashItem corresponding to a given ID
-// Returns NULL if that ID doesn't exist
-HashItem * HashTableFind(HashTable table, unsigned int id);
-
-//Gets the hash tale item corresponding to a given HashItem
+//Gets the structure associated with a hash item
 #define HashTableEntry ListEntry
+
+//Inserts an item into the hash map
+// The key passed must remain in memory after this returns
+bool HashTableInsert(HashTable * table, HashItem * item, const void * keyPtr, unsigned int keyLen);
+
+//Removes the given ID from the hash table (provide 1 key after table)
+// Returns false if that ID doesn't exist
+bool HashTableRemove(HashTable * table, const void * keyPtr, unsigned int keyLen);
+
+//Removes the given item from the hash table
+// Returns false if that ID doesn't exist
+bool HashTableRemoveItem(HashTable * table, HashItem * item);
+
+//Returns the HashItem corresponding to a given ID (provide 1 key after table)
+// Returns NULL if that ID doesn't exist
+HashItem * HashTableFind(HashTable * table, const void * keyPtr, unsigned int keyLen);
+
+//Causes the hash table to grow if it will reach the grow threshold when
+//storing the given number of items
+// Does not gaurentee that a later HashTableInsert will not grow the table
+void HashTableReserve(HashTable * table, unsigned int count);
+
+//Shrinks the hash table if there are very few items in it
+void HashTableShrink(HashTable * table);
+
+//Returns the number of items in the hash table
+static inline unsigned int HashTableCount(HashTable * table)
+{
+	return table->itemCount;
+}
+
+//Hashes the key using the built-in hashing function
+unsigned int HashTableHash(const void * keyPtr, unsigned int keyLen);
 
 #endif /* HTABLE_H_ */

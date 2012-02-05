@@ -30,6 +30,7 @@
 #include "memmgr.h"
 #include "interrupt.h"
 #include "signalNums.h"
+#include "secContext.h"
 
 //Thread state
 typedef enum
@@ -54,8 +55,9 @@ typedef enum
 } ProcWaitMode;
 
 //Process and thread structures
-struct SProcProcess;
-struct SProcThread;
+struct ProcProcess;
+struct ProcThread;
+struct IoContext;
 
 typedef struct SProcSigaction
 {
@@ -65,13 +67,16 @@ typedef struct SProcSigaction
 
 } ProcSigaction;
 
-struct SProcProcess
+typedef struct ProcProcess
 {
+	//Process ID
+	unsigned int pid;
+
 	//Hash map item
 	HashItem hItem;
 
 	//Process and thread hierarchy
-	struct SProcProcess * parent;
+	struct ProcProcess * parent;
 	ListHead processSibling;		//Sibling
 	ListHead children;				//Head
 	ListHead threads;				//Head
@@ -88,6 +93,12 @@ struct SProcProcess
 
 	//Process memory context
 	MemContext * memContext;
+
+	//IO Context
+	struct IoContext * ioContext;
+
+	//Security context
+	SecContext secContext;
 
 	//Process signal handlers
 	/*
@@ -111,15 +122,19 @@ struct SProcProcess
 
 	//Process alarm
 	ListHead * alarmPtr;
-};
 
-struct SProcThread
+} ProcProcess;
+
+typedef struct ProcThread
 {
+	//Thread ID
+	unsigned int tid;
+
 	//Hash map item
 	HashItem hItem;
 
 	//Parent process
-	struct SProcProcess * parent;
+	struct ProcProcess * parent;
 	ListHead threadSibling;			//Sibling
 
 	//Exit code
@@ -144,12 +159,13 @@ struct SProcThread
 	//Signal masks
 	ProcSigSet sigPending;
 	ProcSigSet sigBlocked;
-};
+
+	//Current wait queue
+	ListHead waitQueue;
+
+} ProcThread;
 
 #define PROC_KSTACK_SIZE 0x1000		//4KB Kernel Stack
-
-typedef struct SProcProcess ProcProcess;
-typedef struct SProcThread ProcThread;
 
 //Scheduler functions
 
@@ -183,7 +199,7 @@ ProcProcess * ProcGetProcessByID(unsigned int pid);
 ProcThread * ProcGetThreadByID(unsigned int tid);
 
 //Creates a completely empty process from nothing
-// The memory context is left blank and must be created manually
+// The memory and io context is left blank and must be created manually
 // No threads are added to the process either
 ProcProcess * ProcCreateProcess(const char * name, ProcProcess * parent);
 
