@@ -36,7 +36,7 @@ $(TGTS_$(d)):	LF_TGT := -T kernel/linker.ld
 
 #  - Common rules
 OBJS_$(d) 	:= $(addprefix obj/,$(addsuffix .o,$(basename $(SOURCES_$(d)))))
-DEPS_$(d) 	:= $(OBJS_$(d):%=%.d)
+DEPS_$(d) 	:= $(OBJS_$(d):.o=.d)
 
 TGT_BIN		:= $(TGT_BIN) $(TGTS_$(d))
 

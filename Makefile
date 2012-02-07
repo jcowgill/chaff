@@ -35,7 +35,7 @@ AF_ALL		= -Xgnu -f elf32 -F dwarf
 # Compiling commands
 ASMCOMP		= $(ASM) $(AF_ALL) $(AF_TGT) -o $@ $<
 COMP		= $(CC) $(CF_ALL) $(CF_TGT) -MD -o $@ -c $<
-LINK		= $(LD) $(LF_ALL) $(LF_TGT) -o $@ $?
+LINK		= $(LD) $(LF_ALL) $(LF_TGT) -o $@ $^
 
 # Main target
 .PHONY:	all
