@@ -23,6 +23,7 @@
 #include "process.h"
 #include "io/iocontext.h"
 #include "errno.h"
+#include "memmgr.h"
 
 //This file contains most io front-end functions except open
 // which is located in open.c
@@ -271,11 +272,13 @@ int IoRead(IoContext * context, int fd, void * buffer, int count)
 	{
 		res = -EISDIR;
 	}
+	else if(!MemCanRead(buffer, count))
+	{
+		//Basic memory checks
+		res = -EFAULT;
+	}
 	else
 	{
-#warning Are the buffers given user or kernel mode?
-#warning Extra checks (like memory fault or very large count)
-
 		//Forward to filesystem
 		if(file->ops->read)
 		{
@@ -313,6 +316,11 @@ int IoWrite(IoContext * context, int fd, void * buffer, int count)
 	else if(file->flags & IO_O_DIRECTORY)
 	{
 		res = -EISDIR;
+	}
+	else if(!MemCanWrite(buffer, count))
+	{
+		//Basic memory checks
+		res = -EFAULT;
 	}
 	else
 	{
@@ -438,7 +446,11 @@ static int readDirFiller(void * buf, unsigned int iNode, const char * name, int 
 		return -EINVAL;
 	}
 
-#warning If this is usermode, add checks here
+	//Basic memory checks
+	if(!MemCommitForWrite(entry, sizeof(IoReadDirEntry)))
+	{
+		return -EFAULT;
+	}
 
 	//Fill info
 	entry->iNode = iNode;
@@ -469,6 +481,11 @@ int IoReadDir(IoContext * context, int fd, IoReadDirEntry * buffer, int count)
 	if(!(file->flags & IO_O_DIRECTORY))
 	{
 		res = -ENOTDIR;
+	}
+	else if(!MemCanWrite(buffer, count * sizeof(IoReadDirEntry)))
+	{
+		//Basic memory checks
+		res = -EFAULT;
 	}
 	else if(count != 0)
 	{

@@ -274,18 +274,55 @@ void MemRegionResize(MemRegion * region, unsigned int newLength);
 //  a temporary memory context switch may occur
 void MemRegionDelete(MemRegion * region);
 
-//Returns true if user mode can read data from a specific location and length
-// Reads may cause page faults
-bool MemUserCanRead(void * data, unsigned int length);
+//Verifies that an area of memory can be read by the kernel or user
+// If data >= KERNEL_VIRTUAL_BASE, a kernel check is performed
+// For user data, check it with MemCheckUserArea first
+bool MemCanRead(void * data, unsigned int length);
 
-//Returns true if user mode can write data to a specific location and length
-// Writes may cause page faults
-// Note: being able to write DOES NOT IMPLY being able to read
-bool MemUserCanWrite(void * data, unsigned int length);
+//Verifies that an area of memory can be written by the kernel or user
+// If data >= KERNEL_VIRTUAL_BASE, a kernel check is performed
+// For user data, check it with MemCheckUserArea first
+bool MemCanWrite(void * data, unsigned int length);
 
-//Returns true if user mode can read and write data to a specific location and length
-// Writes may cause page faults
-bool MemUserCanReadWrite(void * data, unsigned int length);
+//Verifies that an area of memory can be read by the kernel or user and commits it
+// This function may block
+static inline bool MemCommitForRead(void * data, unsigned int length)
+{
+	//Stub until MemCommit is implemented
+	// Since pagefaults currently don't block - nothing more is needed
+	return MemCanRead(data, length);
+}
+
+//Verifies that an area of memory can be written by the kernel or user and commits it
+// This function may block
+static inline bool MemCommitForWrite(void * data, unsigned int length)
+{
+	//Stub until MemCommit is implemented
+	// Since pagefaults currently don't block - nothing more is needed
+	return MemCanWrite(data, length);
+}
+
+//Verifies that the region of memory passed is all in user mode (< 0xC0000000)
+// This DOES NOT check if the memory is actually readable / writable
+static inline bool MemCheckUserArea(void * data, unsigned int length)
+{
+	char * cData = (char *) data;
+	char * cKernBase = (char *) KERNEL_VIRTUAL_BASE;
+
+	return (cData + length) < cKernBase && (cData < (cData + length));
+}
+
+//Combined MemCheckUserArea and MemCommitForRead convinience function
+static inline bool MemCommitUserForRead(void * data, unsigned int length)
+{
+	return MemCheckUserArea(data, length) && MemCommitForRead(data, length);
+}
+
+//Combined MemCheckUserArea and MemCommitForWrite convinience function
+static inline bool MemCommitUserForWrite(void * data, unsigned int length)
+{
+	return MemCheckUserArea(data, length) && MemCommitForWrite(data, length);
+}
 
 //Kernel and current context
 extern MemContext MemKernelContextData;

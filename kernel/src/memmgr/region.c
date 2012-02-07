@@ -572,17 +572,24 @@ void MemRegionDelete(MemRegion * region)
 	MFree(region);
 }
 
+#warning TODO Memory Committing Function
+
 //Performs the user mode memory checks on the current memory context
-static bool MemUserChecks(unsigned int addr, unsigned int length, unsigned int flagsReqd)
+static bool MemChecks(unsigned int addr, unsigned int length, unsigned int flagsReqd)
 {
-	//Cut off kernel mode
+	MemContext * context;
+
+	//Get correct checking context
 	if(addr >= 0xC0000000)
 	{
-		return false;
+		context = MemKernelContext;
+	}
+	else
+	{
+		context = ProcCurrProcess->memContext;
 	}
 
 	//Find first region
-	MemContext * context = ProcCurrProcess->memContext;
 	MemRegion * region = MemRegionFind(context, (void *) addr);
 
 	while(region != NULL && (region->flags & flagsReqd) == flagsReqd)
@@ -620,24 +627,18 @@ static bool MemUserChecks(unsigned int addr, unsigned int length, unsigned int f
 	return false;
 }
 
-//Returns true if user mode can read data from a specific location and length
-// Reads may cause page faults
-bool MemUserCanRead(void * data, unsigned int length)
+//Verifies that an area of memory can be read by the kernel or user
+// If data >= KERNEL_VIRTUAL_BASE, a kernel check is performed
+// For user data, check it with MemCheckUserArea first
+bool MemCanRead(void * data, unsigned int length)
 {
-	return MemUserChecks((unsigned int) data, length, MEM_READABLE);
+	return MemChecks((unsigned int) data, length, MEM_READABLE);
 }
 
-//Returns true if user mode can write data to a specific location and length
-// Writes may cause page faults
-// Note: being able to write DOES NOT IMPLY being able to read
-bool MemUserCanWrite(void * data, unsigned int length)
+//Verifies that an area of memory can be written by the kernel or user
+// If data >= KERNEL_VIRTUAL_BASE, a kernel check is performed
+// For user data, check it with MemCheckUserArea first
+bool MemCanWrite(void * data, unsigned int length)
 {
-	return MemUserChecks((unsigned int) data, length, MEM_WRITABLE);
-}
-
-//Returns true if user mode can read and write data to a specific location and length
-// Writes may cause page faults
-bool MemUserCanReadWrite(void * data, unsigned int length)
-{
-	return MemUserChecks((unsigned int) data, length, MEM_READABLE | MEM_WRITABLE);
+	return MemChecks((unsigned int) data, length, MEM_WRITABLE);
 }

@@ -92,7 +92,7 @@ static void HandleCustomSignal(IntrContext * iContext, ProcSigaction * action, i
 	unsigned int * stack = ((unsigned int *) iContext->esp) - 14;
 
 	//Do memory checks
-	if(!MemUserCanReadWrite(stack, 14 * sizeof(unsigned int)))
+	if(!MemCommitUserForWrite(stack, 14 * sizeof(unsigned int)))
 	{
 		ProcExitProcess(-SIGSEGV);
 		return;
@@ -150,7 +150,7 @@ void ProcSignalReturn(IntrContext * iContext)
 	unsigned int * stack = (unsigned int *) iContext->esp;
 
 	//Do memory checks
-	if(!MemUserCanRead(stack, 12 * sizeof(unsigned int)))
+	if(!MemCommitUserForRead(stack, 12 * sizeof(unsigned int)))
 	{
 		//Cannot read from stack
 		ProcSignalSendOrCrash(SIGSEGV);

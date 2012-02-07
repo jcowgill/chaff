@@ -23,6 +23,7 @@
 #include "io/bcache.h"
 #include "io/device.h"
 #include "errno.h"
+#include "memmgr.h"
 
 //Insert into block cache table
 static inline bool IoBlockHashInsert(IoBlockCache * cache, IoBlock * block)
@@ -253,7 +254,13 @@ int IoBlockCacheReadBuffer(IoDevice * device, unsigned long long off,
 			blockLength = length;
 		}
 
-#warning Do user mode checks for buffer here
+		//Memory checks
+		if(!MemCommitForRead(buffer, blockLength))
+		{
+			//Unlock and return
+			IoBlockCacheUnlock(device, block);
+			return -EFAULT;
+		}
 
 		//Copy data
 		MemCpy(buffer, block->address + blockOff, blockLength);
@@ -346,7 +353,12 @@ int IoBlockCacheWriteBuffer(IoDevice * device, unsigned long long off,
 			return -EIO;
 		}
 
-#warning TODO Do user memory checks here
+		//Memory checks
+		if(!MemCommitForWrite(block->address + blockOff, blockLength))
+		{
+			IoBlockCacheUnlock(device, block);
+			return -EFAULT;
+		}
 
 		//Modify block contents
 		block->state = IO_BLOCK_WRITING;

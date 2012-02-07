@@ -54,11 +54,13 @@ typedef struct
 
 	//Attempts to read count bytes into the given buffer
 	// Character devices are allowed to ignore off
+	// Check the buffer after blocking with MemCommitForRead
 	// Returns actual number of bytes or a negative number on error
 	int (* read)(struct IoFile * file, void * buffer, unsigned int count);
 
 	//Attempts to write count bytes from the given buffer
 	// Character devices are allowed to ignore off
+	// Check the buffer after blocking with MemCommitForWrite
 	// Returns actual number of bytes written or a negative number on error
 	int (* write)(struct IoFile * file, void * buffer, unsigned int count);
 
