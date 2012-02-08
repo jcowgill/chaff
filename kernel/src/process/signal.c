@@ -21,6 +21,7 @@
 
 #include "chaff.h"
 #include "process.h"
+#include "mm/check.h"
 
 #define SIGNAL_INDEX(num) ((num) - 1)
 

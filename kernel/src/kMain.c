@@ -21,7 +21,7 @@
 
 #include "chaff.h"
 #include "multiboot.h"
-#include "memmgr.h"
+#include "mm/misc.h"
 #include "process.h"
 #include "interrupt.h"
 #include "timer.h"

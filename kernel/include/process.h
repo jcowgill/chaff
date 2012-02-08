@@ -27,7 +27,6 @@
 
 #include "list.h"
 #include "htable.h"
-#include "memmgr.h"
 #include "interrupt.h"
 #include "signalNums.h"
 #include "secContext.h"
@@ -58,6 +57,7 @@ typedef enum
 struct ProcProcess;
 struct ProcThread;
 struct IoContext;
+struct MemContext;
 
 typedef struct SProcSigaction
 {
@@ -92,7 +92,7 @@ typedef struct ProcProcess
 	unsigned int exitCode;
 
 	//Process memory context
-	MemContext * memContext;
+	struct MemContext * memContext;
 
 	//IO Context
 	struct IoContext * ioContext;

@@ -20,8 +20,8 @@
  */
 
 #include "chaff.h"
-#include "memmgr.h"
-#include "memmgrInt.h"
+#include "mm/region.h"
+#include "mm/misc.h"
 
 //Simple Malloc and Free implementation
 // This is a simple heap allocator - probably be improved in the future
@@ -48,7 +48,7 @@ static MemRegion heapRegion;
 void MAllocInit()
 {
 	//Initialize heap
-	MemIntRegionCreate(MemKernelContext, HEAP_START, 0, MEM_READABLE | MEM_WRITABLE, &heapRegion);
+	MemRegionCreateStatic(MemKernelContext, HEAP_START, 0, MEM_READABLE | MEM_WRITABLE, &heapRegion);
 }
 
 //rawAlloc is used internally to allocate more memory for kMalloc from the system

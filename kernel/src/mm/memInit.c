@@ -21,8 +21,9 @@
 
 #include "chaff.h"
 #include "multiboot.h"
-#include "memmgr.h"
-#include "memmgrInt.h"
+#include "mm/physical.h"
+#include "mm/region.h"
+#include "mm/pagingInt.h"
 
 MemPageStatus * MemPageStateTableEnd;
 
@@ -44,7 +45,7 @@ DECLARE_SYMBOL(_kernel_end_page);
 
 //Gets the location of the physical page references table and its length
 static inline void GetPhysicalTableLocation(multiboot_info_t * bootInfo,
-		unsigned int * highestAddr, unsigned int * tableLength, PhysPage * tablePage)
+		unsigned int * highestAddr, unsigned int * tableLength, MemPhysPage * tablePage)
 {
 	//1st Pass - find highest memory location to get size of array
 	MMAP_FOREACH(mmapEntry, bootInfo->mmap_addr, bootInfo->mmap_length)
@@ -128,7 +129,7 @@ static inline void GetPhysicalTableLocation(multiboot_info_t * bootInfo,
 //Memory manager initialisation
 void MemManagerInit(multiboot_info_t * bootInfo)
 {
-	PhysPage tableLocation;
+	MemPhysPage tableLocation;
 	unsigned int tableLength;
 	unsigned int highestAddr;
 
@@ -183,8 +184,8 @@ void MemManagerInit(multiboot_info_t * bootInfo)
 				&& (mmapEntry->addr >> 32) == 0)
 		{
 			//Allocate
-			PhysPage startPages = mmapEntry->addr / 4096;
-			PhysPage endPages = (mmapEntry->len + mmapEntry->addr + 4095) / 4096;
+			MemPhysPage startPages = mmapEntry->addr / 4096;
+			MemPhysPage endPages = (mmapEntry->len + mmapEntry->addr + 4095) / 4096;
 
 			// Update total
 			MemPhysicalTotalPages -= (endPages - startPages);
@@ -200,7 +201,7 @@ void MemManagerInit(multiboot_info_t * bootInfo)
 	// Allocate ROM and Kernel area
 	//  (Total not updated for kernel area)
 	MemPhysicalTotalPages -= (0x100 - 0xA0);
-	for(PhysPage page = 0xA0; page < (int) GET_SYMBOL_UINT(_kernel_end_page); ++page)
+	for(MemPhysPage page = 0xA0; page < (int) GET_SYMBOL_UINT(_kernel_end_page); ++page)
 	{
 		MemPageStateTable[page].refCount = 1;
 	}
@@ -212,8 +213,8 @@ void MemManagerInit(multiboot_info_t * bootInfo)
 		MODULES_FOREACH(module, bootInfo->mods_addr, bootInfo->mods_count)
 		{
 			//Allocate
-			PhysPage startPages = module->mod_start / 4096;
-			PhysPage endPages = (module->mod_end + 4095) / 4096;
+			MemPhysPage startPages = module->mod_start / 4096;
+			MemPhysPage endPages = (module->mod_end + 4095) / 4096;
 
 			for(; startPages < endPages; ++startPages)
 			{

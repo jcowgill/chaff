@@ -23,7 +23,7 @@
 #include "process.h"
 #include "io/iocontext.h"
 #include "errno.h"
-#include "memmgr.h"
+#include "mm/check.h"
 
 //This file contains most io front-end functions except open
 // which is located in open.c

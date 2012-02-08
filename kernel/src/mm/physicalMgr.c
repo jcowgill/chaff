@@ -20,8 +20,7 @@
  */
 
 #include "chaff.h"
-#include "memmgr.h"
-#include "memmgrInt.h"
+#include "mm/physical.h"
 
 //Beginning of main (non ISA) section
 #define physMainStart (MemPageStateTable + 4096)
@@ -35,7 +34,7 @@ unsigned int MemPhysicalTotalPages = 0;
 unsigned int MemPhysicalFreePages = 0;
 
 //Allocates physical pages
-PhysPage MemPhysicalAlloc(unsigned int number /* = 1 */)
+MemPhysPage MemPhysicalAlloc(unsigned int number)
 {
 	MemPageStatus * startHead = physHead;
 
@@ -110,7 +109,7 @@ PhysPage MemPhysicalAlloc(unsigned int number /* = 1 */)
 
 //Allocates physical pages
 // This function will never return any page with an offset > 16M
-PhysPage MemPhysicalAllocISA(unsigned int number /* = 1 */)
+MemPhysPage MemPhysicalAllocISA(unsigned int number)
 {
 	//Save head at beginning
 	MemPageStatus * startHead = physHeadISA;
@@ -181,7 +180,7 @@ PhysPage MemPhysicalAllocISA(unsigned int number /* = 1 */)
 }
 
 //Frees physical pages allocated by AllocatePage
-void MemPhysicalFree(PhysPage page, unsigned int number /* = 1 */)
+void MemPhysicalFree(MemPhysPage page, unsigned int number)
 {
 	//Free from bitmap
 	for(; number > 0; --number, ++page)

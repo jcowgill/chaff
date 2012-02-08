@@ -20,18 +20,18 @@
  */
 
 #include "chaff.h"
-#include "memmgr.h"
 #include "inlineasm.h"
-#include "memmgrInt.h"
+#include "mm/pagingInt.h"
+#include "mm/region.h"
 
 //Page table for tmp pages
-PageTable kernelPageTable253[1024] __attribute__((aligned(4096)));
+MemPageTable kernelPageTable253[1024] __attribute__((aligned(4096)));
 
 //Increments the counter for the page directory containing this page table
-static void IncrementCounter(PageTable * table)
+static void IncrementCounter(MemPageTable * table)
 {
 	//Get first page table in directory
-	PageTable * firstTable = (PageTable *) ((unsigned int) table & 0xFFFFF000);
+	MemPageTable * firstTable = (MemPageTable *) ((unsigned int) table & 0xFFFFF000);
 			
 	//Increment from least significant to most significant
 	for(;;)
@@ -49,10 +49,10 @@ static void IncrementCounter(PageTable * table)
 
 //Decrements the counter for the page directory containing this page table
 // Returns true if no pages left
-static bool DecrementCounter(PageTable * table)
+static bool DecrementCounter(MemPageTable * table)
 {
 	//Get first page table in directory
-	PageTable * firstTable = (PageTable *) ((unsigned int) table & 0xFFFFF000);
+	MemPageTable * firstTable = (MemPageTable *) ((unsigned int) table & 0xFFFFF000);
 
 	//Handle first iteration separately
 	if(firstTable->tableCount-- > 1)
@@ -76,7 +76,7 @@ static bool DecrementCounter(PageTable * table)
 	return true;
 }
 
-void MemIntMapPage(MemContext * currContext, void * address, PhysPage page, RegionFlags flags)
+void MemIntMapPage(MemContext * currContext, void * address, MemPhysPage page, MemRegionFlags flags)
 {
 	//Ignore request if no readable, writable or executable flags
 	if((flags & (MEM_READABLE | MEM_WRITABLE | MEM_EXECUTABLE)) == 0)
@@ -86,7 +86,7 @@ void MemIntMapPage(MemContext * currContext, void * address, PhysPage page, Regi
 
 	//Ensure page table for address exists
 	unsigned int addr = (unsigned int) address;
-	PageDirectory * pDir = THIS_PAGE_DIRECTORY + (addr >> 22);
+	MemPageDirectory * pDir = THIS_PAGE_DIRECTORY + (addr >> 22);
 
 	if(!pDir->present)
 	{
@@ -117,7 +117,7 @@ void MemIntMapPage(MemContext * currContext, void * address, PhysPage page, Regi
 	}
 
 	//Get table entry
-	PageTable * pTable = THIS_PAGE_TABLES + (addr >> 12);
+	MemPageTable * pTable = THIS_PAGE_TABLES + (addr >> 12);
 
 	//Check if we'll be overwriting it
 	if(pTable->present)
@@ -161,21 +161,21 @@ void MemIntMapPage(MemContext * currContext, void * address, PhysPage page, Regi
 }
 
 //Unmaps a page and returns the page which was unmapped
-PhysPage UnmapPage(MemContext * currContext, void * address)
+MemPhysPage UnmapPage(MemContext * currContext, void * address)
 {
 	//Only unmap if page table for address exists
 	unsigned int addr = (unsigned int) address;
-	PageDirectory * pDir = THIS_PAGE_DIRECTORY + (addr >> 22);
+	MemPageDirectory * pDir = THIS_PAGE_DIRECTORY + (addr >> 22);
 
 	if(pDir->present)
 	{
 		//Get table entry
-		PageTable * pTable = THIS_PAGE_TABLES + (addr >> 12);
+		MemPageTable * pTable = THIS_PAGE_TABLES + (addr >> 12);
 		
 		//Only unmap if present
 		if(pTable->present)
 		{
-		    PhysPage page = pTable->pageID;
+		    MemPhysPage page = pTable->pageID;
 
 	        //Decrement counter
 	        if(DecrementCounter(pTable))
@@ -216,7 +216,7 @@ void MemIntUnmapPage(MemContext * currContext, void * address)
 
 void MemIntUnmapPageAndFree(MemContext * currContext, void * address)
 {
-	PhysPage page = UnmapPage(currContext, address);
+	MemPhysPage page = UnmapPage(currContext, address);
 	
 	if(page != INVALID_PAGE)
 	{
@@ -224,7 +224,7 @@ void MemIntUnmapPageAndFree(MemContext * currContext, void * address)
 	}
 }
 
-void MemIntMapTmpPage(void * address, PhysPage page)
+void MemIntMapTmpPage(void * address, MemPhysPage page)
 {
 	//Map page (very simple)
 	unsigned int addr = (unsigned int) address;
@@ -235,7 +235,7 @@ void MemIntMapTmpPage(void * address, PhysPage page)
 	}
 
 	//Get page table
-	PageTable * pTable = THIS_PAGE_TABLES + (addr >> 12);
+	MemPageTable * pTable = THIS_PAGE_TABLES + (addr >> 12);
 
 	//Overwrite?
 	if(pTable->present)
@@ -265,7 +265,7 @@ void MemIntUnmapTmpPage(void * address)
 	}
 
 	//Get page table
-	PageTable * pTable = THIS_PAGE_TABLES + (addr >> 12);
+	MemPageTable * pTable = THIS_PAGE_TABLES + (addr >> 12);
 
 	//Set properties
 	pTable->rawValue = 0;

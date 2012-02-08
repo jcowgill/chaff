@@ -23,7 +23,7 @@
 #include "io/bcache.h"
 #include "io/device.h"
 #include "errno.h"
-#include "memmgr.h"
+#include "mm/check.h"
 
 //Insert into block cache table
 static inline bool IoBlockHashInsert(IoBlockCache * cache, IoBlock * block)

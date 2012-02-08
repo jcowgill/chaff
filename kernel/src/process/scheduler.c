@@ -23,6 +23,7 @@
 #include "process.h"
 #include "processInt.h"
 #include "timer.h"
+#include "mm/region.h"
 
 //Scheduler functions
 

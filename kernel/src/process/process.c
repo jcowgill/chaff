@@ -26,6 +26,7 @@
 #include "timer.h"
 #include "errno.h"
 #include "io/iocontext.h"
+#include "mm/region.h"
 
 //Process management functions
 

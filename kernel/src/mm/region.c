@@ -20,16 +20,17 @@
  */
 
 #include "chaff.h"
-#include "memmgr.h"
 #include "inlineasm.h"
-#include "memmgrInt.h"
 #include "process.h"
+#include "mm/region.h"
+#include "mm/pagingInt.h"
+#include "mm/misc.h"
 
 #warning TODO Copy-On-Write Page tables
 
 //Kernel page directory data
-PageDirectory kernelPageDirectory[1024] __attribute__((aligned(4096)));
-PageTable kernelPageTable254[1024] __attribute__((aligned(4096)));			//For physical reference table
+MemPageDirectory kernelPageDirectory[1024] __attribute__((aligned(4096)));
+MemPageTable kernelPageTable254[1024] __attribute__((aligned(4096)));			//For physical reference table
 
 //Kernel context
 MemContext MemKernelContextData = { LIST_INLINE_INIT(MemKernelContextData.regions), 0, INVALID_PAGE, 0 };
@@ -39,9 +40,9 @@ MemContext MemKernelContextData = { LIST_INLINE_INIT(MemKernelContextData.region
 MemContext * MemCurrentContext = MemKernelContext;
 
 //Free a page OR decrease it's reference count if it is > 1
-void MemIntFreePageOrDecRefs(PhysPage page)
+void MemIntFreePageOrDecRefs(MemPhysPage page)
 {
-	unsigned int * refCount = MemIntPhysicalRefCount(page);
+	unsigned int * refCount = MemPhysicalRefCount(page);
 	if(*refCount > 1)
 	{
 		//Decrease copy-on-write reference count
@@ -69,11 +70,11 @@ MemContext * MemContextInit()
 	MemIntMapTmpPage(MEM_TEMPPAGE1, newContext->physDirectory);
 
 	//Wipe user area
-	PageDirectory * dir = (PageDirectory *) MEM_TEMPPAGE1;
-	MemSet(dir, 0, sizeof(PageDirectory) * 768);
+	MemPageDirectory * dir = (MemPageDirectory *) MEM_TEMPPAGE1;
+	MemSet(dir, 0, sizeof(MemPageDirectory) * 768);
 
 	//Copy kernel area
-	MemCpy(dir + 0x300, kernelPageDirectory + 0x300, sizeof(PageDirectory) * 255);
+	MemCpy(dir + 0x300, kernelPageDirectory + 0x300, sizeof(MemPageDirectory) * 255);
 	newContext->kernelVersion = MemKernelContext->kernelVersion;
 
 	//Setup final page
@@ -122,8 +123,8 @@ MemContext * MemContextClone()
 	MemIntMapTmpPage(MEM_TEMPPAGE1, newContext->physDirectory);
 
 	//Copy kernel area
-	PageDirectory * dir = (PageDirectory *) MEM_TEMPPAGE1;
-	MemCpy(dir + 0x300, kernelPageDirectory + 0x300, sizeof(PageDirectory) * 255);
+	MemPageDirectory * dir = (MemPageDirectory *) MEM_TEMPPAGE1;
+	MemCpy(dir + 0x300, kernelPageDirectory + 0x300, sizeof(MemPageDirectory) * 255);
 	newContext->kernelVersion = MemKernelContext->kernelVersion;
 
 	//Setup final page
@@ -135,7 +136,7 @@ MemContext * MemContextClone()
 	//Copy all the page tables and increase refcounts on all pages
 	for(int i = 0; i < 0x300; ++i)
 	{
-		PageDirectory * currDir = THIS_PAGE_DIRECTORY + i;
+		MemPageDirectory * currDir = THIS_PAGE_DIRECTORY + i;
 
 		//Copy directory entry
 		dir[i] = *currDir;
@@ -143,26 +144,26 @@ MemContext * MemContextClone()
 		//If present, increase page ref counts first
 		if(currDir->present)
 		{
-			PageTable * tableBase = THIS_PAGE_TABLES + (i * 1024);
+			MemPageTable * tableBase = THIS_PAGE_TABLES + (i * 1024);
 
 			//Increase ref count on any pages
 			for(int j = 0; j < 1024; ++j)
 			{
-				PageTable * table = tableBase + j;
+				MemPageTable * table = tableBase + j;
 
 				if(table->present)
 				{
 					//Increase count and make readonly
-					++(*MemIntPhysicalRefCount(table->pageID));
+					++(*MemPhysicalRefCount(table->pageID));
 					table->writable = 0;
 				}
 			}
 
 			//Duplicate page table
-			PhysPage newTable = MemPhysicalAlloc(1);
+			MemPhysPage newTable = MemPhysicalAlloc(1);
 
 			MemIntMapTmpPage(MEM_TEMPPAGE2, newTable);				//Page faults must not occur here
-				MemCpy(MEM_TEMPPAGE2, tableBase, sizeof(PageTable) * 1024);
+				MemCpy(MEM_TEMPPAGE2, tableBase, sizeof(MemPageTable) * 1024);
 			MemIntUnmapTmpPage(MEM_TEMPPAGE2);
 
 			//Store in directory
@@ -198,7 +199,7 @@ void MemContextSwitchTo(MemContext * context)
 	{
 		//Update kernel page tables
 		// The TLB should already contain the correct values so we SHOULN'T need to INVLPG them
-		MemCpy(THIS_PAGE_DIRECTORY + 0x300, kernelPageDirectory + 0x300, sizeof(PageDirectory) * 255);
+		MemCpy(THIS_PAGE_DIRECTORY + 0x300, kernelPageDirectory + 0x300, sizeof(MemPageDirectory) * 255);
 
 		context->kernelVersion = MemKernelContext->kernelVersion;
 	}
@@ -234,17 +235,17 @@ void MemContextDelete(MemContext * context)
 		//Process tables
 		for(int i = 0; i < 0x300; ++i)
 		{
-			PageDirectory * dir = THIS_PAGE_DIRECTORY + i;
+			MemPageDirectory * dir = THIS_PAGE_DIRECTORY + i;
 
 			//If present, free pages in page table first
 			if(dir->present)
 			{
-				PageTable * tableBase = THIS_PAGE_TABLES + (i * 1024);
+				MemPageTable * tableBase = THIS_PAGE_TABLES + (i * 1024);
 
 				//Free pages
 				for(int j = 0; j < 1024; ++j)
 				{
-					PageTable * table = tableBase + j;
+					MemPageTable * table = tableBase + j;
 
 					//Free page if present
 					if(table->present)
@@ -363,10 +364,10 @@ MemRegion * MemRegionFind(MemContext * context, void * address)
 // If the context given is not the current or kernel context,
 //  a temporary memory context switch may occur
 MemRegion * MemRegionCreate(MemContext * context, void * startAddress,
-		unsigned int length, PhysPage firstPage, RegionFlags flags)
+		unsigned int length, MemPhysPage firstPage, MemRegionFlags flags)
 {
 	MemRegion * region = MAlloc(sizeof(MemRegion));
-	if(MemIntRegionCreate(context, startAddress, length, flags, region))
+	if(MemRegionCreateStatic(context, startAddress, length, flags, region))
 	{
 		//Map pages if fixed
 		if(flags & MEM_FIXED)
@@ -397,8 +398,8 @@ MemRegion * MemRegionCreate(MemContext * context, void * startAddress,
 
 //Create region from already allocated MemRegion
 // See MemRegionCreate
-bool MemIntRegionCreate(MemContext * context, void * startAddress,
-		unsigned int length, RegionFlags flags, MemRegion * newRegion)
+bool MemRegionCreateStatic(MemContext * context, void * startAddress,
+		unsigned int length, MemRegionFlags flags, MemRegion * newRegion)
 {
 	unsigned int startAddr = (unsigned int) startAddress;
 
@@ -573,72 +574,3 @@ void MemRegionDelete(MemRegion * region)
 }
 
 #warning TODO Memory Committing Function
-
-//Performs the user mode memory checks on the current memory context
-static bool MemChecks(unsigned int addr, unsigned int length, unsigned int flagsReqd)
-{
-	MemContext * context;
-
-	//Get correct checking context
-	if(addr >= 0xC0000000)
-	{
-		context = MemKernelContext;
-	}
-	else
-	{
-		context = ProcCurrProcess->memContext;
-	}
-
-	//Find first region
-	MemRegion * region = MemRegionFind(context, (void *) addr);
-
-	while(region != NULL && (region->flags & flagsReqd) == flagsReqd)
-	{
-		//Calculate data left
-		unsigned int end = region->start + region->length;
-		unsigned int lengthLeft = end - addr;
-
-		if(lengthLeft >= length)
-		{
-			//Passed (since we known this region is readable)
-			return true;
-		}
-
-		//Move to next region if it is continuous
-		if(region->listItem.next == &context->regions)
-		{
-			//This is the last region, fail
-			return false;
-		}
-
-		region = ListEntry(region->listItem.next, MemRegion, listItem);
-
-		if (region->start == end)
-		{
-			//Not continuous, fail
-			return false;
-		}
-
-		//Update parameters
-		addr = region->start;
-		length -= lengthLeft;
-	}
-
-	return false;
-}
-
-//Verifies that an area of memory can be read by the kernel or user
-// If data >= KERNEL_VIRTUAL_BASE, a kernel check is performed
-// For user data, check it with MemCheckUserArea first
-bool MemCanRead(void * data, unsigned int length)
-{
-	return MemChecks((unsigned int) data, length, MEM_READABLE);
-}
-
-//Verifies that an area of memory can be written by the kernel or user
-// If data >= KERNEL_VIRTUAL_BASE, a kernel check is performed
-// For user data, check it with MemCheckUserArea first
-bool MemCanWrite(void * data, unsigned int length)
-{
-	return MemChecks((unsigned int) data, length, MEM_WRITABLE);
-}

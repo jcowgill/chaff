@@ -22,7 +22,7 @@ d				:= $(dir)
 
 # Local Rules
 #  - Directories which are searched for source files (*.c and *.s)
-DIRS_$(d) := $(d)/src $(d)/src/memmgr $(d)/src/process $(d)/src/io
+DIRS_$(d) := $(d)/src $(d)/src/mm $(d)/src/process $(d)/src/io
 
 SOURCES_$(d) := $(foreach DIR, $(DIRS_$(d)), $(wildcard $(DIR)/*.c)) \
 				$(foreach DIR, $(DIRS_$(d)), $(wildcard $(DIR)/*.s))

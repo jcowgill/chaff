@@ -20,7 +20,7 @@
  */
 
 #include "chaff.h"
-#include "memmgr.h"
+#include "mm/misc.h"
 #include "interrupt.h"
 #include "inlineasm.h"
 #include "exceptions.h"
