@@ -1,6 +1,11 @@
+/**
+ * @file
+ * @date September 2010
+ * @author James Cowgill
+ * @brief Global kernel functions and declarations
+ */
+
 /*
- * chaff.h
- *
  *  Copyright 2012 James Cowgill
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,9 +19,6 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
- *  Created on: 30 Sep 2010
- *      Author: James
  */
 
 #ifndef CHAFF_H_
@@ -27,10 +29,14 @@
 #include <stdint.h>
 #include <stddef.h>
 
-//Chaff global header
+/**
+ * Version of chaff being used
+ */
 #define CHAFF_VERSION 1
 
-//Base of kernel
+/**
+ * Offset of the start of the kernel region of virtual space
+ */
 #define KERNEL_VIRTUAL_BASE ((void *) 0xC0000000)
 
 //Non-returning function and stdcall convention
@@ -49,59 +55,174 @@
 
 //Run when an unrecoverable error occurs.
 // Notifies the user of the error (as fatal log) and promptly hangs
+
+/**
+ * Brings down the operating system as the result of an unrecoverable error
+ *
+ * @param msg format of message to display before halting the system
+ * @param ... any extra parameters used by the message
+ */
 void NORETURN Panic(const char * msg, ...);
 
-//Logging levels
+/**
+ * Levels of logging which can be passed to PrintLog()
+ */
 typedef enum
 {
-	Fatal,			//Fatal / unrecoverable errors (consider using Panic)
-	Critical,		//Critical errors (could crash at any time)
-	Error,			//An error in a specific area
-	Warning,		//A significant abnormal condition
-	Notice,			//A significant (but normal) condition
-	Info,			//Informational
-	Debug,			//Debugging logs
+	/**
+	 * Fatal or unrecoverable errors (consider using Panic())
+	 */
+	Fatal,
+
+	/**
+	 * Critical errors (could crash at any time)
+	 */
+	Critical,
+
+	/**
+	 * Generic error
+	 */
+	Error,
+
+	/**
+	 * A significant abnormal condition
+	 */
+	Warning,
+
+	/**
+	 * A significant (but normal) condition
+	 */
+	Notice,
+
+	/**
+	 * Informational message
+	 */
+	Info,
+
+	/**
+	 * Debug message
+	 */
+	Debug,
 
 } LogLevel;
 
-//Prints something to the kernel log
+/**
+ * Prints a message to the kernel log
+ *
+ * @param level significance of the message
+ * @param msg format of message to display
+ * @param ... any extra parameters used by the message
+ */
 void PrintLog(LogLevel level, const char * msg, ...);
 
-//Kernel heap allocation
+/**
+ * Allocates a block of kernel memory
+ *
+ * @param size number of bytes to allocate
+ * @return a pointer to the allocated memory
+ */
 void * MAlloc(unsigned int size) __attribute__((alloc_size(1), malloc));
+
+/**
+ * Frees a block of kernel memory allocated by MAlloc()
+ *
+ * @param data pointer to the memory to free
+ */
 void MFree(void * data);
 
-//Sets the specified number of bytes after the given pointer with the given value
-// Returns ptr
+/**
+ * Sets @a count bytes of @a data to the specified value
+ *
+ * @param data pointer to the data to set
+ * @param value the value to copy into each byte of @a data
+ * @param count number of bytes to copy
+ * @return @a data
+ */
 #define MemSet __builtin_memset
 
-//Copies the region of memory with the given length from src to dst
-// src and dst must not overlap
-// Returns ptr
+/**
+ * Copies the source region to the destination region
+ *
+ * The regions must not overlap
+ *
+ * @param dest destination memory region
+ * @param src source memory region
+ * @param count number of bytes to copy
+ * @return @a dest
+ */
 #define MemCpy __builtin_memcpy
 
-//Moves the region of memory with the given length from src to dst
-// src and dst are allowed to overlap
-// Returns ptr
+/**
+ * Copies the source region to the destination region allowing overlapping
+ *
+ * @param dest destination memory region
+ * @param src source memory region
+ * @param count number of bytes to copy
+ * @return @a dest
+ */
 #define MemMove __builtin_memmove
 
+/**
+ * Compares two regions of memory
+ *
+ * @param ptr1 first region of memory to compare
+ * @param ptr2 second region of memory to compare
+ * @param count number of bytes to compare
+ * @return 0, if the regions of memory are identical
+ * 		>0, the first byte that doesn't match is greater in ptr1
+ * 		<0, the first byte that doesn't match is smaller in ptr1
+ */
 #define MemCmp __builtin_memcmp
 
-//Duplicates a string using MAlloc
+/**
+ * Duplicates a null-terminated string using MAlloc()
+ *
+ * @param str null-terminated string to duplicate
+ * @return a pointer to the new string
+ */
 #define StrDup __builtin_strdup
 
-//Determines string length
+/**
+ * Returns the length of a null-terminated string
+ *
+ * @param str null-terminated string to get length of
+ * @return the length of the string
+ */
 #define StrLen __builtin_strlen
 
-//Compares 2 zero-terminated strings
+/**
+ * Compares two null-terminated strings
+ *
+ * @param ptr1 first string to compare
+ * @param ptr2 second string to compare
+ * @return 0, if the strings are identical
+ * 		>0, the first byte that doesn't match is greater in ptr1
+ * 		<0, the first byte that doesn't match is smaller in ptr1
+ */
 #define StrCmp __builtin_strcmp
 
-//Returns the offset of the last 1 bit in the given data
-// If data == 0, the result is undefined
+/**
+ * Counts the number of trailing zeros in an integer
+ *
+ * This returns the offset of the first 1 bit from the LSB
+ * If the input is zero, the result is undefined
+ *
+ * @param num number to scan
+ * @return number of trailing zeros
+ */
 #define BitScanForward __builtin_ctz
 
-//Returns the offset of the first 1 bit in the given data
-// If data == 0, the result is undefined
+/**
+ * Counts the number of leading zeros in an integer
+ *
+ * This returns the offset of the first 1 bit from the MSB
+ * If the input is zero, the result is undefined
+ *
+ * The offset is measured from the OTHER end to BitScanForward()
+ *
+ * @param num number to scan
+ * @return number of leading zeros
+ */
 #define BitScanReverse __builtin_clz
 
 //Varargs definitions
