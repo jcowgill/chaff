@@ -108,14 +108,14 @@ static inline void ListDeleteInit(ListHead * item)
 
 //List Iterators
 // Iterates over the list given by head using the variable var as the iterator variable
-#define ListForEach(var, head, member) \
-	for(var = (head)->member.next; var != (head)->member; var = var->next)
+#define ListForEach(var, head) \
+	for(var = (head).next; var != (head); var = var->next)
 
 // Iterates over the list given by head using the variable var as the iterator variable
 //  This is safe to use while removing the current variable
-#define ListForEachSafe(var, tmpVar, head, member) \
-	for(var = (head)->member.next, tmpVar = var->next; \
-		var != (head)->member; \
+#define ListForEachSafe(var, tmpVar, head) \
+	for(var = (head).next, tmpVar = var->next; \
+		var != (head); \
 		var = tmpVar, tmpVar = tmpVar->next)
 
 // Iterates over the list given by head using the variable var as the iterator variable entry
@@ -134,14 +134,14 @@ static inline void ListDeleteInit(ListHead * item)
 		 tmpVar = ListEntry(tmpVar->member.next, typeof(*(var)), member))
 
 // Iterates backwards over the list given by head using the variable var as the iterator variable
-#define ListForEachReverse(var, head, member) \
-	for(var = (head)->member.prev; var != (head)->member; var = var->prev)
+#define ListForEachReverse(var, head) \
+	for(var = (head).prev; var != (head); var = var->prev)
 
 // Iterates backwards over the list given by head using the variable var as the iterator variable
 //  This is safe to use while removing the current variable
-#define ListForEachSafeReverse(var, tmpVar, head, member) \
-	for(var = (head)->member.prev, tmpVar = var->prev; \
-		var != (head)->member; \
+#define ListForEachSafeReverse(var, tmpVar, head) \
+	for(var = (head).prev, tmpVar = var->prev; \
+		var != (head); \
 		var = tmpVar, tmpVar = tmpVar->prev)
 
 // Iterates backwards over the list given by head using the variable var as the iterator variable entry
