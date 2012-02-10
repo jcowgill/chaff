@@ -20,6 +20,7 @@ Compiling Chaff requires:
 * binutils (for elf-i386)
 * make
 * nasm
+* doxygen (only needed to generate documentation)
 
 For Linux, everything except nasm should already be installed on most distributions.
 
@@ -30,6 +31,12 @@ Once you've done all this, go to the chaff source and type
     make
 
 This should build the chaff image and place it in the file bin/chaff.elf
+
+To build the documentation, you need to install doxygen and type
+
+	doxygen
+	
+This should create the html documentation of all the chaff functions in doc/html 
 
 Creating an Image
 -----------------
