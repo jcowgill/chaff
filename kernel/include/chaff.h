@@ -1,8 +1,9 @@
 /**
  * @file
+ * Global kernel functions and declarations
+ *
  * @date September 2010
  * @author James Cowgill
- * @brief Global kernel functions and declarations
  */
 
 /*

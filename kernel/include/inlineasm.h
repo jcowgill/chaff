@@ -1,6 +1,12 @@
-/*
- * inlineasm.h
+/**
+ * @file
+ * Inline assembly instructions
  *
+ * @date November 2010
+ * @author James Cowgill
+ */
+
+/*
  *  Copyright 2012 James Cowgill
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,20 +20,28 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
- *  Created on: 21 Nov 2010
- *      Author: James
  */
 
 #ifndef INLINEASM_H_
 #define INLINEASM_H_
 
-//Control register setters
+/**
+ * Sets the value of the CR3 register
+ *
+ * CR3 stores the Page Directory Base Register
+ *
+ * @param val value to set
+ */
 static inline void setCR3(unsigned int val)
 {
 	asm ("movl %0, %%cr3"::"r"(val));
 }
 
+/**
+ * Gets the value of the CR3 register
+ *
+ * CR3 stores the Page Directory Base Register
+ */
 static inline unsigned int getCR3()
 {
 	unsigned int val;
@@ -35,6 +49,11 @@ static inline unsigned int getCR3()
 	return val;
 }
 
+/**
+ * Gets the value of the CR2 register
+ *
+ * CR2 stores the Page Fault Linear Address
+ */
 static inline void * getCR2()
 {
 	void * val;
@@ -42,7 +61,13 @@ static inline void * getCR2()
 	return val;
 }
 
-//Invalidate TLB entry at given address
+/**
+ * Invalidates the TLB entry at the given address
+ *
+ * This forces page tables at the given address to be recalculated by the CPU
+ *
+ * @param address address to invalidate
+ */
 static inline void invlpg(void * address)
 {
 	asm volatile("invlpg %0"::"m"(address));
@@ -50,24 +75,54 @@ static inline void invlpg(void * address)
 
 //Load interrupt descriptor table
 // This is not inline but implemented in interruptAsm.s
+
+/**
+ * Load a pointer to the interrupt descriptor table
+ *
+ * @param len length of the descriptor table
+ * @param ptr pointer to the table
+ */
 void lidt(unsigned short len, void * ptr);
 
-//IO commands
+/**
+ * Outputs one byte on the specified port
+ *
+ * @param port port to output on
+ * @param data data to output
+ */
 static inline void outb(unsigned short port, unsigned char data)
 {
 	asm volatile("outb %1, %0"::"Nd"(port), "a"(data));
 }
 
+/**
+ * Outputs two bytes on the specified port
+ *
+ * @param port port to output on
+ * @param data data to output
+ */
 static inline void outw(unsigned short port, unsigned short data)
 {
 	asm volatile("outw %1, %0"::"Nd"(port), "a"(data));
 }
 
+/**
+ * Outputs four bytes on the specified port
+ *
+ * @param port port to output on
+ * @param data data to output
+ */
 static inline void outd(unsigned short port, unsigned int data)
 {
 	asm volatile("outd %1, %0"::"Nd"(port), "a"(data));
 }
 
+/**
+ * Inputs one byte on the specified port
+ *
+ * @param port port to input from
+ * @return the data currently on the port
+ */
 static inline unsigned char inb(unsigned short port)
 {
 	unsigned char data;
@@ -75,6 +130,12 @@ static inline unsigned char inb(unsigned short port)
 	return data;
 }
 
+/**
+ * Inputs two bytes on the specified port
+ *
+ * @param port port to input from
+ * @return the data currently on the port
+ */
 static inline unsigned short inw(unsigned short port)
 {
 	unsigned short data;
@@ -82,6 +143,12 @@ static inline unsigned short inw(unsigned short port)
 	return data;
 }
 
+/**
+ * Inputs four bytes on the specified port
+ *
+ * @param port port to input from
+ * @return the data currently on the port
+ */
 static inline unsigned int ind(unsigned short port)
 {
 	unsigned int data;

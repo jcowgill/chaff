@@ -1,8 +1,9 @@
 /**
  * @file
+ * Unix error codes
+ *
  * @date January 2011
  * @author James Cowgill
- * @brief Unix error codes
  */
 
 /*

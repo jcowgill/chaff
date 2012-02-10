@@ -1,6 +1,20 @@
-/*
- * htable.h
+/**
+ * @file
+ * Hash table implementation
  *
+ * This file contains a generic, variable-sized hash table implementation.
+ *
+ * To use it:
+ * - Create a ::HashTable somewhere and wipe it
+ * - Add ::HashItem to each structure you want to add to the table
+ * - Use the manipulation functions to use the hash table
+ * - Use #HashTableEntry to convert HashItems into actual structures
+ *
+ * @date February 2012
+ * @author James Cowgill
+ */
+
+/*
  *  Copyright 2012 James Cowgill
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,9 +28,6 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
- *  Created on: 19 Dec 2010
- *      Author: James
  */
 
 #ifndef HTABLE_H_
@@ -25,81 +36,179 @@
 #include "chaff.h"
 #include "list.h"
 
-//Generic Variable-Sized Hash Table
-//
+/**
+ * @name Global thresholds and performance adjusters
+ */
+/** @{ */
 
-//Hash table thresholds (these affect all hash tables)
+/**
+ * Initial number of buckets in the table
+ */
 #define HASH_INITIAL_SIZE		256
 
-//Thresholds work like fractions of (threshold / HASH_THRESHOLD_REF)
+/**
+ * Reference for GROW and SHRINK
+ */
 #define HASH_THRESHOLD_REF		8
-#define HASH_THRESHOLD_GROW		7		// 7/8 = 87.5% load
-#define HASH_THRESHOLD_SHRINK	1		// 1/8 = 12.5% load
 
-//Hash Item
-// Add this to all items in the hash table
+/**
+ * Threshold required to grow the hash table
+ *
+ * 7/8 = 87.5% load
+ */
+#define HASH_THRESHOLD_GROW		7
+
+/**
+ * Threshold required to shrink the hash table
+ *
+ * 1/8 = 12.5% load
+ */
+#define HASH_THRESHOLD_SHRINK	1
+
+/** @} */
+
+/**
+ * Structure storing data about an item in the hash table
+ */
 typedef struct HashItem
 {
-	//Pointer and length of key
+	/**
+	 * Pointer to key used by this item
+	 */
 	const void * keyPtr;
+
+	/**
+	 * Length of key in bytes
+	 */
 	unsigned int keyLen;
 
-	//Hash of this key
+	/**
+	 * Cached hash value of the key
+	 */
 	unsigned int hashValue;
 
-	//Next item in this bucket
+	/**
+	 * Pointer to next item in the bucket
+	 */
 	struct HashItem * next;
 
 } HashItem;
 
-//Hash Table
-// This structure contains the buckets at the root of the table
-// This must be initialized to 0
+/**
+ * Structure storing data about the entire hash table including buckets
+ *
+ * This must be cleared to all zeros using MemSet() before use
+ */
 typedef struct HashTable
 {
-	//Pointer to array of buckets and number of items in array
+	/**
+	 * Contains all the buckets used by the hash table
+	 */
 	HashItem ** buckets;
+
+	/**
+	 * The number of buckets allocated for #buckets
+	 */
 	unsigned int bucketCount;
 
-	//Numer of items in the hash table
+	/**
+	 * The number of items in the table
+	 */
 	unsigned int itemCount;
 
 } HashTable;
 
-//Gets the structure associated with a hash item
+/**
+ * Returns a pointer to the structure associated with a HashItem
+ *
+ * @see ListEntry
+ */
 #define HashTableEntry ListEntry
 
-//Inserts an item into the hash map
-// The key passed must remain in memory after this returns
+/**
+ * Inserts an item into the hash map
+ *
+ * The key passed must remain in memory after this returns
+ *
+ * @param table hash table to insert into
+ * @param item item to add to the table
+ * @param keyPtr pointer to the key for this item
+ * @param keyLen length of the key in bytes
+ *
+ * @retval true if the item was successfully added
+ * @retval false if the item already exists
+ */
 bool HashTableInsert(HashTable * table, HashItem * item, const void * keyPtr, unsigned int keyLen);
 
-//Removes the given ID from the hash table (provide 1 key after table)
-// Returns false if that ID doesn't exist
+/**
+ * Removes a key from the hash map
+ *
+ * @param table hash table to remove from
+ * @param keyPtr pointer to the key to remove
+ * @param keyLen length of the key in bytes
+ *
+ * @retval true if the item was successfully removed
+ * @retval false if an item with that key does not exists
+ */
 bool HashTableRemove(HashTable * table, const void * keyPtr, unsigned int keyLen);
 
-//Removes the given item from the hash table
-// Returns false if that ID doesn't exist
+/**
+ * Removes an item from the hash map
+ *
+ * @param table hash table to remove from
+ * @param item the item to remove
+ *
+ * @retval true if the item was successfully removed
+ * @retval false if that item is not in the hash table
+ */
 bool HashTableRemoveItem(HashTable * table, HashItem * item);
 
-//Returns the HashItem corresponding to a given ID (provide 1 key after table)
-// Returns NULL if that ID doesn't exist
+/**
+ * Finds an item in the hash table
+ *
+ * @param table hash table to find in
+ * @param keyPtr pointer to the key to find
+ * @param keyLen length of the key in bytes
+ *
+ * @return the hash item requested or NULL if that item is not in the hash table
+ */
 HashItem * HashTableFind(HashTable * table, const void * keyPtr, unsigned int keyLen);
 
-//Causes the hash table to grow if it will reach the grow threshold when
-//storing the given number of items
-// Does not gaurentee that a later HashTableInsert will not grow the table
+/**
+ * Grows the hash table.
+ *
+ * This function grows the hash table if it will reach the grow threshold when storing
+ * the given number of items.
+ *
+ * Does not guarantee that a later HashTableInsert will not grow the table
+ *
+ * @param table hash table to grow
+ * @param count the @a total number of items expected to be in the hash table
+ */
 void HashTableReserve(HashTable * table, unsigned int count);
 
-//Shrinks the hash table if there are very few items in it
+/**
+ * Shrinks the hash table if there are very few items in it
+ *
+ * @param table hash table to shrink
+ */
 void HashTableShrink(HashTable * table);
 
-//Returns the number of items in the hash table
+/**
+ * Returns the number of items in the hash table
+ */
 static inline unsigned int HashTableCount(HashTable * table)
 {
 	return table->itemCount;
 }
 
-//Hashes the key using the built-in hashing function
+/**
+ * Hashes the given key using the built-in hashing function
+ *
+ * @param keyPtr pointer to the key to hash
+ * @param keyLen length of the key in bytes
+ * @return the computed hash of the key
+ */
 unsigned int HashTableHash(const void * keyPtr, unsigned int keyLen);
 
 #endif /* HTABLE_H_ */

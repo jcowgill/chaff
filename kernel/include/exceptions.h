@@ -1,6 +1,15 @@
-/*
- * exceptions.h
+/**
+ * @file
+ * CPU Exceptions
  *
+ * These functions are for internal use only.
+ *
+ * @date March 2011
+ * @author James Cowgill
+ * @privatesection
+ */
+
+/*
  *  Copyright 2012 James Cowgill
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,9 +23,6 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
- *  Created on: 24 Mar 2011
- *      Author: james
  */
 
 #ifndef EXCEPTIONS_H_
@@ -24,15 +30,84 @@
 
 #include "interrupt.h"
 
-//CPU Exception Implementation
-// Note: names ending with Fault will force the program to exit if the signal is ignored
-void IntrExceptMathFault(IntrContext * iContext);		//Divide by zero, No math coprocessor, FPU error
-void IntrExceptMathTrap(IntrContext * iContext);		//Overflow (INTO), Bound error (BOUND)
-void IntrExceptDebugTrap(IntrContext * iContext);		//Step, Breakpoint
-void IntrExceptIllOpcodeFault(IntrContext * iContext);	//Invalid opcode
-void IntrExceptProtectionFault(IntrContext * iContext);	//Segment not present, Stack fault, General Protection fault
-void IntrExceptAlignmentFault(IntrContext * iContext);	//Alignment check
+/**
+ * Fatal math exception
+ *
+ * - Divide by zero
+ * - No math coprocessor
+ * - FPU error
+ *
+ * Raises SIGFPU. Kills process if this is ignored.
+ *
+ * @param iContext context of this exception
+ */
+void IntrExceptMathFault(IntrContext * iContext);
 
-void IntrExceptError(IntrContext * iContext);			//Error exceptions
+/**
+ * Normal math exception
+ *
+ * - Overflow (INTO instruction)
+ * - Bounds error (BOUND instruction)
+ *
+ * Raises SIGFPU.
+ *
+ * @param iContext context of this exception
+ */
+void IntrExceptMathTrap(IntrContext * iContext);
+
+/**
+ * Debug exception
+ *
+ * - Step
+ * - Breakpoint (INT 3 instruction
+ *
+ * Raises SIGTRAP.
+ *
+ * @param iContext context of this exception
+ */
+void IntrExceptDebugTrap(IntrContext * iContext);
+
+/**
+ * invalid opcode exception
+ *
+ * Raises SIGILL. Kills process if this is ignored.
+ *
+ * @param iContext context of this exception
+ */
+void IntrExceptIllOpcodeFault(IntrContext * iContext);
+
+/**
+ * General protection exception
+ *
+ * - Segment not present
+ * - Stack fault
+ * - General protection fault
+ *
+ * Most protection faults are handled by the page fault handler
+ *
+ * Raises SIGSEGV. Kills process if this is ignored.
+ *
+ * @param iContext context of this exception
+ * @see MemPageFaultHandler()
+ */
+void IntrExceptProtectionFault(IntrContext * iContext);
+
+/**
+ * Alignment exception
+ *
+ * Raises SIGBUS. Kills process if this is ignored.
+ *
+ * @param iContext context of this exception
+ */
+void IntrExceptAlignmentFault(IntrContext * iContext);
+
+/**
+ * Undefined exception
+ *
+ * Panics with fatal CPU error
+ *
+ * @param iContext context of this exception
+ */
+void IntrExceptError(IntrContext * iContext);
 
 #endif /* EXCEPTIONS_H_ */
