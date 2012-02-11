@@ -1,6 +1,12 @@
-/*
- * signalNums.h
+/**
+ * @file
+ * Signal numbers and other constants
  *
+ * @date January 2011
+ * @author James Cowgill
+ */
+
+/*
  *  Copyright 2012 James Cowgill
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,9 +20,6 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
- *  Created on: 12 Jan 2011
- *      Author: James
  */
 
 #ifndef SIGNALNUMS_H_

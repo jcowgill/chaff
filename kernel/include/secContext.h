@@ -1,6 +1,12 @@
-/*
- * seccontext.h
+/**
+ * @file
+ * Process security context
  *
+ * @date January 2012
+ * @author James Cowgill
+ */
+
+/*
  *  Copyright 2012 James Cowgill
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,32 +20,61 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
- *  Created on: 21 Jan 2012
- *      Author: james
  */
 
 #ifndef SECCONTEXT_H_
 #define SECCONTEXT_H_
 
-//This file contains the simple security context for each process
-// This allows things to use a particular security context without the process
-//
-
 #include "chaff.h"
 
-typedef struct
+/**
+ * A set of security options assigned to a process
+ *
+ * The type of ids are:
+ * - Real = Launcher of the process
+ * - Effective = Permissions currently being used
+ * - Saved = Allows setuid files to change effective id and then go back
+ */
+typedef struct SecContext
 {
-	//Real, effective and saved user and group identifiers
-	// Real = launcher of the process
-	// Effective = permissions currently using (eg for files)
-	// Saved = allows setuid files to change effective id and go back again
-	unsigned int ruid, euid, suid;
-	unsigned int rgid, egid, sgid;
+			/**
+	 * Real user id
+	 */
+	unsigned int ruid;
+
+	/**
+	 * Effective user id
+	 */
+	unsigned int euid;
+
+	/**
+	 * Saved user id
+	 */
+	unsigned int suid;
+
+	/**
+	 * Real group id
+	 */
+	unsigned int rgid;
+
+	/**
+	 * Effective group id
+	 */
+	unsigned int egid;
+
+	/**
+	 * Saved group id
+	 */
+	unsigned int sgid;
 
 } SecContext;
 
-//Tests if a security context has root permissions
+/**
+ * Tests if a security context has root permissions
+ *
+ * @param context security context to test
+ * @return whether the security context has root permissions
+ */
 static inline bool SecContextIsRoot(SecContext * context)
 {
 	return context->euid == 0;

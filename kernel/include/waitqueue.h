@@ -1,6 +1,14 @@
-/*
- * waitqueue.h
+/**
+ * @file
+ * Queue of waiting threads
  *
+ * This allows multiple threads to wait on a single event
+ *
+ * @date January 2012
+ * @author James Cowgill
+ */
+
+/*
  *  Copyright 2012 James Cowgill
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,34 +22,50 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
- *  Created on: 30 Jan 2012
- *      Author: james
  */
 
 #ifndef WAITQUEUE_H_
 #define WAITQUEUE_H_
 
-//Simple queue allowing multiple threads to wait for an event
-//
-
 #include "chaff.h"
 #include "list.h"
 
-//The wait queue which threads can wait for
+/**
+ * The wait queue threads can wait on
+ */
 typedef ListHead ProcWaitQueue;
 
-//Initializes a wait queue
+/**
+ * Initializes a wait queue
+ *
+ * @param head queue to initialize
+ */
 #define ProcWaitQueueInit ListHeadInit
 
-//Causes this thread to wait for an event on the wait queue
+/**
+ * Causes the current thread to wait on the specified queue
+ *
+ * @param queue queue to wait on
+ * @param interruptable true if the wait can be interrupted by a signal
+ * @retval true if the thread was interrupted
+ * @retval false if the thread was woken by ProcWaitQueueWaitOne() or ProcWaitQueueWakeAll()
+ */
 bool ProcWaitQueueWait(ProcWaitQueue * queue, bool interruptable);
 
-//Wakes up one thread on the wait queue (the oldest)
-// Returns true if there was a thread to wakeup
+/**
+ * Wakes up the oldest thread on a wait queue
+ *
+ * @param queue queue to wake a thread from
+ * @retval true if a thread was woken up
+ * @retval false if there are no threads on the queue
+ */
 bool ProcWaitQueueWakeOne(ProcWaitQueue * queue);
 
-//Wakes up all the threads on the wait queue
+/**
+ * Wakes all the threads on a wait queue
+ *
+ * @param queue queue to wake all threads from
+ */
 void ProcWaitQueueWakeAll(ProcWaitQueue * queue);
 
 #endif /* WAITQUEUE_H_ */
