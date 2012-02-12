@@ -1,6 +1,28 @@
-/*
- * mm/region.h
+/**
+ * @file
+ * Memory region and context manager
  *
+ * Regions are contiguous areas of virtual memory
+ *
+ * @par Memory Layout
+ * @verbatim
+00000000 - 00000FFF   Reserved (cannot be mapped)
+00001000 - BFFFFFFF   User mode code
+C0000000 - C03FFFFF   Mapped to first 4MB of physical space. Contains all kernel code.
+C0400000 - CFFFFFFF   Driver code
+D0000000 - DFFFFFFF   Kernel heap
+F0000000 - FF6FFFFF   No use at the moment
+FF700000 - FFFFFFFF   Memory manager use
+ FF700000 - FF7FFFFF   Temporary page mappings
+ FF800000 - FFBFFFFF   Physical page references
+ FFC00000 - FFFFFFFF   Current page tables
+@endverbatim
+ *
+ * @date February 2012
+ * @author James Cowgill
+ */
+
+/*
  *  Copyright 2012 James Cowgill
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,9 +36,6 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
- *  Created on: 8 Feb 2012
- *      Author: James
  */
 
 #ifndef MM_REGION_H_
@@ -26,95 +45,105 @@
 #include "list.h"
 #include "mm/physical.h"
 
-//Memory region and context management
-// Regions are contiguous areas of virtual memory
-//
-
-/*
- * Memory Layout
- * -------------
- * 00000000 - 00000FFF	Reserved (cannot be mapped)
- * 00001000 - BFFFFFFF	User mode code
- * C0000000 - C03FFFFF	Mapped to first 4MB of physical space. Contains all kernel code.
- * C0400000 - CFFFFFFF	Driver code
- * D0000000 - DFFFFFFF	Kernel heap
- * F0000000 - FF6FFFFF	No use at the moment
- * FF700000 - FFFFFFFF	Memory manager use
- * 	FF700000 - FF7FFFFF		Temporary page mappings
- * 	FF800000 - FFBFFFFF		Physical page references
- * 	FFC00000 - FFFFFFFF		Current page tables
+/**
+ * Flags assigned to memory regions
  */
-
-//Bitmask containing the flags for memory regions
-// Note that restrictions only apply to user mode
-// All non-fixed pages use copy-on-write when the context is cloned
 typedef enum MemRegionFlags
 {
-	MEM_NOACCESS = 0,
-	MEM_READABLE = 1,
-	MEM_WRITABLE = 2,
-	MEM_EXECUTABLE = 4,
-	MEM_FIXED = 8,
-	MEM_CACHEDISABLE = 16,
+	MEM_NOACCESS = 0,     ///< No access to memory
+	MEM_READABLE = 1,     ///< Memory is readable (currently ignored - all memory is readable)
+	MEM_WRITABLE = 2,     ///< Memory is writable
+	MEM_EXECUTABLE = 4,   ///< Memory is executable
+	MEM_FIXED = 8,        ///< Memory is allocated by caller and does not use copy-on-write
+	MEM_CACHEDISABLE = 16,///< Disables cache lookups for the region
 
-	MEM_ALLFLAGS = 31
+	MEM_ALLFLAGS = 31     ///< All previous flags (used internally)
 
 } MemRegionFlags;
 
 struct MemContext;
 
-//A region of virtual memory with the same properties
-typedef struct STagMemRegion
+/**
+ * A region of virtual memory which some properties are applied to
+ */
+typedef struct MemRegion
 {
-	ListHead listItem;				//Item in regions list
+	ListHead listItem;				///< Item in regions list
 
-	struct MemContext * myContext;	//Context this region is assigned to
+	struct MemContext * myContext;	///< Context this region is assigned to
 
-	MemRegionFlags flags;			//The properties of the region
+	MemRegionFlags flags;			///< The properties of the region
 
-	unsigned int start;				//Pointer to start of region
-	unsigned int length;			//Length of region in pages
-	MemPhysPage firstPage;			//First page - used only for fixed regions
+	unsigned int start;				///< Pointer to start of region
+	unsigned int length;			///< Length of region in pages
+	MemPhysPage firstPage;			///< First page - used only for fixed regions
 
 } MemRegion;
 
-//A group of memory regions which make up the virtual memory space for a process
+/**
+ * A group of memory regions which make up the virtual memory space for a process
+ */
 typedef struct MemContext
 {
-	ListHead regions;				//Regions in this context
-	unsigned int kernelVersion;		//Version of kernel page directory for this context
-	MemPhysPage physDirectory;		//Page directory physical page
+	ListHead regions;				///< List of regions in this context
+	unsigned int kernelVersion;		///< Version of kernel page directory for this context
+	MemPhysPage physDirectory;		///< Page directory physical page
 
-	unsigned int refCount;			//Memory contex reference counter
+	unsigned int refCount;			///< Memory contex reference counter
 
 } MemContext;
 
-//Creates a new blank memory context
-// The reference count will be 0
+/**
+ * Creates a new blank memory context
+ *
+ * The reference count will be 0
+ */
 MemContext * MemContextInit();
 
-//Clones this memory context
-// The reference count will be 0
+/**
+ * Clones the current memory context
+ *
+ * The reference count will be 0
+ */
 MemContext * MemContextClone();
 
-//Switches to this memory context
+/**
+ * Switches to another memory context
+ */
 void MemContextSwitchTo(MemContext * context);
 
-//Deletes this memory context
-// You should probably use MemContextDeleteReference instead of this
-// MEM_FIXED memory IS DELETED by this
+/**
+ * Deletes a memory context
+ *
+ * You probably want MemContextDeleteReference() instead of this
+ *
+ * The context passed must not be the current context.
+ *
+ * #MEM_FIXED regions are deleted by this
+ *
+ * @param context memory context to delete
+ */
 void MemContextDelete(MemContext * context);
 
-//Adds a reference to a memory context
+/**
+ * Adds a reference to a memory context
+ *
+ * @param context context to increment reference count of
+ */
 static inline void MemContextAddReference(MemContext * context)
 {
 	context->refCount++;
 }
 
-//Deletes a reference to a memory context
-// The context passed MUST NOT be the current context
-// When the refCount reaches zero, the context will be destroyed
-// MEM_FIXED memory IS DELETED by this
+/**
+ * Deletes a reference to a memory context
+ *
+ * The context passed must not be the current context.
+ *
+ * #MEM_FIXED regions are deleted by this
+ *
+ * @param context memory context to delete
+ */
 void MemContextDeleteReference(MemContext * context);
 
 
@@ -122,31 +151,85 @@ void MemContextDeleteReference(MemContext * context);
 // If the context given is not the current or kernel context,
 //  a temporary memory context switch may occur
 // The start address MUST be page aligned
+
+/**
+ * Creates a new blank memory region
+ *
+ * @param context context to add region to
+ * @param startAddress address of the start of the region (must be page aligned)
+ * @param length length of the region in bytes (must be page aligned)
+ * @param firstPage (MEM_FIXED only) first page of the region.
+ *                  All the pages in the region must be in contiguous space.
+ * @param flags flags to assign to the region
+ * @retval NULL if an error occurs (logged using PrintLog())
+ * @retval region on success
+ */
 MemRegion * MemRegionCreate(MemContext * context, void * startAddress,
 		unsigned int length, MemPhysPage firstPage, MemRegionFlags flags);
 
-//Frees the pages associated with a given region of memory without destroying the region
-// (pages will automatically be allocated when memory is referenced)
-// The memory address range must be withing the bounds of the given region
+/**
+ * Frees the pages associated with a given region of memory without destroying the region
+ *
+ * Pages are automatically reallocated when memory is referenced again.
+ * All the memory is wiped (filled with 0s).
+ *
+ * The address and length given must be within the bounds of the region given.
+ *
+ * The memory manager may free less pages than requested in certain situations.
+ *
+ * @param region region to free pages from
+ * @param address start address to free
+ * @param length length of data to free
+ */
 void MemRegionFreePages(MemRegion * region, void * address, unsigned int length);
 
 //Finds the region which contains the given address
 // or returns NULL if there isn't one
+
+/**
+ * Finds the region which contains the given address
+ *
+ * @note To check for kernel addresses you must use the kernel context
+ *
+ * @param context memory context to search
+ * @param address address to search for
+ * @retval NULL if there is no region allocated to that address
+ * @retval region the region found for that address
+ */
 MemRegion * MemRegionFind(MemContext * context, void * address);
 
-//Resizes the region of allocated memory
-// If the context of the region given is not the current or kernel context,
-//  a temporary memory context switch may occur
+/**
+ * Resizes a region
+ *
+ * @param region region to resize
+ * @param newLength new length of the region
+ */
 void MemRegionResize(MemRegion * region, unsigned int newLength);
 
-//Deletes the specified region
-// If the context of the region given is not the current or kernel context,
-//  a temporary memory context switch may occur
+/**
+ * Deletes the specified region
+ *
+ * @param region region to delete
+ */
 void MemRegionDelete(MemRegion * region);
 
-//Kernel and current context
+/**
+ * Kernel context data pointer
+ *
+ * @private
+ */
 extern MemContext MemKernelContextData;
+
+/**
+ * Pointer to the kernel memory context
+ */
 #define MemKernelContext (&MemKernelContextData)
+
+/**
+ * Pointer to the current memory context
+ *
+ * Do not change this
+ */
 extern MemContext * MemCurrentContext;
 
 #endif

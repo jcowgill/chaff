@@ -1,6 +1,14 @@
-/*
- * mm/check.h
+/**
+ * @file
+ * Memory address validation checks
  *
+ * These functions check whether memory can be used
+ *
+ * @date February 2012
+ * @author James Cowgill
+ */
+
+/*
  *  Copyright 2012 James Cowgill
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,9 +22,6 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
- *  Created on: 8 Feb 2012
- *      Author: James
  */
 
 #ifndef MM_CHECK_H_
@@ -24,22 +29,52 @@
 
 #include "chaff.h"
 
-//Memory address validation checks
-// These functions check whether memory can be used
-//
-
-//Verifies that an area of memory can be read by the kernel or user
-// If data >= KERNEL_VIRTUAL_BASE, a kernel check is performed
-// For user data, check it with MemCheckUserArea first
+/**
+ * Verifies an area of memory can be read
+ *
+ * This function will allow reads to kernel regions.
+ *
+ * Use MemCheckUserArea() as well if the data pointer is from user mode.
+ * This allows the caller to decide whether the function can be used by user mode.
+ *
+ * @param data pointer to the area of memory to check
+ * @param length length of memory being accessed
+ * @retval true if the area of memory can be read
+ * @retval false if the area of memory cannot be read
+ */
 bool MemCanRead(void * data, unsigned int length);
 
-//Verifies that an area of memory can be written by the kernel or user
-// If data >= KERNEL_VIRTUAL_BASE, a kernel check is performed
-// For user data, check it with MemCheckUserArea first
+/**
+ * Verifies an area of memory can be written to
+ *
+ * This function will allow writes to kernel regions.
+ *
+ * Use MemCheckUserArea() as well if the data pointer is from user mode.
+ * This allows the caller to decide whether the function can be used by user mode.
+ *
+ * @param data pointer to the area of memory to check
+ * @param length length of memory being accessed
+ * @retval true if the area of memory can be written to
+ * @retval false if the area of memory cannot be written to
+ */
 bool MemCanWrite(void * data, unsigned int length);
 
-//Verifies that an area of memory can be read by the kernel or user and commits it
-// This function may block
+/**
+ * Verifies an area of memory can be read and commits it to memory
+ *
+ * This function will allow reads to kernel regions.
+ *
+ * Use MemCheckUserArea() as well if the data pointer is from user mode.
+ * This allows the caller to decide whether the function can be used by user mode.
+ *
+ * This function may block.
+ *
+ * @param data pointer to the area of memory to check
+ * @param length length of memory being accessed
+ * @retval true if the area of memory can be read and was committed
+ * @retval false if the area of memory cannot be read
+ * @bug this doesn't actually commit anything at the moment
+ */
 static inline bool MemCommitForRead(void * data, unsigned int length)
 {
 	//Stub until MemCommit is implemented
@@ -47,8 +82,22 @@ static inline bool MemCommitForRead(void * data, unsigned int length)
 	return MemCanRead(data, length);
 }
 
-//Verifies that an area of memory can be written by the kernel or user and commits it
-// This function may block
+/**
+ * Verifies an area of memory can be written to and commits it to memory
+ *
+ * This function will allow reads to kernel regions.
+ *
+ * Use MemCheckUserArea() as well if the data pointer is from user mode.
+ * This allows the caller to decide whether the function can be used by user mode.
+ *
+ * This function may block.
+ *
+ * @param data pointer to the area of memory to check
+ * @param length length of memory being accessed
+ * @retval true if the area of memory can be written to and was committed
+ * @retval false if the area of memory cannot be written to
+ * @bug this doesn't actually commit anything at the moment
+ */
 static inline bool MemCommitForWrite(void * data, unsigned int length)
 {
 	//Stub until MemCommit is implemented
@@ -56,8 +105,16 @@ static inline bool MemCommitForWrite(void * data, unsigned int length)
 	return MemCanWrite(data, length);
 }
 
-//Verifies that the region of memory passed is all in user mode (< 0xC0000000)
-// This DOES NOT check if the memory is actually readable / writable
+/**
+ * Verifies that the area of memory passed is in user mode
+ *
+ * This does not check if the memory is actually readable / writable
+ *
+ * @param data pointer to the area of memory to check
+ * @param length length of memory being accessed
+ * @retval true if the area of memory is entirely in user mode
+ * @retval false if the area of memory is partially in kernel mode
+ */
 static inline bool MemCheckUserArea(void * data, unsigned int length)
 {
 	char * cData = (char *) data;
@@ -66,13 +123,35 @@ static inline bool MemCheckUserArea(void * data, unsigned int length)
 	return (cData + length) < cKernBase && (cData < (cData + length));
 }
 
-//Combined MemCheckUserArea and MemCommitForRead convinience function
+/**
+ * Combined version of MemCheckUserArea() and MemCommitForRead()
+ *
+ * This is designed for situations where you know the pointer must only be from user mode.
+ *
+ * This function may block.
+ *
+ * @param data pointer to the area of memory to check
+ * @param length length of memory being accessed
+ * @retval true if the area of memory can be read and was committed
+ * @retval false if the area of memory cannot be read
+ */
 static inline bool MemCommitUserForRead(void * data, unsigned int length)
 {
 	return MemCheckUserArea(data, length) && MemCommitForRead(data, length);
 }
 
-//Combined MemCheckUserArea and MemCommitForWrite convinience function
+/**
+ * Combined version of MemCheckUserArea() and MemCommitForWrite()
+ *
+ * This is designed for situations where you know the pointer must only be from user mode.
+ *
+ * This function may block.
+ *
+ * @param data pointer to the area of memory to check
+ * @param length length of memory being accessed
+ * @retval true if the area of memory can be written to and was committed
+ * @retval false if the area of memory cannot be written to
+ */
 static inline bool MemCommitUserForWrite(void * data, unsigned int length)
 {
 	return MemCheckUserArea(data, length) && MemCommitForWrite(data, length);
