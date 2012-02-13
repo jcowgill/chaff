@@ -155,6 +155,8 @@ typedef struct IoFileOps
 	/**
 	 * Reads the list of files in a directory
 	 *
+	 * The directory should start being read with the nth item given in @c file->off
+	 *
 	 * The default action if unimplemented is to return -ENOSYS (Function not implemented).
 	 *
 	 * @param file the directory to search
