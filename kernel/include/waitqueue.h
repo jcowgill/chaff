@@ -48,7 +48,7 @@ typedef ListHead ProcWaitQueue;
  * @param queue queue to wait on
  * @param interruptable true if the wait can be interrupted by a signal
  * @retval true if the thread was interrupted
- * @retval false if the thread was woken by ProcWaitQueueWaitOne() or ProcWaitQueueWakeAll()
+ * @retval false if the thread was woken by ProcWaitQueueWakeOne() or ProcWaitQueueWakeAll()
  */
 bool ProcWaitQueueWait(ProcWaitQueue * queue, bool interruptable);
 

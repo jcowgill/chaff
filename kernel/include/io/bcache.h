@@ -1,6 +1,12 @@
-/*
- * bcache.h
+/**
+ * @file
+ * Block cache functions
  *
+ * @date January 2012
+ * @author James Cowgill
+ */
+
+/*
  *  Copyright 2012 James Cowgill
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,16 +20,10 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
- *  Created on: 14 Jan 2012
- *      Author: james
  */
 
 #ifndef BCACHE_H_
 #define BCACHE_H_
-
-//Block Cache functions
-//
 
 #include "chaff.h"
 #include "list.h"
@@ -32,91 +32,156 @@
 
 struct IoDevice;
 
-//State of IoBlocks
+/**
+ * State a block is in
+ */
 typedef enum
 {
-	//Block is in memory
+	/// Block is in memory and is not being written
 	IO_BLOCK_OK,
 
-	//Block is being read by another thread (partially read)
+	///Block is being read by another thread (partially read)
 	IO_BLOCK_READING,
 
-	//Block is being written by another thread (partially written)
+	///Block is being written by another thread (partially written)
 	IO_BLOCK_WRITING,
 
-	//I/O error encounted while accessing block
-	// The block is removed from the cache for new requests immediately,
-	// existing requests may see this
+	/**
+	 * I/O error encounted while accessing block
+	 *
+	 * This block is removed from the cache for new requests immediately.
+	 * Existing requests may see this state.
+	 */
 	IO_BLOCK_ERROR,
 
 } IoBlockState;
 
-//The structure containing information about a block
+/**
+ * Structure containing information about a block
+ */
 typedef struct IoBlock
 {
-	//Block offset
+	///Offset of block in device
 	unsigned long long offset;
 
-	//Block collection references
+	///All blocks list
 	ListHead listItem;
+
+	///Item in block hash table
 	HashItem hItem;
 
-	//Concurrent operation structures
+	///Block state
 	IoBlockState state;
-	ProcWaitQueue waitingThreads;		//Threads waiting for this block to be read
-										// This includes threads waiting to write
 
-	//Number of users of this block
-	// The block can only be removed (or moved) from memory if this is 0
+	///Wait queue containing blocks waiting for an operation on this block to complete.
+	ProcWaitQueue waitingThreads;
+
+	/**
+	 * Block reference count
+	 *
+	 * This is incremented for blocks in use (threads have valid pointers to the block).
+	 *
+	 * The block can only be removed (or moved) from memory if this is 0.
+	 */
 	unsigned int refCount;
 
-	//Address of block data
+	///Address of block data
 	char * address;
 
 } IoBlock;
 
-//The cache of blocks associated with a device
+/**
+ * A cache of blocks associated with a device
+ */
 typedef struct IoBlockCache
 {
-	//Size of blocks in cache
+	///Size of blocks in cache
 	unsigned int blockSize;
 
-	//Hashtable of blocks (used for lookups)
+	///Hashtable of blocks (used for lookups)
 	HashTable blockTable;
 
-	//List of blocks (used for removing all at end)
+	///List of all blocks (used for removing all at end)
 	ListHead blockList;
 
 } IoBlockCache;
 
-//Initializes a block cache
-// Do not call on an alredy initialized cache
+/**
+ * Initializes a block cache
+ *
+ * Do not call more than once on a cache
+ *
+ * @param cache cache to initialize
+ * @param blockSize size of each block in the cache
+ */
 void IoBlockCacheInit(IoBlockCache * cache, int blockSize);
 
-//Destroys a block cache
-// Returns false if some blocks are still lockeds
+/**
+ * Empties all the blocks from the cache
+ *
+ * @param cache cache to empty
+ * @retval true all the blocks in the cache were destroyed
+ * @retval false if some blocks were locked
+ */
 bool IoBlockCacheEmpty(IoBlockCache * cache);
 
-//Reads a block of data from the block cache or reads it from the disk if it isn't there
-// Returns a negative value on error or the number of bytes you can read from the block
-// A single block is stored in a contingous location in memory but multiple blocks are not
-// Block returned by this function are locked in memory until IoBlockCacheUnlock is called
-//  Be aware that blocks in the state IO_BLOCK_ERROR which are locked will prevent any
-//  sucessful reads or writes until the block is unlocked.
+/**
+ * Reads a block of data from the block cache or the device
+ *
+ * If you just want to read data from the disk into a buffer, use IoBlockCacheReadBuffer().
+ *
+ * Each block's data is stored in a contiguous location in memory but
+ * adjacent blocks may not be stored in adjacent parts of memory.
+ *
+ * Blocks returned are locked by incrementing their reference counts
+ * until unlocked by IoBlockCacheUnlock() (which you must call).
+ *
+ * Blocks returned will not be in an error state but blocking while holding a
+ * lock on a block may cause the data in the block and / or its state to change.
+ * Holding locks on blocks in the #IO_BLOCK_ERROR state will prevent successful
+ * reads until the block is unlocked.
+ *
+ * @param[in] device device to read data from
+ * @param[in] off offset in device to read from
+ * @param[out] block outputs a pointer to the block (unmodified if this function returns an error)
+ * @retval 0 the block was read successfully
+ * @retval <0 an error occurred
+ */
 int IoBlockCacheRead(struct IoDevice * device, unsigned long long off, IoBlock ** block);
 
-//Decrements the reference count on a block from the cache
+/**
+ * Decrements the reference count on a block
+ *
+ * @param device device the block is resident on
+ * @param block block to decrement
+ */
 void IoBlockCacheUnlock(struct IoDevice * device, IoBlock * block);
 
-//Uses the block cache to read / copy data into a buffer
-// Returns a negative value on error or the number of bytes actually read
-// Nothing needs to be unlocked after this
+/**
+ * Reads data from the block cache / device into a memory buffer
+ *
+ * If an error occurs, some data be already have been read into the buffer.
+ *
+ * @param device device to read from
+ * @param off offset within device to read
+ * @param buffer buffer to read into (this can be user mode)
+ * @param length number of bytes to read
+ * @retval 0 all data read successfully
+ * @retval <0 error code
+ */
 int IoBlockCacheReadBuffer(struct IoDevice * device, unsigned long long off,
 		void * buffer, unsigned int length);
 
-//Writes data to disk and to the block cache
-// Returns a negative value on error or the number of bytes actually written
-// (currently the block cache is always write-through)
+/**
+ * Writes data to the block cache and disk
+ *
+ * @param device device to write to
+ * @param off offset within device to write
+ * @param buffer buffer to read data from (this can be user mode)
+ * @param length number of bytes to write
+ * @retval 0 all data read successfully
+ * @retval <0 error code
+ */
 int IoBlockCacheWriteBuffer(struct IoDevice * device, unsigned long long off,
 		void * buffer, unsigned int length);
 
