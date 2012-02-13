@@ -102,7 +102,8 @@ void MemContextSwitchTo(MemContext * context);
 
 //Deletes this memory context
 // You should probably use MemContextDeleteReference instead of this
-// MEM_FIXED memory IS DELETED by this
+// MEM_FIXED memory is deleted by this once it runs out of references
+//  if you want to "save" it, keep some references to it
 void MemContextDelete(MemContext * context);
 
 //Adds a reference to a memory context

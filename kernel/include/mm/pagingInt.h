@@ -128,11 +128,11 @@ extern MemPageTable kernelPageTable253[1024];
 
 //Raw page mapping
 // Maps pages and handles all creation and management of page tables
-void MemIntMapPage(MemContext * currContext, void * address, MemPhysPage page, MemRegionFlags flags);
-void MemIntUnmapPage(MemContext * currContext, void * address);
+void MemIntMapPage(void * address, MemPhysPage page, MemRegionFlags flags);
+void MemIntUnmapPage(void * address);
 
 //This function uses MemIntFreePageOrDecRefs to decrease reference count first
-void MemIntUnmapPageAndFree(MemContext * currContext, void * address);
+void MemIntUnmapPageAndFree(void * address);
 
 //Can be used for mapping tmp pages ONLY
 // Do not use other functions for temporary pages

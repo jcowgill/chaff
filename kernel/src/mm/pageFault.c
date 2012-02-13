@@ -74,7 +74,8 @@ void MemPageFaultHandler(IntrContext * intContext)
 			if(!(table->writable) && (region->flags & MEM_WRITABLE))
 			{
 				//Test if page need duplicating
-				if(MemPhysicalRefCount(table->pageID) > 1)
+				// Fixed pages are shared and are not duplicated
+				if(!(region->flags & MEM_FIXED) && MemPhysicalRefCount(table->pageID) > 1)
 				{
 					//Duplicate page first
 					unsigned int * basePageAddr = (unsigned int *) ((unsigned int) faultAddress & 0xFFFFF000);
@@ -103,7 +104,7 @@ void MemPageFaultHandler(IntrContext * intContext)
 			{
 				//Map page
 				unsigned int * basePageAddr = (unsigned int *) ((unsigned int) faultAddress & 0xFFFFF000);
-				MemIntMapPage(MemCurrentContext, basePageAddr, MemPhysicalAlloc(1), region->flags);
+				MemIntMapPage(basePageAddr, MemPhysicalAlloc(1), region->flags);
 
 				//Wipe page
 				MemSet(basePageAddr, 0, 4096);
