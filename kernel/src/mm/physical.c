@@ -45,7 +45,7 @@ MemPhysPage MemPhysicalAlloc(unsigned int number)
 	if(number == 0)
 	{
 		PrintLog(Error, "MemPhysicalAllocate Request for 0 pages");
-		return -1;
+		return INVALID_PAGE;
 	}
 
 	//Check for high memory
@@ -121,7 +121,7 @@ MemPhysPage MemPhysicalAllocISA(unsigned int number)
 	if(number == 0)
 	{
 		PrintLog(Error, "MemPhysicalAllocateISA Request for 0 pages");
-		return -1;
+		return INVALID_PAGE;
 	}
 
 	//Go through bitmap looking for area big enough
@@ -177,6 +177,36 @@ MemPhysPage MemPhysicalAllocISA(unsigned int number)
 
 	//Out of memory!
 	Panic("Out of memory");
+}
+
+//Adds a reference to the given page(s)
+void MemPhysicalAddRef(MemPhysPage page, unsigned int number)
+{
+	//Increment counter
+	for(; number > 0; --number, ++page)
+	{
+		MemPageStateTable[page].refCount++;
+	}
+}
+
+//Deletes a reference to the given page(s)
+void MemPhysicalDeleteRef(MemPhysPage page, unsigned int number)
+{
+	//Decrement counter
+	for(; number > 0; --number, ++page)
+	{
+		//If it can be decremented, decrement it
+		if(MemPageStateTable[page].refCount > 0)
+		{
+			MemPageStateTable[page].refCount--;
+
+			//If it's zero, increment free page count
+			if(MemPageStateTable[page].refCount == 0)
+			{
+				++MemPhysicalFreePages;
+			}
+		}
+	}
 }
 
 //Frees physical pages allocated by AllocatePage

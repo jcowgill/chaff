@@ -45,6 +45,12 @@ MemPhysPage MemPhysicalAlloc(unsigned int number);
 // This function will never return any page with an offset > 16M
 MemPhysPage MemPhysicalAllocISA(unsigned int number);
 
+//Adds a reference to the given page(s)
+void MemPhysicalAddRef(MemPhysPage page, unsigned int number);
+
+//Deletes a reference to the given page(s)
+void MemPhysicalDeleteRef(MemPhysPage page, unsigned int number);
+
 //Frees physical pages allocated by AllocatePages or AllocateISAPages
 // This forces the page to be freed regardless of reference count
 void MemPhysicalFree(MemPhysPage page, unsigned int number);
@@ -66,9 +72,9 @@ typedef struct
 extern MemPageStatus * MemPageStateTableEnd;		//Address after page state table (this can be NULL)
 
 //Returns a pointer to the reference counter for the specified page
-static inline unsigned int * MemPhysicalRefCount(MemPhysPage page)
+static inline unsigned int MemPhysicalRefCount(MemPhysPage page)
 {
-	return &MemPageStateTable[page].refCount;
+	return MemPageStateTable[page].refCount;
 }
 
 #endif

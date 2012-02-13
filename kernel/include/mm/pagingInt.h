@@ -139,9 +139,6 @@ void MemIntUnmapPageAndFree(MemContext * currContext, void * address);
 void MemIntMapTmpPage(void * address, MemPhysPage page);
 void MemIntUnmapTmpPage(void * address);
 
-//Free a page OR decrease it's reference count if it is > 1
-void MemIntFreePageOrDecRefs(MemPhysPage page);
-
 //Page table locations
 #define THIS_PAGE_DIRECTORY ((MemPageDirectory *) 0xFFFFF000)
 #define THIS_PAGE_TABLES ((MemPageTable *) 0xFFC00000)

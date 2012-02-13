@@ -73,10 +73,8 @@ void MemPageFaultHandler(IntrContext * intContext)
 			//Check if copy-on-write
 			if(!(table->writable) && (region->flags & MEM_WRITABLE))
 			{
-				//Get page ref count
-				unsigned int * refCount = MemPhysicalRefCount(table->pageID);
-
-				if(*refCount != 1)
+				//Test if page need duplicating
+				if(MemPhysicalRefCount(table->pageID) > 1)
 				{
 					//Duplicate page first
 					unsigned int * basePageAddr = (unsigned int *) ((unsigned int) faultAddress & 0xFFFFF000);
@@ -87,8 +85,8 @@ void MemPageFaultHandler(IntrContext * intContext)
 					MemIntUnmapTmpPage(MEM_TEMPPAGE2);
 
 					//Update page id and old page's count
+					MemPhysicalDeleteRef(table->pageID, 1);
 					table->pageID = newPage;
-					--(*refCount);
 				}
 
 				//Make page writable

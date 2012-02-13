@@ -220,7 +220,7 @@ void MemIntUnmapPageAndFree(MemContext * currContext, void * address)
 	
 	if(page != INVALID_PAGE)
 	{
-	    MemIntFreePageOrDecRefs(page);
+	    MemPhysicalDeleteRef(page, 1);
 	}
 }
 

@@ -39,21 +39,6 @@ MemContext MemKernelContextData = { LIST_INLINE_INIT(MemKernelContextData.region
 //Current context
 MemContext * MemCurrentContext = MemKernelContext;
 
-//Free a page OR decrease it's reference count if it is > 1
-void MemIntFreePageOrDecRefs(MemPhysPage page)
-{
-	unsigned int * refCount = MemPhysicalRefCount(page);
-	if(*refCount > 1)
-	{
-		//Decrease copy-on-write reference count
-		--(*refCount);
-	}
-	else
-	{
-		MemPhysicalFree(page, 1);
-	}
-}
-
 //Creates a new blank memory context
 MemContext * MemContextInit()
 {
@@ -154,7 +139,7 @@ MemContext * MemContextClone()
 				if(table->present)
 				{
 					//Increase count and make readonly
-					++(*MemPhysicalRefCount(table->pageID));
+					MemPhysicalAddRef(table->pageID, 1);
 					table->writable = 0;
 				}
 			}
@@ -250,7 +235,7 @@ void MemContextDelete(MemContext * context)
 					//Free page if present
 					if(table->present)
 					{
-						MemIntFreePageOrDecRefs(table->pageID);
+						MemPhysicalDeleteRef(table->pageID, 1);
 					}
 				}
 
