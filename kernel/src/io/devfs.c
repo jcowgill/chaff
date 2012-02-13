@@ -34,8 +34,7 @@
 
 //Internal functions
 static int DevFsMount(IoFilesystem * newFs);
-static unsigned int DevFsGetRootINode(IoFilesystem * fs);
-static int DevFsReadINode(IoFilesystem * fs, IoINode * iNode);
+static int DevFsReadINode(IoINode * iNode);
 static int DevFsFindINode(IoFilesystem * fs, unsigned int parent,
 		const char * name, int nameLen, unsigned int * iNodeNum);
 static int DevFsOpen(IoINode * iNode, IoFile * file);
@@ -60,7 +59,6 @@ static IoFilesystemType fsType =
 
 static IoFilesystemOps fsOps =
 	{
-			.getRootINode = DevFsGetRootINode,
 			.readINode = DevFsReadINode,
 			.findINode = DevFsFindINode,
 	};
@@ -155,21 +153,14 @@ int IoDevFsUnRegister(IoDevice * device)
 //Internal DevFs implementation
 static int DevFsMount(IoFilesystem * newFs)
 {
-	//Set ops and return
+	//Set ops and root iNode
 	newFs->ops = &fsOps;
+	newFs->rootINode = 0;
 	return 0;
 }
 
-static unsigned int DevFsGetRootINode(IoFilesystem * fs)
+static int DevFsReadINode(IoINode * iNode)
 {
-	IGNORE_PARAM fs;
-	return 0;
-}
-
-static int DevFsReadINode(IoFilesystem * fs, IoINode * iNode)
-{
-	IGNORE_PARAM fs;
-
 	//Validate inode number
 	if(iNode->number > MAX_DEVICES)
 	{

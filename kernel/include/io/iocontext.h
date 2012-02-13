@@ -157,6 +157,11 @@ int IoWrite(IoContext * context, int fd, void * buffer, int count);
 //Sends an ioctl request to the filesystem / device connected to the descriptor
 int IoIoctl(IoContext * context, int fd, int request, void * data);
 
+//Truncates a file to a precise length
+// If the file gets larger, it is filled with nulls in the extra bits
+// The file offset is unchanged
+int IoTruncate(IoContext * context, int fd, unsigned long long size);
+
 //Duplicates a file descriptor
 // flags can be the IO_DUP_ flags or IO_O_CLOEXEC
 int IoDup(IoContext * context, int fd, int newFd, int flags);

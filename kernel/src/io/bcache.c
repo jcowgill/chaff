@@ -222,8 +222,6 @@ void IoBlockCacheUnlock(IoDevice * device, IoBlock * block)
 int IoBlockCacheReadBuffer(IoDevice * device, unsigned long long off,
 		void * buffer, unsigned int length)
 {
-	unsigned int startLength = length;
-
 	//Ignore blank length
 	if(length == 0)
 	{
@@ -275,7 +273,7 @@ int IoBlockCacheReadBuffer(IoDevice * device, unsigned long long off,
 	}
 
 	//Finished
-	return startLength;
+	return 0;
 }
 
 //Writes data to disk and to the block cache

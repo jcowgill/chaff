@@ -96,14 +96,11 @@ IoContext * IoContextCreate()
 {
 	//Get filesystem root
 	IoFilesystem * fs = IoFilesystemRoot;
-	unsigned int rootINode;
 
-	if(fs == NULL || !fs->ops->getRootINode)
+	if(fs == NULL)
 	{
 		return NULL;
 	}
-
-	rootINode = fs->ops->getRootINode(fs);
 
 	//Allocate context
 	IoContext * context = MAlloc(sizeof(IoContext));
@@ -115,7 +112,7 @@ IoContext * IoContextCreate()
 
 	//Use root filesystem as current directory
 	context->cdirFs = fs;
-	context->cdirINode = rootINode;
+	context->cdirINode = fs->rootINode;
 
 	//Init ref count
 	context->refCount = 1;
@@ -362,6 +359,30 @@ int IoIoctl(IoContext * context, int fd, int request, void * data)
 	else
 	{
 		res = -ENOTTY;		//Not a device
+	}
+
+	IoReleaseFile(file, context, fd);
+	return res;
+}
+
+//Truncates a file to a precise length
+// If the file gets larger, it is filled with nulls in the extra bits
+// The file offset is unchanged
+int IoTruncate(IoContext * context, int fd, unsigned long long size)
+{
+	//Get file
+	IO_GET_FILE(file, context, fd);
+
+	//Forward to filesystem
+	int res;
+
+	if(file->ops->truncate)
+	{
+		res = file->ops->truncate(file, size);
+	}
+	else
+	{
+		res = -ENOSYS;		//Function not implemented
 	}
 
 	IoReleaseFile(file, context, fd);

@@ -108,15 +108,11 @@ typedef struct
 	//Unmounts the filesystem
 	int (* umount)(struct IoFilesystem * fs);
 
-	//Gets the root inode number
-	// REQUIRED
-	unsigned int (* getRootINode)(struct IoFilesystem * fs);
-
 	//Reads information about an inode into the iNode structure given
 	// REQUIRED
 	// You must set IoFileOps in the iNode
 	// The iNode number and filesystem will be set in iNode and the rest is undefined
-	int (* readINode)(struct IoFilesystem * fs, IoINode * iNode);
+	int (* readINode)(IoINode * iNode);
 
 	//Finds the inode of a file in a directory
 	// REQUIRED
@@ -142,6 +138,9 @@ typedef struct IoFilesystem
 
 	//Filesystem functions
 	IoFilesystemOps * ops;
+
+	//Root iNode number
+	unsigned int rootINode;
 
 	//Reference counter
 	unsigned int refCount;
