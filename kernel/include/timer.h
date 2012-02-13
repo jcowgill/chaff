@@ -65,7 +65,7 @@ void TimerBeepAdv(unsigned int freq, TimerTime time);
 //Plays a 1kHz beep for 1s
 static inline void TimerBeep()
 {
-	TimerBeepAdv(1000, 1 << 32);
+	TimerBeepAdv(1000, 1ULL << 32);
 }
 
 //Quantum functions
