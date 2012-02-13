@@ -146,12 +146,6 @@ static inline void MemContextAddReference(MemContext * context)
  */
 void MemContextDeleteReference(MemContext * context);
 
-
-//Creates a new blank memory region
-// If the context given is not the current or kernel context,
-//  a temporary memory context switch may occur
-// The start address MUST be page aligned
-
 /**
  * Creates a new blank memory region
  *
@@ -182,9 +176,6 @@ MemRegion * MemRegionCreate(MemContext * context, void * startAddress,
  * @param length length of data to free
  */
 void MemRegionFreePages(MemRegion * region, void * address, unsigned int length);
-
-//Finds the region which contains the given address
-// or returns NULL if there isn't one
 
 /**
  * Finds the region which contains the given address
