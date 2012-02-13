@@ -89,7 +89,7 @@ typedef struct IoContext
 
 #define IO_O_ALLFLAGS	0xFF
 
-#define IO_O_FDERSERVED	0x01		//Descriptor flag (used internally)
+#define IO_O_FDRESERVED	0x01		//Descriptor flag (used internally)
 
 //Creates a new io context using the root directory as the current directory
 IoContext * IoContextCreate();

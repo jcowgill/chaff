@@ -241,7 +241,7 @@ int IoOpen(SecContext * secContext, IoContext * ioContext, const char * path,
 {
 	//Check if fd exists and is not reserved
 	if(fd < 0 || fd >= IO_MAX_OPEN_FILES || ioContext->files[fd] != NULL ||
-			(ioContext->descriptorFlags[fd] & IO_O_FDERSERVED))
+			(ioContext->descriptorFlags[fd] & IO_O_FDRESERVED))
 	{
 		//Already Exists
 		return -EINVAL;
@@ -261,7 +261,7 @@ int IoOpen(SecContext * secContext, IoContext * ioContext, const char * path,
 	}
 
 	//Mark descriptor as reserved
-	ioContext->descriptorFlags[fd] = IO_O_FDERSERVED;
+	ioContext->descriptorFlags[fd] = IO_O_FDRESERVED;
 
 	//Search for path
 	IoINode iNode;

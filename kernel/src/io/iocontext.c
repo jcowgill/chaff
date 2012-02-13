@@ -216,7 +216,7 @@ int IoFindNextDescriptor(IoContext * context, int fd)
 	for(int i = start; i < IO_MAX_OPEN_FILES; i++)
 	{
 		//Free?
-		if(context->files[i] == NULL && (context->descriptorFlags[i] & IO_O_FDERSERVED) == 0)
+		if(context->files[i] == NULL && (context->descriptorFlags[i] & IO_O_FDRESERVED) == 0)
 		{
 			//Return this id
 			return i;
@@ -425,7 +425,7 @@ int IoDup(IoContext * context, int fd, int newFd, int flags)
 		//Invalid descriptor
 		res = -EBADF;
 	}
-	else if(context->descriptorFlags[newFd] & IO_O_FDERSERVED)
+	else if(context->descriptorFlags[newFd] & IO_O_FDRESERVED)
 	{
 		//Cannot duplicate into reserved descriptor
 		res = -EBUSY;
