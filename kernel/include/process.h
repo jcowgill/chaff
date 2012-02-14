@@ -1,6 +1,12 @@
-/*
- * process.h
+/**
+ * @file
+ * Process, scheduler and signal management
  *
+ * @date December 2010
+ * @author James Cowgill
+ */
+
+/*
  *  Copyright 2012 James Cowgill
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,16 +20,10 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
- *  Created on: 12 Dec 2010
- *      Author: James
  */
 
 #ifndef PROCESS_H_
 #define PROCESS_H_
-
-//Process, scheduler and signal functions
-//
 
 #include "list.h"
 #include "htable.h"
@@ -31,303 +31,588 @@
 #include "signalNums.h"
 #include "secContext.h"
 
-//Thread state
+/**
+ * Thread states
+ */
 typedef enum
 {
-	PTS_STARTUP,		//Thread has been created by has never been on the scheduler queue
-	PTS_RUNNING,		//Thread is running or queued to be run
+	PTS_STARTUP,		///< Thread has been created but has never been on the scheduler queue
+	PTS_RUNNING,		///< Thread is running or queued to be run
 
-	PTS_INTR,			//Interruptible wait state
-	PTS_UNINTR,			//Uninterruptible wait state
+	PTS_INTR,			///< Interruptible wait state
+	PTS_UNINTR,			///< Uninterruptible wait state
 
-	PTS_ZOMBIE,			//Thread has ended and is not a zombie
+	PTS_ZOMBIE,			///< Thread has ended and has not been reaped
 
 } ProcThreadState;
 
-//Thread wait mode
+/**
+ * Thread wait mode
+ *
+ * Determines what a thread is waiting for
+ */
 typedef enum
 {
-	PWM_NONE,			//Not waiting
-	PWM_PROCESS,		//Waiting for a process
-	PWM_THREAD,			//Waiting for a thread
+	PWM_NONE,			///< Not waiting
+	PWM_PROCESS,		///< Waiting for a process
+	PWM_THREAD,			///< Waiting for a thread
 
 } ProcWaitMode;
 
-//Process and thread structures
 struct ProcProcess;
 struct ProcThread;
 struct IoContext;
 struct MemContext;
 
-typedef struct SProcSigaction
+/**
+ * Contains information about actions taken as a result of a signal
+ */
+typedef struct ProcSigaction
 {
-	void (* sa_handler)(int);
-	ProcSigSet sa_mask;
-	int sa_flags;
+	void (* sa_handler)(int);	///< Signal handler (user mode pointer)
+	ProcSigSet sa_mask;			///< Signal mask to apply while handling signal
+	int sa_flags;				///< Flags applying to signal
 
 } ProcSigaction;
 
+/**
+ * A process on the system, containing a memory context, IO context and a number of threads
+ */
 typedef struct ProcProcess
 {
-	//Process ID
+	/**
+	 * Process ID
+	 */
 	unsigned int pid;
 
-	//Hash map item
+	/**
+	 * Item in the process hash map
+	 */
 	HashItem hItem;
 
-	//Process and thread hierarchy
-	struct ProcProcess * parent;
-	ListHead processSibling;		//Sibling
-	ListHead children;				//Head
-	ListHead threads;				//Head
+	/** @name Process Relationships @{ */
+	struct ProcProcess * parent;	///< Parent process
+	ListHead processSibling;		///< Entry in the sibling list
+	ListHead children;				///< Head of the process children list
+	ListHead threads;				///< Head of the threads list
+	/** @} */
 
-	//Zombie status
+	/**
+	 * True if the process is zombified
+	 */
 	bool zombie;
 
-	//Name of process
-	// This must be unique to this process since it will be MFreed
+	/**
+	 * Name of this process (null terminated)
+	 */
 	char * name;
 
-	//Process exit code - this is read only
+	/**
+	 * Exit code of the process
+	 */
 	unsigned int exitCode;
 
-	//Process memory context
+	/**
+	 * Process memory context
+	 *
+	 * This is not setup by ProcCreateProcess()
+	 */
 	struct MemContext * memContext;
 
-	//IO Context
+	/**
+	 * Process IO context
+	 *
+	 * This is not setup by ProcCreateProcess()
+	 */
 	struct IoContext * ioContext;
 
-	//Security context
+	/**
+	 * Process security context
+	 */
 	SecContext secContext;
 
-	//Process signal handlers
-	/*
-	 * Signal handlers are process wide
-	 *
-	 * There are no signals which kill or stop a particular thread
-	 *  When 1 thread or 1 process (no difference) receives SIGKILL or SIGSTOP, the entire process
-	 *  is stopped or killed. Anyone for a thr_kill, thr_stop, thr_cont syscall?
-	 *
-	 * When a signal is sent to a process, only 1 thread will handle it
-	 * 	This thread is any random thread which is not blocking the signal
-	 * 	The signal will be sent when another signal is unblocked
-	 *
-	 * 	Threads need to read the process pending and thread pending signals as well
+	/**
+	 * Process signal handlers
 	 */
+	ProcSigaction sigHandlers[SIG_MAX];
 
-	struct SProcSigaction sigHandlers[SIG_MAX];
-
-	//Process wide pending signals
+	/**
+	 * Process wide pending signals set
+	 */
 	ProcSigSet sigPending;
 
-	//Process alarm
+	/**
+	 * Process wide alarm pointer
+	 */
 	ListHead * alarmPtr;
 
 } ProcProcess;
 
+/**
+ * A thread of execution which can be added to the scheduler and run
+ */
 typedef struct ProcThread
 {
-	//Thread ID
+	/**
+	 * Thread ID
+	 */
 	unsigned int tid;
 
-	//Hash map item
+	/**
+	 * Hash map item
+	 */
 	HashItem hItem;
 
-	//Parent process
+	/**
+	 * Parent process
+	 */
 	struct ProcProcess * parent;
-	ListHead threadSibling;			//Sibling
 
-	//Exit code
+	/**
+	 * Entry in thread sibling list
+	 */
+	ListHead threadSibling;
+
+	/**
+	 * Thread exit code
+	 */
 	unsigned int exitCode;
 
-	//Name of thread
-	// This must be unique to this process since it will be MFreed
+	/**
+	 * Name of thread
+	 */
 	char * name;
 
-	//Thread state
+	/**
+	 * State of thread
+	 */
 	ProcThreadState state;
+
+	/**
+	 * Thread wait mode (only used while in ProcWaitProcess() / ProcWaitThread())
+	 */
 	ProcWaitMode waitMode;
 
-	//Scheduler stuff (don't change this)
-	ListHead schedQueueEntry;				//Place in scheduler queue
-											// (this is used by the reaper when thread is a zombie)
-	int schedInterrupted;					//Weather thread was interrupted or not
-	void * kStackPointer;					//Current pointer to kernel stack
-	void * kStackBase;						//Base of kernel stack
-	unsigned long long tlsDescriptor;		//Thread local storage descriptor for this thread
+	/** @name Scheduler Fields @{ */
+	ListHead schedQueueEntry;			///< Position in scheduler queue
+										///< Also used by process reaper after the thread is a zombie
+	int schedInterrupted;				///< Weather thread was interrupted or not
+	void * kStackPointer;				///< Current pointer to kernel stack
+	void * kStackBase;					///< Base of kernel stack
+	unsigned long long tlsDescriptor;	///< Thread local storage descriptor for this thread
+	/** @} */
 
-	//Signal masks
+	/**
+	 * Pending signal set (thread local)
+	 */
 	ProcSigSet sigPending;
+
+	/**
+	 * Blocked signals mask
+	 */
 	ProcSigSet sigBlocked;
 
-	//Current wait queue
+	/**
+	 * Current wait queue (see ProcWaitQueueWait())
+	 */
 	ListHead waitQueue;
 
 } ProcThread;
 
-#define PROC_KSTACK_SIZE 0x1000		//4KB Kernel Stack
+/**
+ * 4KB Kernel Stack
+ */
+#define PROC_KSTACK_SIZE 0x1000
 
-//Scheduler functions
+/**
+ * @name Scheduler Functions
+ * @{
+ */
 
-//Currently running process and thread
-// These MUST NOT BE MODIFIED
+/**
+ * Currently running process
+ *
+ * Do not modify
+ */
 extern ProcProcess * ProcCurrProcess;
+
+/**
+ * Currently running thread
+ *
+ * Do not modify
+ */
 extern ProcThread * ProcCurrThread;
 
-//Yields the current thread temporarily so that other threads can run
+/**
+ * Yields the current thread so that other threads can run
+ *
+ * Does nothing if there are no other threads to run.
+ *
+ * This does not guarantee that interrupts will be handled before it returns.
+ */
 void ProcYield();
 
-//Yields the current thread and blocks it until it is woken up using ProcWakeUp
-// If interruptible is true, the block may be interrupted if the thread receives a signal
-//Returns true if the block was interrupted
+/**
+ * Blocks the current thread until it is later woken up with ProcWakeUp()
+ *
+ * If @a interruptable is true, the block may be interrupted if a
+ * signal is received on the current thread or process.
+ *
+ * @param interruptable true if the block is interruptable
+ * @retval true the block was interrupted by a signal
+ * @retval false the block was woken up with ProcWakeUp()
+ */
 bool ProcYieldBlock(bool interruptable);
 
-//Used to interrupt threads - do not use
+/**
+ * Wakes up threads which have called ProcYieldBlock()
+ *
+ * This function allows the signals manager to wake threads up
+ * but should not be used by other code.
+ *
+ * @param thread thread to wake up
+ * @param isSignal true if the wake up was caused by a signal receipt
+ * @private
+ */
 void ProcWakeUpSig(ProcThread * thread, bool isSignal);
 
-//Wakes up a thread from a block
-// You should only wake up threads you know exactly where they are blocked since the blocker
-//  may not expect to have a thread wake up at any time.
+/**
+ * Wakes up threads which have called ProcYieldBlock()
+ *
+ * You should only wake up threads which you caused to block.
+ *
+ * @param thread thread to wake up
+ * @private
+ */
 static inline void ProcWakeUp(ProcThread * thread)
 {
 	ProcWakeUpSig(thread, false);
 }
 
+/**
+ * @}
+ * @name Process and thread management
+ * @{
+ */
 
-//Process management functions
+/**
+ * Gets a process by looking up its id
+ *
+ * @param pid id to lookup
+ * @return the process or NULL if if wasn't found
+ */
 ProcProcess * ProcGetProcessByID(unsigned int pid);
+
+/**
+ * Gets a thread by looking up its id
+ *
+ * @param tid id to lookup
+ * @return the thread or NULL if if wasn't found
+ */
 ProcThread * ProcGetThreadByID(unsigned int tid);
 
-//Creates a completely empty process from nothing
-// The memory and io context is left blank and must be created manually
-// No threads are added to the process either
+/**
+ * Creates a completely empty process from nothing
+ *
+ * The memory and IO contexts be filled in by the caller.
+ * Any initial threads must also be created manually.
+ *
+ * @param name name of process
+ * @param parent parent process (if there isn't one, use #ProcKernelProcess)
+ * @return the created process
+ */
 ProcProcess * ProcCreateProcess(const char * name, ProcProcess * parent);
 
-//Exits the current process with the given error code
+/**
+ * Exits the current process with the given error code
+ */
 void NORETURN ProcExitProcess(unsigned int exitCode);
 
-//Creates a new thread in a process
-// This is a user-mode function - the start addresses and stack pointer are USER MODE
-// You must wake up the created thread with ProcWakeUp
-ProcThread * ProcCreateThread(const char * name, ProcProcess * process, void (* startAddr)(), void * stackPtr);
+/**
+ * Creates a new user mode thread within a process
+ *
+ * You must wake the thread up with ProcWakeUp()
+ *
+ * @param name name of thread
+ * @param process parent process (which the threads runs in the context of)
+ * @param startAddr start address to execute in user-mode
+ * @param stackPtr initial stack pointer address (esp)
+ * @return the created thread
+ */
+ProcThread * ProcCreateUserThread(const char * name, ProcProcess * process, void (* startAddr)(), void * stackPtr);
 
-//Creates a new kernel thread
-// startAddr is a kernel mode pointer
-// arg is a user defined argument to the function
-// You must wake up the created thread with ProcWakeUp
+/**
+ * Creates a new kernel mode thread
+ *
+ * Kernel threads are always created in the context of #ProcKernelProcess
+ *
+ * The thread is allocated a stack (size = #PROC_KSTACK_SIZE).
+ * You must not use lots of stack space!
+ *
+ * The kernel thread may return and the value returned is used as its exit code.
+ *
+ * You must wake the thread up with ProcWakeUp()
+ *
+ * @param name name of thread
+ * @param startAddr start address to execute at
+ * @param arg argument to pass to kernel thread
+ * @return the created thread
+ */
 ProcThread * ProcCreateKernelThread(const char * name, int (* startAddr)(void *), void * arg);
 
-//Exits the current thread with the given error code
-// If this is the final thread, this will also exit the current process with status 0
-// This works for both user and kernel threads
+/**
+ * Exits the current thread with the given exit code
+ *
+ * This function does not return
+ *
+ * @param exitCode exit code of the thread
+ */
 void NORETURN ProcExitThread(unsigned int exitCode);
 
-//Forks the current process creating a new process which runs at the given location
-// This can ONLY be called from a syscall of a process - and the parameters should
-// be obtained from the interrupt context
-// Returns the new process
-//  (the new process is already started)
+/**
+ * Forks the current process
+ *
+ * This is a "convinience" function which clones all the nessesary fields
+ * of the process, creates a new thread for it and wakes it up.
+ *
+ * You cannot clone the kernel process. If drivers want to create a process,
+ * they must do it manually (see ProcCreateProcess())
+ *
+ * @param startAddr start address of the new thread (this should come from the interrupt context)
+ * @param userStackPtr initial stack pointer of the new thread (this should come from the interrupt context)
+ * @return the new process
+ */
 ProcProcess * ProcFork(void (* startAddr)(), void * userStackPtr);
 
-#define WNOHANG 1		//Causes ProcWait not to block
+/**
+ * Prevents ProcWaitProcess() and ProcWaitThread() from blocking
+ */
+#define WNOHANG 1
 
-//Waits for a child process to exit
-// id
-//	  >1, only the given pid
-//	  -1, any child process
-//	   0, any process from current process group
-//	  <1, any process from given (negated) process group
-// exitCode = pointer to where to write exit code to (must be kernel mode)
-// options = one of the wait options above
-//Kernel threads cannot wait on any process
-//Returns
-// the process id on success,
-// 0 if WNOHANG was given and there are no waitable processes,
-// negative error code on an error
+/**
+ * Waits for a child process to exit
+ *
+ * Kernel threads cannot wait on processes.
+ *
+ * @param[in] id specifys the process(s) to wait for
+ *  - >1 only the given process id
+ *  - -1 any child process
+ *  - 0  any process from the current process group
+ *  - <1 any process from the given process group
+ * @param[out] exitCode pointer to place to write exit code to (must be kernel mode)
+ * @param[in] options any extra flags
+ * @retval 0 #WNOHANG was given and there are no waitable processes
+ * @retval >0 the process id (success)
+ * @retval <0 error code
+ * @bug Process groups not implemented yet
+ */
 int ProcWaitProcess(int id, unsigned int * exitCode, int options);
 
-//Waits for a thread sibling to exit
-// id
-//	  >1, only the given pid
-//	  -1, any child process
-// options = one of the wait options above
-//Kernel threads cannot wait on any thread
-//Returns
-// the thread id on success,
-// 0 if WNOHANG was given and there are no waitable threads,
-// negative error code on an error
+/**
+ * Waits for another thread in the current process to exit
+ *
+ * Kernel threads cannot wait on any thread.
+ *
+ * @param[in] id specifys the process(s) to wait for
+ *  - >1 only the given thread id
+ *  - -1 any child thread
+ * @param[out] exitCode pointer to place to write exit code to (must be kernel mode)
+ * @param[in] options any extra flags
+ * @retval 0 #WNOHANG was given and there are no waitable processes
+ * @retval >0 the thread id (success)
+ * @retval <0 error code
+ * @bug Allow kernel threads to wait on other threads? - maybe have a special exit code for "autoreap"?
+ */
 int ProcWaitThread(int id, unsigned int * exitCode, int options);
 
-//Global processes and threads
+/**
+ * Kernel process data pointer
+ *
+ * @private
+ */
 extern ProcProcess ProcKernelProcessData;
+
+/**
+ * Pointer to idle thread
+ */
 extern ProcThread * ProcIdleThread;
+
+/**
+ * Pointer to interrupts thread
+ *
+ * @bug this is not currently used
+ */
 extern ProcThread * ProcInterruptsThread;
+
+/**
+ * Pointer kernel process
+ */
 #define ProcKernelProcess (&ProcKernelProcessData)
 
-//BOOT CODE
-//Initialise global processes and threads
+/**
+ * @}
+ * @name Kernel Initialization
+ * @privatesection
+ * @{
+ */
+
+/**
+ * Initializes global processes and threads
+ */
 void ProcInit();
 
-//Exits the boot code to continue running threads as normal
+/**
+ * Exits boot mode and starts running threads as normal
+ */
 void NORETURN ProcExitBootMode();
 
-//Thread Local Storage
+/**
+ * @}
+ * @publicsection
+ * @name Thread Local Storage
+ *
+ * TLS is implemented by changing the base pointer of the gs
+ * register using different descriptors.
+ *
+ * @{
+ */
 
-//Null descriptor - prevents all use of the descriptor
-// tlsDescriptor is initialized to this
+/**
+ * Null TLS descriptor
+ *
+ * Prevents all use of thread local storage.
+ * All ProcThread::tlsDescriptor is initialized to this.
+ */
 #define PROC_NULL_TLS_DESCRIPTOR (0x0040F20000000000ULL)
 
-//Base descriptor - used as base before modification in ProcTlsCreateDescriptor
+/**
+ * Base TLS descriptor
+ *
+ * Used as basis for creating other descriptors in ProcTlsCreateDescriptor()
+ * @private
+ */
 #define PROC_BASE_TLS_DESCRIPTOR (0x00C0F60000000000ULL)
 
-//Creates a tls descriptor using the given base pointer as an expand down segment
-// Returns PROC_NULL_TLS_DESCRIPTOR is an invalid basePtr is given
+/**
+ * Creates a new TLS descriptor using the given base pointer
+ *
+ * To use TLS on a thread, store the returned descriptor in
+ * ProcThread::tlsDescriptor.
+ *
+ * @param basePtr pointer to base of TLS descriptors
+ * @retval #PROC_NULL_TLS_DESCRIPTOR on error (basePtr out of range)
+ * @retval other the generated descriptor
+ */
 unsigned long long ProcTlsCreateDescriptor(unsigned int basePtr) __attribute__((pure));
 
-//Signal functions
-// Signal action structure is above
+/**
+ * @}
+ * @name Signal Functions
+ * @{
+ */
 
-//Sends a signal to the current thread
-// If the signal is blocked or ignored - will exit this thread
-// May not return
+/**
+ * Sends an unblockable signal to the current thread
+ *
+ * If the signal would be blocked / ignored by the thread,
+ * the thread is forcefully terminated (in this case, the function will not return).
+ *
+ * This is generally used by CPU exception handlers.
+ *
+ * @param sigNum signal number to raise
+ */
 void ProcSignalSendOrCrash(int sigNum);
 
-//Send a signal to the given thread
-// This will not redirect SIGKILL, SIGSTOP or SIGCONT to the whole process however
+/**
+ * Sends a signal to the given thread
+ *
+ * The signal is sent to the thread ONLY
+ * (signals are not redirected to the whole process).
+ *
+ * @param thread thread to send signal to
+ * @param sigNum signal number to raise
+ */
 void ProcSignalSendThread(ProcThread * thread, int sigNum);
 
-//Send a signal to the given process
+/**
+ * Sends a signal to the given process
+ *
+ * The signal can be received by any thread of the process
+ * which isn't blocking the signal.
+ *
+ * @param process process to send signal to
+ * @param sigNum signal number to raise
+ */
 void ProcSignalSendProcess(ProcProcess * process, int sigNum);
 
-//Changes the signal mask for a given thread
-// how is one of SIG_BLOCK, SIG_UNBLOCK or SIG_SETMASK
-//
-// In signal sets, the bit for a signal corresponds to the signal - 1,
-//  eg SIGHUP (number 1) uses bit 0
+/**
+ * Updates the thread signal mask
+ *
+ * The signal can be received by any thread of the process
+ * which isn't blocking the signal.
+ *
+ * @param thread thread to update mask of
+ * @param how one of #SIG_BLOCK, #SIG_UNBLOCK, #SIG_SETMASK
+ * @param signalSet set of signals to update
+ *  signals are given a bit 1 less than their value
+ *  (eg: #SIGHUP (number 1) goes to bit 0)
+ */
 void ProcSignalSetMask(ProcThread * thread, int how, ProcSigSet signalSet);
 
-//Sets a signal handling function for the given signal
+/**
+ * Sets the signal handler for a signal in a process
+ *
+ * @param process process to change handler for
+ * @param sigNum signal to change handler for
+ * @param newAction new action for the signal
+ */
 void ProcSignalSetAction(ProcProcess * process, int sigNum, ProcSigaction newAction);
 
-//Waits for a signal to be sent to this thread and returns when that happens
-// If SIGKILL is sent to this thread, this function will return but a later ProcSignalHandler will kill the thread
-// When in this function, the thread will receive process wide signals if there are no running threads to receive them
+/**
+ * Waits for a signal to be sent to this thread
+ *
+ * Any signal which isn't blocked and is sent to this thread
+ * (possibly via being sent to the process) will cause this function
+ * to return. The signal manager will first attempt to send signals to
+ * running threads instead of waking this one up.
+ *
+ * #SIGKILL and #SIGSTOP signals will cause this function to return.
+ * The actual killing will happen when ProcSignalHandler() is called
+ * just before returning to user mode.
+ */
 static inline void ProcSignalWait()
 {
     ProcYieldBlock(true);
 }
 
-//Returns true if a signal is pending on the given thread
-// This also checks process wide signals.
+/**
+ * Returns true if a signal is pending for the specified thread and is not blocked.
+ *
+ * This also includes process wide signals.
+ *
+ * @param thread thread to check
+ * @retval there is at least 1 signal which can be handled now on the given thread
+ * @retval there are not signals which can be handled now
+ */
 static inline bool ProcSignalIsPending(ProcThread * thread)
 {
     return (thread->sigPending | thread->parent->sigPending) & ~thread->sigBlocked;
 }
 
-//Delivers pending signals on the current thread
+/**
+ * Delivers pending signals on the current thread
+ *
+ * @param iContext interrupt context to execute in
+ * @private
+ */
 void ProcSignalHandler(IntrContext * iContext);
 
-//Called to restore the state of the thread after a signal handler has executed
+/**
+ * Restores the state of the current thread after a user mode signal handler has executed
+ *
+ * @param iContext interrupt context to execute in
+ * @private
+ */
 void ProcSignalReturn(IntrContext * iContext);
 
 #endif /* PROCESS_H_ */

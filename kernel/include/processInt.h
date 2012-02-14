@@ -1,6 +1,13 @@
-/*
- * processInt.h
+/**
+ * @file
+ * Internal process and scheduler functions
  *
+ * @date December 2010
+ * @author James Cowgill
+ * @privatesection
+ */
+
+/*
  *  Copyright 2012 James Cowgill
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,9 +21,6 @@
  *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
- *
- *  Created on: 19 Dec 2010
- *      Author: James
  */
 
 #ifndef PROCESSINT_H_
@@ -25,37 +29,66 @@
 #include "chaff.h"
 #include "process.h"
 
-//Internal process functions
-
-//Swaps the stack
+/**
+ * Swaps the stack pointer
+ *
+ * Since this swaps the stack, this function will not return to the same location.
+ *
+ * @param newStackPtr new kernel stack pointer
+ * @param oldStackPtr pointer to place to store the old stack pointer
+ */
 void STDCALL ProcIntSchedulerSwap(void * newStackPtr, void ** oldStackPtr);
 
-// Removes the current thread from scheduler existence
+/**
+ * Completely removes the current thread from the scheduler
+ */
 void NORETURN ProcIntSchedulerExitSelf();
 
-// User thread entry point
+/**
+ * User mode entry point
+ *
+ * This function prepares the stack for user mode and then transfers control into user mode
+ */
 void ProcIntUserThreadEntry();
 
-// Idle thread code
+/**
+ * Idle thread
+ */
 int NORETURN ProcIntIdleThread(void *);
 
-// Kernel thread return
+/**
+ * Function which kernel threads return to when they exit
+ */
 void NORETURN ProcIntKernelThreadReturn(int);
 
-//Reaper functions
+/**
+ * Reaps a process (frees all kernel structures)
+ *
+ * @param process process to reap
+ */
 void ProcIntReapProcess(ProcProcess * process);
+
+/**
+ * Reaps a thread (frees all kernel structures)
+ *
+ * @param thread thread to reap
+ */
 void ProcIntReapThread(ProcThread * thread);
 
-//Kernel reaper thread
-
-//Initialize the reaper
+/**
+ * Initializes the reaper thread
+ */
 void ProcIntReaperInit();
 
-//Adds a thread to be automatically reaped
-// The thread must be a zombie
-// If the thread is owned by another process:
-//   The process must be owned by the kernel
-//   That process will also be reaped
+/**
+ * Adds a thread and process to be automatically reaped at a later time
+ *
+ * @a thread must be in a zombie state.
+ *
+ * The process owning the thread will also be reaped.
+ *
+ * @param thread thread to reap (parent process will also be reaped)
+ */
 void ProcIntReaperAdd(ProcThread * thread);
 
 #endif /* PROCESSINT_H_ */

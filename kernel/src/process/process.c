@@ -215,7 +215,7 @@ static ProcThread * ProcCreateRawThread(const char * name, ProcProcess * parent,
 
 //Creates a new thread in a process
 // This is a user-mode function - the start addresses and stack pointer are USER MODE
-ProcThread * ProcCreateThread(const char * name, ProcProcess * process,
+ProcThread * ProcCreateUserThread(const char * name, ProcProcess * process,
 								void (* startAddr)(), void * stackPtr)
 {
 	//Create raw thread
@@ -301,7 +301,7 @@ ProcProcess * ProcFork(void (* startAddr)(), void * userStackPtr)
 	newProc->ioContext = IoContextClone(ProcCurrProcess->ioContext);
 
 	//Create new thread
-	ProcThread * newThread = ProcCreateThread(ProcCurrThread->name, newProc, startAddr, userStackPtr);
+	ProcThread * newThread = ProcCreateUserThread(ProcCurrThread->name, newProc, startAddr, userStackPtr);
 
 	//Copy blocked signals and tls descriptor
 	newThread->sigBlocked = ProcCurrThread->sigBlocked;
