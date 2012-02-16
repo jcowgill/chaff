@@ -172,7 +172,7 @@ typedef struct IoContext
 
 #define IO_O_ALLFLAGS	0xFF		///< All flags (used for masking)
 
-#define IO_O_FDERSERVED	0x01		///< File descriptor slot is reserved @private
+#define IO_O_FDRESERVED	0x01		///< File descriptor slot is reserved @private
 
 /**
  * Creates a new empty IO context using the root directory as the current directory
@@ -334,6 +334,11 @@ int IoWrite(IoContext * context, int fd, void * buffer, int count);
  * @return anything the device wants
  */
 int IoIoctl(IoContext * context, int fd, int request, void * data);
+
+//Truncates a file to a precise length
+// If the file gets larger, it is filled with nulls in the extra bits
+// The file offset is unchanged
+int IoTruncate(IoContext * context, int fd, unsigned long long size);
 
 /**
  * Duplicates a file descriptor

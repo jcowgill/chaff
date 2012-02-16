@@ -72,6 +72,12 @@ MemPhysPage MemPhysicalAlloc(unsigned int number);
  */
 MemPhysPage MemPhysicalAllocISA(unsigned int number);
 
+//Adds a reference to the given page(s)
+void MemPhysicalAddRef(MemPhysPage page, unsigned int number);
+
+//Deletes a reference to the given page(s)
+void MemPhysicalDeleteRef(MemPhysPage page, unsigned int number);
+
 /**
  * Frees physical pages allocated by MemPhysicalAlloc() and MemPhysicalAllocISA()
  *
@@ -122,9 +128,9 @@ extern MemPageStatus * MemPageStateTableEnd;
  * @param page page to check
  * @return number of references to this page
  */
-static inline unsigned int * MemPhysicalRefCount(MemPhysPage page)
+static inline unsigned int MemPhysicalRefCount(MemPhysPage page)
 {
-	return &MemPageStateTable[page].refCount;
+	return MemPageStateTable[page].refCount;
 }
 
 #endif

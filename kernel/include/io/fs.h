@@ -236,16 +236,6 @@ typedef struct
 	int (* umount)(struct IoFilesystem * fs);
 
 	/**
-	 * Gets the root iNode number
-	 *
-	 * This function MUST be implemented.
-	 *
-	 * @param fs filesystem to get number from
-	 * @return the root iNode number
-	 */
-	unsigned int (* getRootINode)(struct IoFilesystem * fs);
-
-	/**
 	 * Reads information about an iNode into the iNode structure given
 	 *
 	 * @a iNode should be examined to fetch the iNode number and filesystem
@@ -259,7 +249,7 @@ typedef struct
 	 * @retval 0 on success
 	 * @retval <0 error code
 	 */
-	int (* readINode)(struct IoFilesystem * fs, IoINode * iNode);
+	int (* readINode)(IoINode * iNode);
 
 	/**
 	 * Searches a directory to find a node in it
@@ -324,6 +314,11 @@ typedef struct IoFilesystem
 	 * Operations associated with this filesystem
 	 */
 	IoFilesystemOps * ops;
+
+	/**
+	 * Root iNode number
+	 */
+	unsigned int rootINode;
 
 	/**
 	 * Number of reference to this filesystem (files, mount points)

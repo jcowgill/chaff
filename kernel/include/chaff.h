@@ -30,6 +30,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <stdarg.h>
 
 /**
  * Version of chaff being used
@@ -66,11 +67,6 @@
  * @endcode
  */
 #define IGNORE_PARAM (void)
-
-//External symbol accessing
-#define DECLARE_SYMBOL(symb) extern char symb[];
-#define GET_SYMBOL(symb) ((void *) symb)
-#define GET_SYMBOL_UINT(symb) ((unsigned int) symb)
 
 /**
  * Brings down the operating system as the result of an unrecoverable error
@@ -240,12 +236,5 @@ void MFree(void * data);
  * @return number of leading zeros
  */
 #define BitScanReverse __builtin_clz
-
-//Varargs definitions
-#define va_start(v,l) __builtin_va_start(v,l)
-#define va_arg(v,l)   __builtin_va_arg(v,l)
-#define va_end(v)     __builtin_va_end(v)
-#define va_copy(d,s)  __builtin_va_copy(d,s)
-typedef __builtin_va_list va_list;
 
 #endif /* CHAFF_H_ */

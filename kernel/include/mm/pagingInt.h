@@ -151,28 +151,25 @@ extern MemPageTable kernelPageTable253[1024];
 /**
  * Maps a page to a particular address
  *
- * @param currContext the current memory context
  * @param address address of page to map (must be page aligned)
  * @param page physical page to map
  * @param flags flags to assign to page (must be same as region flags)
  */
-void MemIntMapPage(MemContext * currContext, void * address, MemPhysPage page, MemRegionFlags flags);
+void MemIntMapPage(void * address, MemPhysPage page, MemRegionFlags flags);
 
 /**
  * Unmaps a page
  *
- * @param currContext the current memory context
  * @param address address of page to unmap (must be page aligned)
  */
-void MemIntUnmapPage(MemContext * currContext, void * address);
+void MemIntUnmapPage(void * address);
 
 /**
  * Combined MemIntUnmapPage() and MemIntFreePageOrDecRefs()
  *
- * @param currContext the current memory context
  * @param address address of unmap and free (must be page aligned)
  */
-void MemIntUnmapPageAndFree(MemContext * currContext, void * address);
+void MemIntUnmapPageAndFree(void * address);
 
 /**
  * Maps a temporary page
@@ -192,16 +189,6 @@ void MemIntMapTmpPage(void * address, MemPhysPage page);
  * @param address address to unmap from
  */
 void MemIntUnmapTmpPage(void * address);
-
-/**
- * Decrements the reference count of a page
- *
- * ... and frees it when it has a reference count of 0
- *
- * @param page physical page to free
- */
-void MemIntFreePageOrDecRefs(MemPhysPage page);
-
 
 /**
  * Location of page directory for the current memory context

@@ -39,20 +39,8 @@ MemContext MemKernelContextData = { LIST_INLINE_INIT(MemKernelContextData.region
 //Current context
 MemContext * MemCurrentContext = MemKernelContext;
 
-//Free a page OR decrease it's reference count if it is > 1
-void MemIntFreePageOrDecRefs(MemPhysPage page)
-{
-	unsigned int * refCount = MemPhysicalRefCount(page);
-	if(*refCount > 1)
-	{
-		//Decrease copy-on-write reference count
-		--(*refCount);
-	}
-	else
-	{
-		MemPhysicalFree(page, 1);
-	}
-}
+//Check if a region will run into another
+static bool MemRegionIsCollision(MemRegion * thisRegion, MemRegion * nextRegion);
 
 //Creates a new blank memory context
 MemContext * MemContextInit()
@@ -154,7 +142,9 @@ MemContext * MemContextClone()
 				if(table->present)
 				{
 					//Increase count and make readonly
-					++(*MemPhysicalRefCount(table->pageID));
+					MemPhysicalAddRef(table->pageID, 1);
+
+					//Fixed pages are made writable again in the page fault handler
 					table->writable = 0;
 				}
 			}
@@ -250,7 +240,7 @@ void MemContextDelete(MemContext * context)
 					//Free page if present
 					if(table->present)
 					{
-						MemIntFreePageOrDecRefs(table->pageID);
+						MemPhysicalDeleteRef(table->pageID, 1);
 					}
 				}
 
@@ -325,7 +315,7 @@ void MemRegionFreePages(MemRegion * region, void * address, unsigned int length)
 	{
 		for(; startAddr < endAddr; startAddr += 4096)
 		{
-			MemIntUnmapPageAndFree(context, (void *) startAddr);
+			MemIntUnmapPageAndFree((void *) startAddr);
 		}
 	}
 	CONTEXT_SWAP_END
@@ -360,6 +350,15 @@ MemRegion * MemRegionFind(MemContext * context, void * address)
 	return NULL;
 }
 
+//Check if a region will run into another
+static bool MemRegionIsCollision(MemRegion * prevRegion, MemRegion * nextRegion)
+{
+	//This checks that the next region starts after the previous region
+	// and does a check that prevRegion doesn't wrap around (fooling the results)
+	return !((nextRegion->start > (prevRegion->start + prevRegion->length)) &&
+			((prevRegion->start + prevRegion->length) >= prevRegion->start));
+}
+
 //Creates a new blank memory region
 // If the context given is not the current or kernel context,
 //  a temporary memory context switch may occur
@@ -374,6 +373,9 @@ MemRegion * MemRegionCreate(MemContext * context, void * startAddress,
 		{
 			region->firstPage = firstPage;
 
+			//Increment ref counts of pages
+			MemPhysicalAddRef(firstPage, length / PAGE_SIZE);
+
 			//With fixed regions, we map the pages now
 			CONTEXT_SWAP(context)
 			{
@@ -381,7 +383,7 @@ MemRegion * MemRegionCreate(MemContext * context, void * startAddress,
 						length -= 4096, startAddr += 4096, ++firstPage)
 				{
 					//Map this page
-					MemIntMapPage(context, startAddr, firstPage, flags);
+					MemIntMapPage(startAddr, firstPage, flags);
 				}
 			}
 			CONTEXT_SWAP_END
@@ -428,6 +430,11 @@ bool MemRegionCreateStatic(MemContext * context, void * startAddress,
 		return false;
 	}
 
+	//Enter data required for collision checking
+	newRegion->flags = flags;
+	newRegion->length = length;
+	newRegion->start = startAddr;
+
 	//Find place to insert region
 	MemRegion * region = NULL;
 
@@ -438,7 +445,6 @@ bool MemRegionCreateStatic(MemContext * context, void * startAddress,
 			//Is region beyond address?
 			if(region->start > startAddr)
 			{
-				//Not found
 				break;
 			}
 		}
@@ -454,13 +460,11 @@ bool MemRegionCreateStatic(MemContext * context, void * startAddress,
 			//Check overlap
 			MemRegion * prevRegion = ListEntry(prev, MemRegion, listItem);
 
-			prevOverlap = (startAddr >= prevRegion->start && startAddr < (prevRegion->start + prevRegion->length)) ||
-					(prevRegion->start >= startAddr && prevRegion->start < (startAddr + length));
+			prevOverlap = MemRegionIsCollision(prevRegion, newRegion);
 		}
 
 		//Ensure new region doesn't overlap
-		if(prevOverlap || (startAddr >= region->start && startAddr < (region->start + region->length)) ||
-				(region->start >= startAddr && region->start < (startAddr + length)))
+		if(prevOverlap || MemRegionIsCollision(newRegion, region))
 		{
 			PrintLog(Error, "MemRegionCreate: Region overlaps with another region");
 			return false;
@@ -480,10 +484,6 @@ bool MemRegionCreateStatic(MemContext * context, void * startAddress,
 	{
 		ListHeadAddLast(&newRegion->listItem, &region->listItem);
 	}
-
-	newRegion->flags = flags;
-	newRegion->length = length;
-	newRegion->start = startAddr;
 
 	// We do no mapping until a page fault
 	return true;
@@ -509,28 +509,27 @@ void MemRegionResize(MemRegion * region, unsigned int newLength)
 		unsigned int start = region->start + newLength;
 		unsigned int end = region->start + region->length;
 
-		//If fixed region, we don't free the pages - we just unmap them
+		//Free pages in region
+		// Fixed pages are also freed (ref count decrement)
 		CONTEXT_SWAP(context)
 		{
-			if(region->flags & MEM_FIXED)
+			for(; start < end; start += 4096)
 			{
-				for(; start < end; start += 4096)
-				{
-					MemIntUnmapPage(context, (void *) start);
-				}
-			}
-			else
-			{
-				for(; start < end; start += 4096)
-				{
-					MemIntUnmapPageAndFree(context, (void *) start);
-				}
+				MemIntUnmapPageAndFree((void *) start);
 			}
 		}
 		CONTEXT_SWAP_END
 	}
 	else
 	{
+		//Disallow wrap around
+		if(region->start + newLength < region->start)
+		{
+			//Error
+			PrintLog(Error, "MemRegionResize: Region wraps around memory space");
+			return;
+		}
+
 		//Disallow if it enters restricted area
 		if(region->start < 0xC0000000)
 		{
@@ -549,6 +548,17 @@ void MemRegionResize(MemRegion * region, unsigned int newLength)
 			{
 				//Error
 				PrintLog(Error, "MemRegionResize: Region cannot be resized into memory manager area");
+				return;
+			}
+		}
+
+		//Check for collision into next region
+		if(region->listItem.next != &region->myContext->regions)
+		{
+			if(MemRegionIsCollision(region, ListEntry(region->listItem.next, MemRegion, listItem)))
+			{
+				//Error
+				PrintLog(Error, "MemRegionResize: Region overlaps with another region");
 				return;
 			}
 		}

@@ -76,7 +76,7 @@ static bool DecrementCounter(MemPageTable * table)
 	return true;
 }
 
-void MemIntMapPage(MemContext * currContext, void * address, MemPhysPage page, MemRegionFlags flags)
+void MemIntMapPage(void * address, MemPhysPage page, MemRegionFlags flags)
 {
 	//Ignore request if no readable, writable or executable flags
 	if((flags & (MEM_READABLE | MEM_WRITABLE | MEM_EXECUTABLE)) == 0)
@@ -111,7 +111,7 @@ void MemIntMapPage(MemContext * currContext, void * address, MemPhysPage page, M
 		//If kernel mode, update version and copy entry
 		if(addr >= 0xC0000000)
 		{
-			currContext->kernelVersion = ++MemKernelContext->kernelVersion;
+			MemCurrentContext->kernelVersion = ++MemKernelContext->kernelVersion;
             kernelPageDirectory[addr >> 22].rawValue = pDir->rawValue;
 		}
 	}
@@ -161,7 +161,7 @@ void MemIntMapPage(MemContext * currContext, void * address, MemPhysPage page, M
 }
 
 //Unmaps a page and returns the page which was unmapped
-MemPhysPage UnmapPage(MemContext * currContext, void * address)
+MemPhysPage UnmapPage(void * address)
 {
 	//Only unmap if page table for address exists
 	unsigned int addr = (unsigned int) address;
@@ -187,7 +187,7 @@ MemPhysPage UnmapPage(MemContext * currContext, void * address)
 	            //If kernel mode, update version
 				if(addr >= 0xC0000000)
 				{
-					currContext->kernelVersion = ++MemKernelContext->kernelVersion;
+					MemCurrentContext->kernelVersion = ++MemKernelContext->kernelVersion;
 		            kernelPageDirectory[addr >> 22].rawValue = 0;
 				}
 			}
@@ -209,18 +209,18 @@ MemPhysPage UnmapPage(MemContext * currContext, void * address)
 	return INVALID_PAGE;
 }
 
-void MemIntUnmapPage(MemContext * currContext, void * address)
+void MemIntUnmapPage(void * address)
 {
-	UnmapPage(currContext, address);
+	UnmapPage(address);
 }
 
-void MemIntUnmapPageAndFree(MemContext * currContext, void * address)
+void MemIntUnmapPageAndFree(void * address)
 {
-	MemPhysPage page = UnmapPage(currContext, address);
+	MemPhysPage page = UnmapPage(address);
 	
 	if(page != INVALID_PAGE)
 	{
-	    MemIntFreePageOrDecRefs(page);
+	    MemPhysicalDeleteRef(page, 1);
 	}
 }
 

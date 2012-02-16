@@ -582,6 +582,9 @@ void NORETURN ProcExitProcess(unsigned int exitCode)
 			ProcCurrProcess->memContext = NULL;
 		}
 
+		// Free io context
+		IoContextDeleteReference(ProcCurrProcess->ioContext);
+
 		// Zombieize
 		ProcCurrProcess->zombie = true;
 

@@ -111,7 +111,7 @@ void TimerBeepAdv(unsigned int freq, TimerTime time);
  */
 static inline void TimerBeep()
 {
-	TimerBeepAdv(1000, 1000);
+	TimerBeepAdv(1000, 1ULL << 32);
 }
 
 /**

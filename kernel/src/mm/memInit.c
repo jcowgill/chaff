@@ -28,7 +28,7 @@
 MemPageStatus * MemPageStateTableEnd;
 
 //Kernel end symbol
-DECLARE_SYMBOL(_kernel_end_page);
+extern char _kernel_end_page[];
 
 //Performs a bounds check
 // We check if the start of either ranges is within the other
@@ -102,7 +102,7 @@ static inline void GetPhysicalTableLocation(multiboot_info_t * bootInfo,
 				BOUNDS_CHECK(0xA0000, 0x100000);
 
 				// Kernel area (0x100000 - kernel end page * 4096)
-				BOUNDS_CHECK(0x100000, GET_SYMBOL_UINT(_kernel_end_page) * 4096);
+				BOUNDS_CHECK(0x100000, ((unsigned int) _kernel_end_page) * 4096);
 
 				//Boot modules
 				if(bootInfo->flags & MULTIBOOT_INFO_MODS)
@@ -201,7 +201,7 @@ void MemManagerInit(multiboot_info_t * bootInfo)
 	// Allocate ROM and Kernel area
 	//  (Total not updated for kernel area)
 	MemPhysicalTotalPages -= (0x100 - 0xA0);
-	for(MemPhysPage page = 0xA0; page < (int) GET_SYMBOL_UINT(_kernel_end_page); ++page)
+	for(MemPhysPage page = 0xA0; page < ((int) _kernel_end_page); ++page)
 	{
 		MemPageStateTable[page].refCount = 1;
 	}

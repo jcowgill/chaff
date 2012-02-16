@@ -1,15 +1,9 @@
 TODO list
 --------------
+- FPU
+- Loadable drivers + ELF loader
 - System calls
 - SLAB allocator for everything (including malloc - like linux does)
-
-Then complete all non-io related TODO warnings
-Then do a big test
-
-Then the virtual file system
-Then the driver interface
-Then the ELF loader + kernel symbol table linker for drivers
-Then finish off the system calls
 
 Try http://posixtest.sourceforge.net/ if you can't be bothered to test it yourself...
 

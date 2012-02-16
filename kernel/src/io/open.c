@@ -63,7 +63,7 @@ int IoLookupPath(SecContext * secContext, IoContext * ioContext, const char * pa
 		}
 
 		currFs = IoFilesystemRoot;
-		currINode = currFs->ops->getRootINode(currFs);
+		currINode = currFs->rootINode;
 
 		path++;
 	}
@@ -77,7 +77,7 @@ int IoLookupPath(SecContext * secContext, IoContext * ioContext, const char * pa
 	//Read top level iNode
 	output->fs = currFs;
 	output->number = currINode;
-	res = currFs->ops->readINode(currFs, output);
+	res = currFs->ops->readINode(output);
 
 	if(res != 0)
 	{
@@ -143,7 +143,7 @@ int IoLookupPath(SecContext * secContext, IoContext * ioContext, const char * pa
 			path += 2;
 			continue;
 		}
-		else if(len == 2 && path[0] == '.' && path[1] == '.' && currINode == currFs->ops->getRootINode(currFs))
+		else if(len == 2 && path[0] == '.' && path[1] == '.' && currINode == currFs->rootINode)
 		{
 			//Go to parent mount point
 			if(currFs->parentFs == NULL)
@@ -161,7 +161,7 @@ int IoLookupPath(SecContext * secContext, IoContext * ioContext, const char * pa
 				//Get the iNode
 				output->fs = currFs;
 				output->number = currINode;
-				res = currFs->ops->readINode(currFs, output);
+				res = currFs->ops->readINode(output);
 
 				if(res != 0)
 				{
@@ -201,13 +201,13 @@ int IoLookupPath(SecContext * secContext, IoContext * ioContext, const char * pa
 		{
 			//Translate mount point
 			currFs = HashTableEntry(mountPoint, IoFilesystem, mountItem);
-			currINode = currFs->ops->getRootINode(currFs);
+			currINode = currFs->rootINode;
 		}
 
 		//Get the iNode
 		output->fs = currFs;
 		output->number = currINode;
-		res = currFs->ops->readINode(currFs, output);
+		res = currFs->ops->readINode(output);
 
 		if(res != 0)
 		{
@@ -241,7 +241,7 @@ int IoOpen(SecContext * secContext, IoContext * ioContext, const char * path,
 {
 	//Check if fd exists and is not reserved
 	if(fd < 0 || fd >= IO_MAX_OPEN_FILES || ioContext->files[fd] != NULL ||
-			(ioContext->descriptorFlags[fd] & IO_O_FDERSERVED))
+			(ioContext->descriptorFlags[fd] & IO_O_FDRESERVED))
 	{
 		//Already Exists
 		return -EINVAL;
@@ -261,7 +261,7 @@ int IoOpen(SecContext * secContext, IoContext * ioContext, const char * path,
 	}
 
 	//Mark descriptor as reserved
-	ioContext->descriptorFlags[fd] = IO_O_FDERSERVED;
+	ioContext->descriptorFlags[fd] = IO_O_FDRESERVED;
 
 	//Search for path
 	IoINode iNode;
@@ -357,7 +357,7 @@ int IoOpen(SecContext * secContext, IoContext * ioContext, const char * path,
 
 				//Read created iNode
 				iNode.number = outINode;
-				res = iNode.fs->ops->readINode(iNode.fs, &iNode);
+				res = iNode.fs->ops->readINode(&iNode);
 				if(res != 0)
 				{
 					goto returnError;
