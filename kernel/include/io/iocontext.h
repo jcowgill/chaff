@@ -335,9 +335,19 @@ int IoWrite(IoContext * context, int fd, void * buffer, int count);
  */
 int IoIoctl(IoContext * context, int fd, int request, void * data);
 
-//Truncates a file to a precise length
-// If the file gets larger, it is filled with nulls in the extra bits
-// The file offset is unchanged
+/**
+ * Truncates a file to a precise length
+ *
+ * If the file gets larger, it is filled with nulls in the extra bits.
+ *
+ * The file offset is unchanged.
+ *
+ * @param context context to use
+ * @param fd file descriptor
+ * @param size sice to truncate to
+ * @retval 0 on success
+ * @retval <0 error code
+ */
 int IoTruncate(IoContext * context, int fd, unsigned long long size);
 
 /**

@@ -72,10 +72,20 @@ MemPhysPage MemPhysicalAlloc(unsigned int number);
  */
 MemPhysPage MemPhysicalAllocISA(unsigned int number);
 
-//Adds a reference to the given page(s)
+/**
+ * Adds a reference to the given page(s)
+ *
+ * @param page first page to add reference to
+ * @param number number of contiguous pages to add reference to
+ */
 void MemPhysicalAddRef(MemPhysPage page, unsigned int number);
 
-//Deletes a reference to the given page(s)
+/**
+ * Deletes a reference to the given page(s)
+ *
+ * @param page first page to delete reference of
+ * @param number number of contiguous pages to delete reference of
+ */
 void MemPhysicalDeleteRef(MemPhysPage page, unsigned int number);
 
 /**
