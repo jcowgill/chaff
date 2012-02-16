@@ -1,0 +1,6 @@
+/**
+ * @defgroup Io IO Manager
+ *
+ * The IO manager handles the IO infastructure which connects
+ * system calls to drivers and provides common code to all IO functions.
+ */

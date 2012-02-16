@@ -4,6 +4,7 @@
  *
  * @date January 2011
  * @author James Cowgill
+ * @ingroup Proc
  */
 
 /*

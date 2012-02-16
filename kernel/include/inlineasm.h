@@ -4,6 +4,7 @@
  *
  * @date November 2010
  * @author James Cowgill
+ * @ingroup Util
  */
 
 /*

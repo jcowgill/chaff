@@ -1,0 +1,6 @@
+/**
+ * @defgroup Proc Process and Thread Manager
+ *
+ * Manages processes and threads on the system.
+ * This also manages some related things: the scheduler, signals and wait queues.
+ */

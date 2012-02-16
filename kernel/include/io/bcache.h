@@ -4,6 +4,7 @@
  *
  * @date January 2012
  * @author James Cowgill
+ * @ingroup Io
  */
 
 /*

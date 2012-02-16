@@ -4,22 +4,9 @@
  *
  * Regions are contiguous areas of virtual memory
  *
- * @par Memory Layout
- * @verbatim
-00000000 - 00000FFF   Reserved (cannot be mapped)
-00001000 - BFFFFFFF   User mode code
-C0000000 - C03FFFFF   Mapped to first 4MB of physical space. Contains all kernel code.
-C0400000 - CFFFFFFF   Driver code
-D0000000 - DFFFFFFF   Kernel heap
-F0000000 - FF6FFFFF   No use at the moment
-FF700000 - FFFFFFFF   Memory manager use
- FF700000 - FF7FFFFF   Temporary page mappings
- FF800000 - FFBFFFFF   Physical page references
- FFC00000 - FFFFFFFF   Current page tables
-@endverbatim
- *
  * @date February 2012
  * @author James Cowgill
+ * @ingroup Mem
  */
 
 /*

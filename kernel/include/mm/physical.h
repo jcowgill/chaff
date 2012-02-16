@@ -6,6 +6,7 @@
  *
  * @date February 2012
  * @author James Cowgill
+ * @ingroup Mem
  */
 
 /*

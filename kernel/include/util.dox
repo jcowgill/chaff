@@ -1,0 +1,5 @@
+/**
+ * @defgroup Util Kernel Utilities
+ *
+ * Utility functions used by other parts of the kernel.
+ */

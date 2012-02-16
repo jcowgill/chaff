@@ -12,6 +12,7 @@
  *
  * @date February 2012
  * @author James Cowgill
+ * @ingroup Util
  */
 
 /*
