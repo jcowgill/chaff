@@ -145,9 +145,6 @@ IoContext * IoContextClone(IoContext * context)
 }
 
 //Removes a reference to an IO context
-// This must NOT be used when the io context could be in use by another thread
-//  (io contexts are not locked)
-// This will close all open files
 void IoContextDeleteReference(IoContext * context)
 {
 	//Decrement ref count
@@ -202,7 +199,6 @@ IoFile * IoGetFileWithContext(IoContext * context, int fd)
 }
 
 //Finds the next avaliable file descriptor at least as large as fd
-// Returns the file descriptor or -1 if there are none avaliable
 int IoFindNextDescriptor(IoContext * context, int fd)
 {
 	//Get starting descriptor
@@ -239,7 +235,6 @@ int IoClose(IoContext * context, int fd)
 }
 
 //Closes all files marked as CLOEXEC
-// Any errors are discarded
 void IoCloseForExec(IoContext * context)
 {
 	//Process each file
@@ -366,8 +361,6 @@ int IoIoctl(IoContext * context, int fd, int request, void * data)
 }
 
 //Truncates a file to a precise length
-// If the file gets larger, it is filled with nulls in the extra bits
-// The file offset is unchanged
 int IoTruncate(IoContext * context, int fd, unsigned long long size)
 {
 	//Get file
@@ -390,7 +383,6 @@ int IoTruncate(IoContext * context, int fd, unsigned long long size)
 }
 
 //Duplicates a file descriptor
-// flags can be the IO_DUP_ flags or IO_O_CLOEXEC
 int IoDup(IoContext * context, int fd, int newFd, int flags)
 {
 	//Get file
@@ -490,8 +482,6 @@ static int readDirFiller(void * buf, unsigned int iNode, const char * name, int 
 }
 
 //Reads up to count directories from the directory opened by the given file descriptor
-// Returns the number of directories read (if less than count, there are no more) or a negative
-// number on error.
 int IoReadDir(IoContext * context, int fd, IoReadDirEntry * buffer, int count)
 {
 	//Get file

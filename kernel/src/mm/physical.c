@@ -107,8 +107,7 @@ MemPhysPage MemPhysicalAlloc(unsigned int number)
 	return MemPhysicalAllocISA(number);
 }
 
-//Allocates physical pages
-// This function will never return any page with an offset > 16M
+//Allocates physical pages for ISA
 MemPhysPage MemPhysicalAllocISA(unsigned int number)
 {
 	//Save head at beginning

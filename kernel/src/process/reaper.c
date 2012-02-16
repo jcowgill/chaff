@@ -72,10 +72,6 @@ static int NORETURN ProcIntReaperThread(void * unused)
 }
 
 //Adds a thread to be automatically reaped
-// The thread must be a zombie
-// If the thread is owned by another process:
-//   The process must be owned by the kernel
-//   That process will also be reaped
 void ProcIntReaperAdd(ProcThread * thread)
 {
 	//Validate request

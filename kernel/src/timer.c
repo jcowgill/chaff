@@ -91,7 +91,6 @@ void TimerInit()
 }
 
 //Gets or sets the current time
-// The time is represented as the number of MILIseconds since 1st Jan 1970
 TimerTime TimerGetTime()
 {
 	return currentTime;
@@ -134,7 +133,6 @@ static void AddTimerToQueue(TimerQueue * newItem, ListHead * headPtr)
 }
 
 //Waits time milliseconds until returning (current thread only)
-// Returns number of milliseconds actually left to sleep (not 0 when interrupted)
 TimerTime TimerSleep(TimerTime time)
 {
 	//Calculate wake up time
@@ -164,9 +162,6 @@ TimerTime TimerSleep(TimerTime time)
 }
 
 //Sets the PROCESS alarm
-// Returns number of seconds left on existing alarm or 0 if no previous alarm existed
-// Important: POSIX alarms are PROCESS WIDE.
-// Kernel threads should not call this
 TimerTime TimerSetAlarm(TimerTime time)
 {
 	TimerTime timeLeft;
@@ -220,9 +215,6 @@ void TimerBeepStop()
 }
 
 //Plays a beep of the given frequency and time from the PC Speaker
-// Note the time is supported by the timer interrupt so the beep won't stop
-//  while interrupts are disabled
-// This will "replace" any beep currently happening
 void TimerBeepAdv(unsigned int freq, TimerTime time)
 {
 	unsigned short reloadValue;

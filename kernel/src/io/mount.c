@@ -50,7 +50,6 @@ bool IoFilesystemRegister(IoFilesystemType * type)
 }
 
 //Unregisters a filesystem type with the kernel
-// You cannot unregister a filesystem in use
 bool IoFilesystemUnRegister(IoFilesystemType * type)
 {
 	//Check if in use

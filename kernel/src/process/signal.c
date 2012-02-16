@@ -26,7 +26,6 @@
 #define SIGNAL_INDEX(num) ((num) - 1)
 
 //Continues a suspended thread
-// If the thread isn't suspended, does nothing
 static void RemoteContinueThread(ProcThread * thread)
 {
 	//Continues a remote thread
@@ -78,7 +77,6 @@ static void SuspendSelf()
 }
 
 //Returns true if the given signal is ignored by a process
-// Does NOT check SIGKILL or SIGSTOP for bogus actions
 static inline bool SignalIsIgnored(ProcProcess * process, int sigNum)
 {
 	return process->sigHandlers[SIGNAL_INDEX(sigNum)].sa_handler == SIG_IGN ||
@@ -176,8 +174,6 @@ void ProcSignalReturn(IntrContext * iContext)
 }
 
 //Sends a signal to the current thread
-// If the signal is blocked or ignored - will exit this thread
-// May not return
 void ProcSignalSendOrCrash(int sigNum)
 {
 	//Check if ignored or blocked
@@ -194,7 +190,6 @@ void ProcSignalSendOrCrash(int sigNum)
 }
 
 //Send a signal to the given thread
-// This will not redirect SIGKILL, SIGSTOP or SIGCONT to the whole process however
 void ProcSignalSendThread(ProcThread * thread, int sigNum)
 {
     //Check signal is within limits
@@ -310,10 +305,6 @@ void ProcSignalSendProcess(ProcProcess * process, int sigNum)
 }
 
 //Changes the signal mask for a given thread
-// how is one of SIG_BLOCK, SIG_UNBLOCK or SIG_SETMASK
-//
-// In signal sets, the bit for a signal corresponds to the signal - 1,
-//  eg SIGHUP (number 1) uses bit 0
 void ProcSignalSetMask(ProcThread * thread, int how, ProcSigSet signalSet)
 {
     //Set mask

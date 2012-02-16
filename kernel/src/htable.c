@@ -84,7 +84,6 @@ static inline bool HashTableGrowCheck(HashTable * table, unsigned int count)
 }
 
 //Finds the hash item from a given key in a pre-calculated bucket
-// Or returns NULL if it wasn't found
 static inline HashItem * HashTableFindFromBucket(HashItem * bucket, const void * keyPtr, unsigned int keyLen)
 {
 	//Search for item
@@ -108,7 +107,6 @@ static inline HashItem * HashTableFindFromBucket(HashItem * bucket, const void *
 }
 
 //Inserts an item into the hash map
-// The key passed must remain in memory after this returns
 bool HashTableInsert(HashTable * table, HashItem * item, const void * keyPtr, unsigned int keyLen)
 {
 	//Calculate hash and store in item
@@ -149,7 +147,6 @@ bool HashTableInsert(HashTable * table, HashItem * item, const void * keyPtr, un
 }
 
 //Removes an entry in the hash table with the given key or which is the given item
-// If item is NULL, it is ignored otherwise keyPtr and keyLen MUST be the same as in item
 static bool HashTableRemoveKeyItem(HashTable * table, HashItem * item,
 		const void * keyPtr, unsigned int keyLen)
 {
@@ -199,21 +196,18 @@ static bool HashTableRemoveKeyItem(HashTable * table, HashItem * item,
 }
 
 //Removes the given ID from the hash table (provide 1 key after table)
-// Returns false if that ID doesn't exist
 bool HashTableRemove(HashTable * table, const void * keyPtr, unsigned int keyLen)
 {
 	return HashTableRemoveKeyItem(table, NULL, keyPtr, keyLen);
 }
 
 //Removes the given item from the hash table
-// Returns false if that ID doesn't exist
 bool HashTableRemoveItem(HashTable * table, HashItem * item)
 {
 	return HashTableRemoveKeyItem(table, item, item->keyPtr, item->keyLen);
 }
 
 //Returns the HashItem corresponding to a given ID (provide 1 key after table)
-// Returns NULL if that ID doesn't exist
 HashItem * HashTableFind(HashTable * table, const void * keyPtr, unsigned int keyLen)
 {
 	//Ignore if count == 0
@@ -231,8 +225,7 @@ HashItem * HashTableFind(HashTable * table, const void * keyPtr, unsigned int ke
 }
 
 //Causes the hash table to grow if it will reach the grow threshold when
-//storing the given number of items
-// Does not gaurentee that a later HashTableInsert will not grow the table
+// storing the given number of items
 void HashTableReserve(HashTable * table, unsigned int count)
 {
 	//Force count to be less than 1 billion

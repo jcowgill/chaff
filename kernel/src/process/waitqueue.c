@@ -42,7 +42,6 @@ bool ProcWaitQueueWait(ProcWaitQueue * queue, bool interruptable)
 }
 
 //Wakes up one thread on the wait queue (the oldest)
-// Returns true if there was a thread to wakeup
 bool ProcWaitQueueWakeOne(ProcWaitQueue * queue)
 {
 	//Wake up first thread

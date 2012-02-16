@@ -124,8 +124,6 @@ ProcThread * ProcGetThreadByID(unsigned int tid)
 }
 
 //Creates a completely empty process from nothing
-// The memory and io context is left blank and must be created manually
-// No threads are added to the process either
 ProcProcess * ProcCreateProcess(const char * name, ProcProcess * parent)
 {
 	//Allocate process
@@ -168,7 +166,6 @@ ProcProcess * ProcCreateProcess(const char * name, ProcProcess * parent)
 }
 
 //Creates new thread with the given name and process
-// The kernel stack is allocated and wiped if withStack is specified
 static ProcThread * ProcCreateRawThread(const char * name, ProcProcess * parent, bool withStack)
 {
 	//Allocate thread
@@ -214,7 +211,6 @@ static ProcThread * ProcCreateRawThread(const char * name, ProcProcess * parent,
 }
 
 //Creates a new thread in a process
-// This is a user-mode function - the start addresses and stack pointer are USER MODE
 ProcThread * ProcCreateUserThread(const char * name, ProcProcess * process,
 								void (* startAddr)(), void * stackPtr)
 {
@@ -245,8 +241,6 @@ ProcThread * ProcCreateUserThread(const char * name, ProcProcess * process,
 }
 
 //Creates a new kernel thread
-// startAddr is a kernel mode pointer
-// arg is a user defined argument to the function
 ProcThread * ProcCreateKernelThread(const char * name, int (* startAddr)(void *), void * arg)
 {
 #warning TODO FPU / SSE support
@@ -275,10 +269,6 @@ ProcThread * ProcCreateKernelThread(const char * name, int (* startAddr)(void *)
 }
 
 //Forks the current process creating a new process which runs at the given location
-// This can ONLY be called from a syscall of a process - and the parameters should
-// be obtained from the interrupt context
-// Returns the new process
-//  (the new process is already started)
 ProcProcess * ProcFork(void (* startAddr)(), void * userStackPtr)
 {
 	//Cannot be done by kernel process
@@ -313,17 +303,6 @@ ProcProcess * ProcFork(void (* startAddr)(), void * userStackPtr)
 }
 
 //Waits for a child process to exit
-// id
-//	  >1, only the given pid
-//	  -1, any child process
-//	   0, any process from current process group
-//	  <1, any process from given (negated) process group
-// exitCode = pointer to where to write exit code to (must be kernel mode)
-// options = one of the wait options above
-//Returns
-// the process id on success,
-// 0 if WNOHANG was given and there are no waitable processes,
-// negative error code on an error
 int ProcWaitProcess(int id, unsigned int * exitCode, int options)
 {
 	ProcProcess * chosenOne = NULL;
@@ -434,14 +413,6 @@ int ProcWaitProcess(int id, unsigned int * exitCode, int options)
 }
 
 //Waits for a thread sibling to exit
-// id
-//	  >1, only the given pid
-//	  -1, any child thread
-// options = one of the wait options above
-//Returns
-// the thread id on success,
-// 0 if WNOHANG was given and there are no waitable threads,
-// negative error code on an error
 int ProcWaitThread(int id, unsigned int * exitCode, int options)
 {
 	ProcThread * chosenOne = NULL;
@@ -662,7 +633,6 @@ static void ProcDisownChildren(ProcProcess * process)
 }
 
 //Exits the current thread with the given error code
-// If this is the final thread, this will also exit the current process with status 0
 void NORETURN ProcExitThread(unsigned int exitCode)
 {
 	//If this is the last thread, pass on to ProcExitProcess

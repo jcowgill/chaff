@@ -29,15 +29,6 @@
 //
 
 //Looks up a path in the filesystem
-// This performs tranverse directory permission checks (any dir in output also has these checks)
-// Returns one of:
-//  0 		= File found and placed in output
-//  -ENOENT = File not found.
-//				If the parent directory (of the file) was found:
-//				 output is set to the parent and fileStart is set to the beginning of the unknown file
-//				If not, fileStart is set to NULL
-//  -EISDIR = Path represents a directory - the dir is placed in output
-//  other   = Another error, the value in output is undefined
 int IoLookupPath(SecContext * secContext, IoContext * ioContext, const char * path,
 		IoINode * output, const char ** fileStart)
 {
@@ -232,10 +223,6 @@ int IoLookupPath(SecContext * secContext, IoContext * ioContext, const char * pa
 }
 
 //Opens a new file descriptor in an io context
-// path = path of file to open
-// flags = flags to open file
-// mode = mode to create new file with
-// fd = file descriptor to use (this will not replace a descriptor)
 int IoOpen(SecContext * secContext, IoContext * ioContext, const char * path,
 		int flags, IoMode mode, int fd)
 {

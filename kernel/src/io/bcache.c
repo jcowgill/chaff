@@ -46,7 +46,6 @@ static inline IoBlock * IoBlockHashFind(IoBlockCache * cache, unsigned long long
 }
 
 //Initializes a block cache
-// Do not call on an alredy initialized cache
 void IoBlockCacheInit(IoBlockCache * cache, int blockSize)
 {
 	//Setup cache parameters
@@ -68,7 +67,6 @@ void IoBlockCacheInit(IoBlockCache * cache, int blockSize)
 }
 
 //Destroys a block cache
-// Returns false if some blocks are still lockeds
 bool IoBlockCacheEmpty(IoBlockCache * cache)
 {
 	//Remove each entry from the list
@@ -115,9 +113,6 @@ static IoBlock * CreateEmptyBlock(IoBlockCache * bCache, unsigned long long off)
 }
 
 //Reads a block of data from the block cache or reads it from the disk if it isn't there
-// Returns a negative value on error or the number of bytes you can read from the block
-// A single block is stored in a contingous location in memory but multiple blocks are not
-// The returned block pointer locked until IoBlockCacheUnlock is called
 int IoBlockCacheRead(IoDevice * device, unsigned long long off, IoBlock ** block)
 {
 	//Get block cache
@@ -217,8 +212,6 @@ void IoBlockCacheUnlock(IoDevice * device, IoBlock * block)
 }
 
 //Uses the block cache to read / copy data into a buffer
-// Returns a negative value on error or the number of bytes actually read
-// Nothing needs to be unlocked after this
 int IoBlockCacheReadBuffer(IoDevice * device, unsigned long long off,
 		void * buffer, unsigned int length)
 {
@@ -277,8 +270,6 @@ int IoBlockCacheReadBuffer(IoDevice * device, unsigned long long off,
 }
 
 //Writes data to disk and to the block cache
-// Returns a negative value on error or the number of bytes actually written
-// (currently the block cache is always write-through)
 int IoBlockCacheWriteBuffer(IoDevice * device, unsigned long long off,
 		void * buffer, unsigned int length)
 {

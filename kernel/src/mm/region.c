@@ -269,9 +269,6 @@ void MemContextDelete(MemContext * context)
 }
 
 //Deletes a reference to a memory context
-// The context passed MUST NOT be the current context
-// When the refCount reaches zero, the context will be destroyed
-// MEM_FIXED memory IS DELETED by this
 void MemContextDeleteReference(MemContext * context)
 {
 	if(context->refCount <= 1)
@@ -287,7 +284,6 @@ void MemContextDeleteReference(MemContext * context)
 }
 
 //Frees the pages associated with a given region of memory without destroying the region
-// (pages will automatically be allocated when memory is referenced)
 void MemRegionFreePages(MemRegion * region, void * address, unsigned int length)
 {
 	//Check this op can be done on the region
@@ -322,7 +318,6 @@ void MemRegionFreePages(MemRegion * region, void * address, unsigned int length)
 }
 
 //Finds the region which contains the given address
-// or returns NULL if there isn't one
 MemRegion * MemRegionFind(MemContext * context, void * address)
 {
 	unsigned int addr = (unsigned int) address;
@@ -360,8 +355,6 @@ static bool MemRegionIsCollision(MemRegion * prevRegion, MemRegion * nextRegion)
 }
 
 //Creates a new blank memory region
-// If the context given is not the current or kernel context,
-//  a temporary memory context switch may occur
 MemRegion * MemRegionCreate(MemContext * context, void * startAddress,
 		unsigned int length, MemPhysPage firstPage, MemRegionFlags flags)
 {
@@ -399,7 +392,6 @@ MemRegion * MemRegionCreate(MemContext * context, void * startAddress,
 }
 
 //Create region from already allocated MemRegion
-// See MemRegionCreate
 bool MemRegionCreateStatic(MemContext * context, void * startAddress,
 		unsigned int length, MemRegionFlags flags, MemRegion * newRegion)
 {
@@ -490,8 +482,6 @@ bool MemRegionCreateStatic(MemContext * context, void * startAddress,
 }
 
 //Resizes the region of allocated memory
-// If the context of the region given is not the current or kernel context,
-//  a temporary memory context switch may occur
 void MemRegionResize(MemRegion * region, unsigned int newLength)
 {
 	MemContext * context = region->myContext;
@@ -569,8 +559,6 @@ void MemRegionResize(MemRegion * region, unsigned int newLength)
 }
 
 //Deletes the specified region
-// If the context of the region given is not the current or kernel context,
-//  a temporary memory context switch may occur
 void MemRegionDelete(MemRegion * region)
 {
 	//Resize the region to 0 length to free all the pages

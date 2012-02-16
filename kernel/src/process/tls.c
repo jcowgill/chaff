@@ -25,7 +25,6 @@
 //TLS functions
 
 //Creates a tls descriptor using the given base pointer as an expand down segment
-// Returns PROC_NULL_TLS_DESCRIPTOR is an invalid basePtr is given
 unsigned long long ProcTlsCreateDescriptor(unsigned int basePtr)
 {
 	//Validate base pointer

@@ -116,8 +116,6 @@ void ProcYield()
 }
 
 //Yields the current thread and blocks it until it is woken up using ProcWakeUp
-// If interruptible is true, the block may be interrupted if the thread receives a signal
-//Returns true if the block was interrupted
 bool ProcYieldBlock(bool interruptable)
 {
 	//Return immediately if interruptable and a signal is pending
@@ -139,9 +137,6 @@ bool ProcYieldBlock(bool interruptable)
 }
 
 //Wakes up a thread from a block
-// You should only wake up threads you know exactly where they are blocked since the blocker
-//  may not expect to have a thread wake up at any time.
-// isSignal is used internally for interrupting threads - do not use it
 void ProcWakeUpSig(ProcThread * thread, bool isSignal)
 {
 	//Determine what to do depending on thread state
@@ -202,7 +197,6 @@ void ProcWakeUpSig(ProcThread * thread, bool isSignal)
 }
 
 //Removes the current thread from scheduler existence
-// This deallocates the ProcThread and kernel stack only
 void NORETURN ProcIntSchedulerExitSelf()
 {
 	//Set as zombie

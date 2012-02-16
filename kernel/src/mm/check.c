@@ -78,16 +78,12 @@ static bool MemChecks(unsigned int addr, unsigned int length, unsigned int flags
 }
 
 //Verifies that an area of memory can be read by the kernel or user
-// If data >= KERNEL_VIRTUAL_BASE, a kernel check is performed
-// For user data, check it with MemCheckUserArea first
 bool MemCanRead(void * data, unsigned int length)
 {
 	return MemChecks((unsigned int) data, length, MEM_READABLE);
 }
 
 //Verifies that an area of memory can be written by the kernel or user
-// If data >= KERNEL_VIRTUAL_BASE, a kernel check is performed
-// For user data, check it with MemCheckUserArea first
 bool MemCanWrite(void * data, unsigned int length)
 {
 	return MemChecks((unsigned int) data, length, MEM_WRITABLE);
