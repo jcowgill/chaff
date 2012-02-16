@@ -3,6 +3,7 @@
  * Multiboot Header
  *
  * @author Free Software Foundation
+ * @privatesection
  */
 
 /* Copyright (C) 1999,2003,2007,2008,2009  Free Software Foundation, Inc.

@@ -1,6 +1,6 @@
 /**
  * @file
- * Linked list implementation
+ * Circular linked list implementation
  *
  * This is a reimplementation of the Linux linked list functions
  * (only the interfaces are the same)
@@ -37,8 +37,8 @@
  */
 typedef struct ListHead
 {
-	struct ListHead * next;
-	struct ListHead * prev;
+	struct ListHead * next;		///< Next item in the linked list (may wrap around to first item)
+	struct ListHead * prev;		///< Previous item in the linked list (may wrap around to last item)
 
 } ListHead;
 

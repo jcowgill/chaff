@@ -40,22 +40,36 @@
  */
 #define KERNEL_VIRTUAL_BASE ((void *) 0xC0000000)
 
-//Non-returning function and stdcall convention
+/**
+ * Function does not return
+ */
 #define NORETURN __attribute__((noreturn))
+
+/**
+ * Function uses the stdcall calling convention
+ */
 #define STDCALL __attribute__((stdcall))
 
-//Ignore unused parameter
+/**
+ * Ignores an unused paremeter
+ *
+ * Prevents compiler warning about unused parameters (eg when implementing interfaces)
+ *
+ * Example:
+ * @code
+ * int someFunction(int param1, int param2)
+ * {
+ * 	IGNORE_PARAM param2;
+ * 	return param1;
+ * }
+ * @endcode
+ */
 #define IGNORE_PARAM (void)
 
 //External symbol accessing
 #define DECLARE_SYMBOL(symb) extern char symb[];
 #define GET_SYMBOL(symb) ((void *) symb)
 #define GET_SYMBOL_UINT(symb) ((unsigned int) symb)
-
-//General functions
-
-//Run when an unrecoverable error occurs.
-// Notifies the user of the error (as fatal log) and promptly hangs
 
 /**
  * Brings down the operating system as the result of an unrecoverable error
