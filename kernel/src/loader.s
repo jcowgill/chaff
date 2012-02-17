@@ -20,6 +20,7 @@
 global _loader
 global TssESP0
 global GdtTLS
+global kernelPageTable192
 extern kMain
 extern kernelPageDirectory
 
@@ -47,6 +48,15 @@ TssSS0:
 	resb 94				;Total size = 104 bytes
 
 section .data
+align 4096
+kernelPageTable192:
+	;Identity maps first 4MB to base of physical memory
+	%assign i 0
+	%rep 1024
+		dd (i << 12) | 0x103
+		%assign i (i + 1)
+	%endrep
+
 align 8
 gdt:
 	;Global Descriptor Table
@@ -102,31 +112,20 @@ _loader:
 
 	; Setup boot page directory
 	mov ecx, (kernelPageDirectory - KERNEL_VIRTUAL_BASE)
-	mov dword [ecx], 0x00000183		;This number is: 4MB page, rw, global, mapped to address 0x0
-	mov dword [ecx + KERNEL_PAGE_OFFSET], 0x00000183
+	mov edx, (kernelPageTable192 - KERNEL_VIRTUAL_BASE)
+	or edx, 0x3
+	mov dword [ecx], edx
+	mov dword [ecx + KERNEL_PAGE_OFFSET], edx
 
 	; Load boot page directory
 	mov cr3, ecx
 
-	; Set PSE bit to enable 4MB paging + other bits for later
-	;  MCE - 6	Machine Check Enable
-	;  PSE - 4	Page Size Extensions
-	mov ecx, 0x50
-	mov cr4, ecx
-
 	; Set PG bit to enable paging + other bits for later (this must be done last)
 	;  PG - 31	Enable Paging
-	;  AM - 18	Alignment Check
-	;  WP - 16	Write Protect
-	;  NE - 5	Numeric Error
-	;  EM - 2	No math coprocessor
 	;  PE - 0	Protection Enable
-	mov ecx, 0x80050025
+	mov ecx, cr0
+	or ecx, 0x80000001
 	mov cr0, ecx
-
-	; Now we can set the PGE - 7 Page Global Flag
-	mov ecx, 0x150
-	mov cr4, ecx
 
 	;WE HAVE NOW SETUP PAGING
 	; Load TSS SS0
@@ -159,7 +158,8 @@ _loader:
 highLoader:
 	;Unmap first identity page
 	mov dword [kernelPageDirectory], 0x00000000
-	invlpg [0]
+	mov ecx, cr3
+	mov cr3, ecx
 
 	;Setup the stack pointer
 	mov esp, startupStack + STACK_SIZE

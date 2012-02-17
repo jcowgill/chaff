@@ -26,6 +26,7 @@
 #include "interrupt.h"
 #include "timer.h"
 #include "io/device.h"
+#include "cpu.h"
 
 void NORETURN kMain(unsigned int mBootCode, multiboot_info_t * mBootInfo)
 {
@@ -38,6 +39,9 @@ void NORETURN kMain(unsigned int mBootCode, multiboot_info_t * mBootInfo)
 
 	// Initialize memory manager
 	MemManagerInit(mBootInfo);
+
+	// Initialize CPU specific instructions
+	CpuInit();
 
 	// Initialize interrupts
 	IntrInit();
