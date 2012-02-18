@@ -244,8 +244,6 @@ ProcThread * ProcCreateUserThread(const char * name, ProcProcess * process,
 //Creates a new kernel thread
 ProcThread * ProcCreateKernelThread(const char * name, int (* startAddr)(void *), void * arg)
 {
-#warning TODO FPU / SSE support
-
 	//Create raw thread
 	ProcThread * thread = ProcCreateRawThread(name, ProcKernelProcess, true);
 
