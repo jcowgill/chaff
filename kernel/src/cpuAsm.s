@@ -19,6 +19,10 @@
 
 global CpuInit
 global CpuHasCpuId
+global CpuIdVendor
+global CpuIdSignature
+global CpuFeaturesEDX
+global CpuFeaturesECX
 extern Panic
 
 section .data

@@ -27,6 +27,7 @@
 #include "errno.h"
 #include "io/iocontext.h"
 #include "mm/region.h"
+#include "cpu.h"
 
 //Process management functions
 
@@ -687,6 +688,9 @@ void ProcIntReapThread(ProcThread * thread)
 	{
 		Panic("ProcReapThread: Cannot reap a thread which is still running");
 	}
+
+	//Free FPU state
+	CpuFreeFpuState(ProcCurrThread);
 
 	//Remove from hash table
 	HashTableRemoveItem(&hTableThread, &thread->hItem);

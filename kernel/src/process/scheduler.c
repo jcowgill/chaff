@@ -24,6 +24,7 @@
 #include "processInt.h"
 #include "timer.h"
 #include "mm/region.h"
+#include "cpu.h"
 
 //Scheduler functions
 
@@ -79,6 +80,9 @@ static void DoSchedule()
 			//Reset thread quantum for user mode thread
 			TimerResetQuantum();
 		}
+
+		//FPU Task Switch
+		CpuTaskSwitched();
 
 		//Set current thread
 		ProcThread * oldThread = ProcCurrThread;

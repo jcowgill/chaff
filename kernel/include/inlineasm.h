@@ -27,6 +27,26 @@
 #define INLINEASM_H_
 
 /**
+ * Sets the value of the CR0 register
+ *
+ * @param val value to set
+ */
+static inline void setCR0(unsigned int val)
+{
+	asm ("movl %0, %%cr0"::"r"(val));
+}
+
+/**
+ * Gets the value of the CR0 register
+ */
+static inline unsigned int getCR0()
+{
+	unsigned int val;
+	asm ("movl %%cr0, %0":"=r"(val));
+	return val;
+}
+
+/**
  * Sets the value of the CR3 register
  *
  * CR3 stores the Page Directory Base Register
