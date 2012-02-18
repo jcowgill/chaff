@@ -39,7 +39,7 @@ extern void * TssESP0;				//Kernel stack
 extern unsigned long long GdtTLS;	//Current TLS descriptor
 
 //Chooses another thread and runs it
-static void DoSchedule()
+void ProcDoSchedule()
 {
 	//Pop next thread from list
 	ProcThread * newThread;
@@ -111,7 +111,7 @@ void ProcYield()
 		ListHeadAddLast(&ProcCurrThread->schedQueueEntry, &threadQueue);
 
 		//Choose another thread
-		DoSchedule(false);
+		ProcDoSchedule();
 	}
 }
 
@@ -130,7 +130,7 @@ bool ProcYieldBlock(bool interruptable)
 	ProcCurrThread->state = interruptable ? PTS_INTR : PTS_UNINTR;
 
 	//We don't add ourselves to the scheduler list since we're blocked
-	DoSchedule();
+	ProcDoSchedule();
 
 	//Return whether interrupted
 	return ProcCurrThread->schedInterrupted == 1;
@@ -203,7 +203,7 @@ void NORETURN ProcIntSchedulerExitSelf()
 	ProcCurrThread->state = PTS_ZOMBIE;
 
 	//Reschedule
-	DoSchedule();
+	ProcDoSchedule();
 
 	//If we get here, something's gone very wrong
 	Panic("ProcIntSchedulerExitSelf: DoSchedule() returned");
@@ -212,13 +212,13 @@ void NORETURN ProcIntSchedulerExitSelf()
 //Exits the boot code to continue running threads as normal
 void NORETURN ProcExitBootMode()
 {
-	//DoSchedule requires a current thread
+	//ProcDoSchedule requires a current thread
 	// We use the interrupts thread - shouldn't really be used but i don't care
 	// so there
 	ProcCurrThread = ProcInterruptsThread;
 
 	//Reschedule
-	DoSchedule();
+	ProcDoSchedule();
 
 	//If we get here, something's gone very wrong
 	Panic("ProcIntSchedulerExitSelf: DoSchedule() returned");

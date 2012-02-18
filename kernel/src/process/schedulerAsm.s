@@ -24,7 +24,7 @@ global ProcIntUserThreadEntry
 global ProcIntIdleThread
 global ProcIntKernelThreadReturn
 
-extern ProcYield
+extern ProcDoSchedule
 extern ProcExitThread
 
 ;This is STDCALL
@@ -110,5 +110,5 @@ ProcIntIdleThread:
 	hlt
 	cli
 
-	call ProcYield
+	call ProcDoSchedule
 	jmp ProcIntIdleThread
