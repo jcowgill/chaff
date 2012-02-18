@@ -27,44 +27,58 @@
 #define CR0_TS_BIT (1 << 3)
 #define FPU_INIT_CTRL 0x37F
 
+#define FPU_STATE_ALIGN(statePtr) (unsigned short *) (((unsigned int) (statePtr) + 8) & ~0xF)
+
 //Current thread registers
 // fpuState must be valid for these
-ProcThread * CpuFpuCurrRegisters = NULL;
+static ProcThread * fpuCurrent = NULL;
 
 //Does the requested FPU switch
 // TS bit must be cleared before this
 static void DoFpuSwitch()
 {
+	unsigned short * alignedFpuState;
+
 	//Use new FXSAVE?
 	if(CpuHasFxSave())
 	{
 		//Save old registers
-		if(CpuFpuCurrRegisters != NULL)
+		if(fpuCurrent != NULL)
 		{
-			asm volatile("fxsave %0":"=m" (CpuFpuCurrRegisters->fpuState));
+			alignedFpuState = FPU_STATE_ALIGN(fpuCurrent->fpuState);
+			asm volatile("fxsave %0":"=m" (*alignedFpuState));
 		}
 
 		//Check if the new thread has an FPU state
 		if(ProcCurrThread->fpuState == NULL)
 		{
 			//Allocate fpu state
-#warning Needs to be 16 byte aligned
-			ProcCurrThread->fpuState = MAlloc(CPU_EXTRA_FXSAVE);
+#warning Needs to be 16 byte aligned (this works assuming MAlloc aligns to 8 bytes)
+			ProcCurrThread->fpuState = MAlloc(CPU_EXTRA_FXSAVE + 8);
+
+			//Get aligned pointer
+			alignedFpuState = FPU_STATE_ALIGN(ProcCurrThread->fpuState);
 
 			//Wipe and fill with initial FPU control
-			MemSet(ProcCurrThread->fpuState, 0, CPU_EXTRA_FXSAVE);
-			*((unsigned int *) ProcCurrThread->fpuState) = FPU_INIT_CTRL;
+			MemSet(alignedFpuState, 0, CPU_EXTRA_FXSAVE);
+			*alignedFpuState = FPU_INIT_CTRL;
+		}
+		else
+		{
+			//Get aligned state
+			alignedFpuState = FPU_STATE_ALIGN(ProcCurrThread->fpuState);
 		}
 
 		//Restore registers
-		asm volatile("fxrstor %0"::"m"(ProcCurrThread->fpuState));
+		asm volatile("fxrstor %0"::"m"(*alignedFpuState));
 	}
 	else if(CpuHasFpu())
 	{
 		//Save old registers
-		if(CpuFpuCurrRegisters != NULL)
+		if(fpuCurrent != NULL)
 		{
-			asm volatile("fnsave %0; fwait":"=m" (CpuFpuCurrRegisters->fpuState));
+			alignedFpuState = (unsigned short *) fpuCurrent->fpuState;
+			asm volatile("fnsave %0; fwait":"=m" (*alignedFpuState));
 		}
 
 		//Check if the new thread has an FPU state
@@ -72,21 +86,26 @@ static void DoFpuSwitch()
 		{
 			//Allocate fpu state
 			ProcCurrThread->fpuState = MAlloc(CPU_EXTRA_FPU);
+			alignedFpuState = (unsigned short *) ProcCurrThread->fpuState;
 
 			//Wipe and fill with initial FPU control
-			MemSet(ProcCurrThread->fpuState, 0, CPU_EXTRA_FPU);
-			*((unsigned short *) ProcCurrThread->fpuState) = FPU_INIT_CTRL;
+			MemSet(alignedFpuState, 0, CPU_EXTRA_FPU);
+			*alignedFpuState = FPU_INIT_CTRL;
+		}
+		else
+		{
+			alignedFpuState = (unsigned short *) ProcCurrThread->fpuState;
 		}
 
 		//Restore registers
 		// frstor generates exceptions, so we use frstor with the default control word
 		// and then load the separate word with fldcw afterwards
-		unsigned short oldFpuCtrlWord = *((unsigned short *) ProcCurrThread->fpuState);
-		*((unsigned short *) ProcCurrThread->fpuState) = FPU_INIT_CTRL;
+		unsigned short oldFpuCtrlWord = *alignedFpuState;
+		*alignedFpuState = FPU_INIT_CTRL;
 
-		asm volatile("frstor %0; fldcw %1"::"m"(ProcCurrThread->fpuState), "m"(oldFpuCtrlWord));
+		asm volatile("frstor %0; fldcw %1"::"m"(*alignedFpuState), "m"(oldFpuCtrlWord));
 
-		*((unsigned short *) ProcCurrThread->fpuState) = oldFpuCtrlWord;
+		*alignedFpuState = oldFpuCtrlWord;
 	}
 	else
 	{
@@ -95,6 +114,7 @@ static void DoFpuSwitch()
 
 	//Increment number of fpu switches
 	ProcCurrThread->fpuSwitches++;
+	fpuCurrent = ProcCurrThread;
 }
 
 //No Math Coprocessor Exception
@@ -107,7 +127,7 @@ void CpuNoFpuException(struct IntrContext * intrContext)
 	}
 
 	//Do switch or raise exception
-	if(CpuHasFpu() && ProcCurrThread != CpuFpuCurrRegisters)
+	if(CpuHasFpu() && ProcCurrThread != fpuCurrent)
 	{
 		//Clear TS bit
 		setCR0(getCR0() & ~CR0_TS_BIT);
@@ -132,7 +152,7 @@ void CpuTaskSwitched()
 		setCR0(getCR0() & ~CR0_TS_BIT);
 
 		//Are our registers already in the CPU?
-		if(ProcCurrThread != CpuFpuCurrRegisters)
+		if(ProcCurrThread != fpuCurrent)
 		{
 			//Should we update immediately?
 			if(ProcCurrThread->fpuSwitches >= CPU_FPU_SWITCH_THRESHOLD)
@@ -153,9 +173,9 @@ void CpuTaskSwitched()
 void CpuFreeFpuState(ProcThread * thread)
 {
 	//If this thread owns the current registers, clear them
-	if(thread == CpuFpuCurrRegisters)
+	if(thread == fpuCurrent)
 	{
-		CpuFpuCurrRegisters = NULL;
+		fpuCurrent = NULL;
 	}
 
 	//Free state
