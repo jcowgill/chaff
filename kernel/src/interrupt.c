@@ -26,6 +26,7 @@
 #include "exceptions.h"
 #include "timer.h"
 #include "process.h"
+#include "cpu.h"
 
 //Interrupt gate structure
 typedef struct
@@ -69,7 +70,7 @@ static IntrDispatchEntry IntrDispatchTable[0x30] =
 	{ IntrExceptMathTrap, 0, NULL },		//Overflow (INTO)
 	{ IntrExceptMathTrap, 0, NULL },		//Bound range exceeded (BOUND)
 	{ IntrExceptIllOpcodeFault, 0, NULL },	//Illegal opcode
-	{ IntrExceptMathFault, 0, NULL },		//No math coprocessor
+	{ CpuNoFpuException, 0, NULL },			//No math coprocessor
 	{ IntrExceptError, 0, NULL },			//Double Fault
 	{ IntrExceptProtectionFault, 0, NULL }, //Coprocessor segment overrun
 	{ IntrExceptError, 0, NULL },			//Invalid TSS

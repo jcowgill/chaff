@@ -24,6 +24,7 @@
 #include "processInt.h"
 #include "timer.h"
 #include "mm/region.h"
+#include "cpu.h"
 
 //Scheduler functions
 
@@ -84,6 +85,9 @@ void ProcDoSchedule()
 		ProcThread * oldThread = ProcCurrThread;
 		ProcCurrThread = newThread;
 		ProcCurrProcess = newThread->parent;
+
+		//FPU Task Switch
+		CpuTaskSwitched();
 
 		//Last thing - switch stack
 		// Note this function may not return to this position if a new thread is being run

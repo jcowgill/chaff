@@ -204,6 +204,18 @@ typedef struct ProcThread
 	/** @} */
 
 	/**
+	 * Stores a pointer to the FPU / SSE state of a thread
+	 */
+	void * fpuState;
+
+	/**
+	 * The number of FPU switches this thread has made
+	 *
+	 * When this is high, the scheduler switches the state immediately instead of lazily switching
+	 */
+	unsigned char fpuSwitches;
+
+	/**
 	 * Pending signal set (thread local)
 	 */
 	ProcSigSet sigPending;

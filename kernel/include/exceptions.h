@@ -34,7 +34,6 @@
  * Fatal math exception
  *
  * - Divide by zero
- * - No math coprocessor
  * - FPU error
  *
  * Raises SIGFPU. Kills process if this is ignored.

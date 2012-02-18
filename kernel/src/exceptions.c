@@ -27,7 +27,7 @@
 
 void IntrExceptMathFault(IntrContext * iContext)
 {
-	//Divide by zero, No math coprocessor, FPU error
+	//Divide by zero, FPU error
 	if(iContext->cs == 0x08)
 	{
 		Panic("IntrExceptMathFault: Math error in kernel space");
