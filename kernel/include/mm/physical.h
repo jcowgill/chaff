@@ -28,6 +28,8 @@
 #ifndef MM_PHYSICAL_H_
 #define MM_PHYSICAL_H_
 
+#include "chaff.h"
+
 /**
  * Type used for physical page identifiers
  */
@@ -43,8 +45,42 @@ typedef int MemPhysPage;
  */
 #define PAGE_SIZE 4096
 
-//Allocates physical pages
-// This function can return any free page
+/**
+ * Final memory address not identity mapped into kernel space
+ */
+#define MEM_KFIXED_MAX 0xFF000000
+
+/**
+ * The page after the last page identity mapped into kernel space
+ */
+#define MEM_KFIXED_MAX_PAGE ((MEM_KFIXED_MAX - (unsigned int) KERNEL_VIRTUAL_BASE) / PAGE_SIZE)
+
+/**
+ * Gets the address of a physical page mapped directly into kernel space
+ *
+ * This can only be used for pages allocated in the #MEM_DMA and #MEM_KERNEL zones (not #MEM_HIGHMEM)
+ */
+#define MEM_PPAGE_ADDR(page) ((void *) ((unsigned int) KERNEL_VIRTUAL_BASE + (page) * PAGE_SIZE))
+
+/**
+ * @name Allocation Zones
+ * @{
+ */
+
+#define MEM_DMA 0		///< Memory under 16MB which can be used for direct memory access
+#define MEM_KERNEL 1	///< Memory mapped for use by the kernel (general structures)
+#define MEM_HIGHMEM 2	///< Memory above 1GB which cannot directly be used by the kernel
+						///< (usually used for user mode memory)
+
+/** @} */
+
+/**
+ * Initializes the physical memory manager zones
+ *
+ * @param totalPages total number of physical pages available
+ * @private
+ */
+void MemPhysicalInit(unsigned int totalPages);
 
 /**
  * Allocates normal physical pages
@@ -53,24 +89,15 @@ typedef int MemPhysPage;
  *
  * The pages returned will have a reference count of 1.
  *
+ * Zones "contain" all the zones that are below them. This means, requesting memory
+ * from #MEM_HIGHMEM could return memory from the #MEM_DMA zone (but not vice-versa).
+ *
  * @param number number of pages to allocate
+ * @param zone zone to allocate memory from - one of #MEM_DMA, #MEM_KERNEL or #MEM_HIGHMEM
  * @return the first page in the allocated series
  * @bug panics when out of memory
  */
-MemPhysPage MemPhysicalAlloc(unsigned int number);
-
-/**
- * Allocates physical pages in the ISA region (< 16M)
- *
- * This function allocates the specified number of physical pages in contiguous physical space.
- *
- * The pages returned will have a reference count of 1.
- *
- * @param number number of pages to allocate
- * @return the first page in the allocated series
- * @bug panics when out of memory
- */
-MemPhysPage MemPhysicalAllocISA(unsigned int number);
+MemPhysPage MemPhysicalAlloc(unsigned int number, int zone);
 
 /**
  * Adds a reference to the given page(s)

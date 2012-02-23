@@ -22,160 +22,142 @@
 #include "chaff.h"
 #include "mm/physical.h"
 
-//Beginning of main (non ISA) section
-#define physMainStart (MemPageStateTable + 4096)
+//Contains information about a zone of physical memory
+typedef struct MemPhysicalZone
+{
+	MemPageStatus * headPtr;
+	MemPageStatus * start;
+	MemPageStatus * end;
 
-//Head of the physical state table
-static MemPageStatus * physHead = physMainStart;
-static MemPageStatus * physHeadISA = MemPageStateTable;
+} MemPhysicalZone;
+
+//Memory zones (dma, kernel, high)
+static MemPhysicalZone zones[3];
 
 //Page counts
 unsigned int MemPhysicalTotalPages = 0;
 unsigned int MemPhysicalFreePages = 0;
 
-//Allocates physical pages
-MemPhysPage MemPhysicalAlloc(unsigned int number)
+//Sets up the zones using the given total number of pages
+void MemPhysicalInit(unsigned int totalPages)
 {
-	MemPageStatus * startHead = physHead;
-
-	MemPageStatus * firstFree = NULL;
-	unsigned int freeLength;
-
-	//Handle 0 page request
-	if(number == 0)
+	//DMA zone
+	if(totalPages <= 0x1000)
 	{
-		PrintLog(Error, "MemPhysicalAllocate Request for 0 pages");
-		return INVALID_PAGE;
+		//Set zone to end of memory
+		zones[MEM_DMA].end = &MemPageStateTable[totalPages];
 	}
-
-	//Check for high memory
-	if(MemPageStateTableEnd >= physMainStart)
+	else
 	{
-		//Go through bitmap looking for area big enough
-		do
+		//Set zone to end of DMA region
+		zones[MEM_DMA].end = &MemPageStateTable[0x1000];
+		zones[MEM_KERNEL].start = &MemPageStateTable[0x1000];
+		zones[MEM_KERNEL].headPtr = &MemPageStateTable[0x1000];
+
+		//Kernel zone
+		if(totalPages <= MEM_KFIXED_MAX_PAGE)
 		{
-			//Ensure head is in the bitmap
-			if(physHead >= MemPageStateTableEnd)
-			{
-				//Restore to beginning
-				physHead = physMainStart;
-			}
-
-			//Check if there is a free page
-			if(physHead->refCount == 0)
-			{
-				if(firstFree == NULL)
-				{
-					//Set as first free
-					firstFree = physHead;
-					freeLength = 1;
-				}
-				else
-				{
-					//Set as another free
-					++freeLength;
-				}
-
-				//Enough?
-				if(freeLength == number)
-				{
-					//Decrement free pages
-					MemPhysicalFreePages -= number;
-
-					//Increment refcounts
-					for(MemPageStatus * page = firstFree; number > 0; ++page, --number)
-					{
-						page->refCount = 1;
-					}
-
-					return ((unsigned int) firstFree - (unsigned int) MemPageStateTable) / sizeof(MemPageStatus);
-				}
-			}
-			else
-			{
-				//No free here
-				firstFree = NULL;
-			}
-
-			//Move on head
-			++physHead;
-		}
-		while(physHead != startHead);
-	}
-
-	//Out of main memory - use ISA region
-	return MemPhysicalAllocISA(number);
-}
-
-//Allocates physical pages for ISA
-MemPhysPage MemPhysicalAllocISA(unsigned int number)
-{
-	//Save head at beginning
-	MemPageStatus * startHead = physHeadISA;
-
-	MemPageStatus * firstFree = NULL;
-	unsigned int freeLength;
-
-	//Handle 0 page request
-	if(number == 0)
-	{
-		PrintLog(Error, "MemPhysicalAllocateISA Request for 0 pages");
-		return INVALID_PAGE;
-	}
-
-	//Go through bitmap looking for area big enough
-	do
-	{
-		//Ensure head is in the bitmap
-		if(physHeadISA >= physMainStart || physHeadISA >= MemPageStateTableEnd)
-		{
-			//Restore to beginning
-			physHeadISA = MemPageStateTable;
-		}
-
-		//Check if there is a free page
-		if(physHeadISA->refCount == 0)
-		{
-			if(firstFree == NULL)
-			{
-				//Set as first free
-				firstFree = physHeadISA;
-				freeLength = 0;
-			}
-			else
-			{
-				//Set as another free
-				++freeLength;
-			}
-
-			//Enough?
-			if(freeLength == number)
-			{
-				//Decrement free pages
-				MemPhysicalFreePages -= number;
-
-				//Increment refcounts
-				for(MemPageStatus * page = firstFree; number > 0; ++page, --number)
-				{
-					page->refCount = 1;
-				}
-
-				return ((unsigned int) firstFree - (unsigned int) MemPageStateTable) / sizeof(MemPageStatus);
-			}
+			//Set zone to end of memory
+			zones[MEM_KERNEL].end = &MemPageStateTable[totalPages];
 		}
 		else
 		{
-			//No free here
-			firstFree = NULL;
+			//Set kernel zone to end of Kernel region
+			zones[MEM_KERNEL].end = &MemPageStateTable[MEM_KFIXED_MAX_PAGE];
+			zones[MEM_HIGHMEM].start = &MemPageStateTable[MEM_KFIXED_MAX_PAGE];
+			zones[MEM_HIGHMEM].headPtr = &MemPageStateTable[MEM_KFIXED_MAX_PAGE];
+
+			//Set high zone to end of memory
+			zones[MEM_HIGHMEM].end = &MemPageStateTable[totalPages];
 		}
-
-		//Move on head
-		++physHeadISA;
 	}
-	while(physHeadISA != startHead);
+}
 
-	//Out of memory!
-	Panic("Out of memory");
+//Allocates physical pages
+MemPhysPage MemPhysicalAlloc(unsigned int number, int zone)
+{
+	//Validate parameters
+	if(number == 0)
+	{
+		PrintLog(Error, "MemPhysicalAlloc: Request for 0 pages");
+		return INVALID_PAGE;
+	}
+
+	if(zone < 0 || zone >= 3)
+	{
+		PrintLog(Error,"MemPhysicalAlloc: Invalid allocation mode");
+		return INVALID_PAGE;
+	}
+
+	//Start zones loop
+	for(; zone > 0; --zone)
+	{
+		//Ensure zone exists
+		if(zones[zone].end > zones[zone].start)
+		{
+			//Start bitmap lookup
+			MemPageStatus * head = zones[zone].headPtr;
+
+			MemPageStatus * firstFree = NULL;
+			unsigned int freeLength;
+
+			do
+			{
+				//Wrap around head pointer
+				if(head >= zones[zone].end)
+				{
+					head = zones[zone].start;
+				}
+
+				//Check if there is a free page
+				if(head->refCount == 0)
+				{
+					if(firstFree == NULL)
+					{
+						//Set as first free
+						firstFree = head;
+						freeLength = 1;
+					}
+					else
+					{
+						//Set as another free
+						++freeLength;
+					}
+
+					//Enough?
+					if(freeLength == number)
+					{
+						//Decrement free pages
+						MemPhysicalFreePages -= number;
+
+						//Increment refcounts
+						for(MemPageStatus * page = firstFree; number > 0; ++page, --number)
+						{
+							page->refCount = 1;
+						}
+
+						//Update zone head
+						zones[zone].headPtr = head;
+
+						//Return first page in set
+						return ((unsigned int) firstFree - (unsigned int) MemPageStateTable) / sizeof(MemPageStatus);
+					}
+				}
+				else
+				{
+					//No free here
+					firstFree = NULL;
+				}
+
+				//Move on head
+				++head;
+			}
+			while(head != zones[zone].headPtr);
+		}
+	}
+
+	//If we're here, we're out of memory!
+	Panic("MemPhysicalAlloc: Out of memory");
 }
 
 //Adds a reference to the given page(s)
