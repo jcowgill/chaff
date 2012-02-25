@@ -37,11 +37,11 @@ void NORETURN kMain(unsigned int mBootCode, multiboot_info_t * mBootInfo)
 		Panic("kMain: OS must be loaded by a multiboot bootloader");
 	}
 
-	// Initialize memory manager
-	MemManagerInit(mBootInfo);
-
 	// Initialize CPU specific instructions
 	CpuInit();
+
+	// Initialize memory manager
+	MemManagerInit(mBootInfo);
 
 	// Initialize interrupts
 	IntrInit();

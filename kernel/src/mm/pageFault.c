@@ -79,7 +79,7 @@ void MemPageFaultHandler(IntrContext * intContext)
 				{
 					//Duplicate page first
 					unsigned int * basePageAddr = (unsigned int *) ((unsigned int) faultAddress & 0xFFFFF000);
-					MemPhysPage newPage = MemPhysicalAlloc(1);
+					MemPhysPage newPage = MemPhysicalAlloc(1, MEM_HIGHMEM);
 
 					MemIntMapTmpPage(MEM_TEMPPAGE2, newPage);
 						MemCpy(MEM_TEMPPAGE2, basePageAddr, 4096);
@@ -104,7 +104,7 @@ void MemPageFaultHandler(IntrContext * intContext)
 			{
 				//Map page
 				unsigned int * basePageAddr = (unsigned int *) ((unsigned int) faultAddress & 0xFFFFF000);
-				MemIntMapPage(basePageAddr, MemPhysicalAlloc(1), region->flags);
+				MemIntMapPage(basePageAddr, MemPhysicalAlloc(1, MEM_HIGHMEM), region->flags);
 
 				//Wipe page
 				MemSet(basePageAddr, 0, 4096);

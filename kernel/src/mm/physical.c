@@ -35,17 +35,20 @@ typedef struct MemPhysicalZone
 static MemPhysicalZone zones[3];
 
 //Page counts
-unsigned int MemPhysicalTotalPages = 0;
-unsigned int MemPhysicalFreePages = 0;
+unsigned int MemPhysicalTotalPages;
+unsigned int MemPhysicalFreePages;
 
 //Sets up the zones using the given total number of pages
-void MemPhysicalInit(unsigned int totalPages)
+void MemPhysicalInit()
 {
+	//Calculate highest page from end of page state table
+	unsigned int highestPage = (MemPageStateTableEnd - MemPageStateTable) / sizeof(MemPageStatus);
+
 	//DMA zone
-	if(totalPages <= 0x1000)
+	if(highestPage <= 0x1000)
 	{
 		//Set zone to end of memory
-		zones[MEM_DMA].end = &MemPageStateTable[totalPages];
+		zones[MEM_DMA].end = &MemPageStateTable[highestPage];
 	}
 	else
 	{
@@ -55,10 +58,10 @@ void MemPhysicalInit(unsigned int totalPages)
 		zones[MEM_KERNEL].headPtr = &MemPageStateTable[0x1000];
 
 		//Kernel zone
-		if(totalPages <= MEM_KFIXED_MAX_PAGE)
+		if(highestPage <= MEM_KFIXED_MAX_PAGE)
 		{
 			//Set zone to end of memory
-			zones[MEM_KERNEL].end = &MemPageStateTable[totalPages];
+			zones[MEM_KERNEL].end = &MemPageStateTable[highestPage];
 		}
 		else
 		{
@@ -68,7 +71,7 @@ void MemPhysicalInit(unsigned int totalPages)
 			zones[MEM_HIGHMEM].headPtr = &MemPageStateTable[MEM_KFIXED_MAX_PAGE];
 
 			//Set high zone to end of memory
-			zones[MEM_HIGHMEM].end = &MemPageStateTable[totalPages];
+			zones[MEM_HIGHMEM].end = &MemPageStateTable[highestPage];
 		}
 	}
 }

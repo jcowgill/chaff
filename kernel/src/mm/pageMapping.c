@@ -91,7 +91,7 @@ void MemIntMapPage(void * address, MemPhysPage page, MemRegionFlags flags)
 	if(!pDir->present)
 	{
 		//Create page table
-		pDir->pageID = MemPhysicalAlloc(1);
+		pDir->pageID = MemPhysicalAlloc(1, MEM_KERNEL);
 		pDir->writable = 1;
 
 		if(addr < 0xC0000000)

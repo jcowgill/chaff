@@ -175,6 +175,14 @@ CpuInit:
 	mov edx, dword [CpuFeaturesEDX]
 	xor ecx, ecx
 
+	;Page Size Extensions (4MB pages)
+	test edx, (1 << 3)
+	jz .noPSE
+
+	;Enable page size extensions
+	or ecx, 0x10	;Set PSE bit
+
+.noPSE:
 	;Machine check exception
 	test edx, (1 << 7)
 	jz .noMachineCheck

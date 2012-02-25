@@ -48,7 +48,7 @@ typedef int MemPhysPage;
 /**
  * Final memory address not identity mapped into kernel space
  */
-#define MEM_KFIXED_MAX 0xFF000000
+#define MEM_KFIXED_MAX 0xF0000000
 
 /**
  * The page after the last page identity mapped into kernel space
@@ -77,10 +77,9 @@ typedef int MemPhysPage;
 /**
  * Initializes the physical memory manager zones
  *
- * @param totalPages total number of physical pages available
  * @private
  */
-void MemPhysicalInit(unsigned int totalPages);
+void MemPhysicalInit();
 
 /**
  * Allocates normal physical pages
@@ -126,7 +125,9 @@ void MemPhysicalDeleteRef(MemPhysPage page, unsigned int number);
 void MemPhysicalFree(MemPhysPage page, unsigned int number);
 
 /**
- * Total number of pages in RAM
+ * Total usable number of pages in RAM
+ *
+ * This is for statistical purposes only. It DOES NOT say where the highest avaliable page is.
  */
 extern unsigned int MemPhysicalTotalPages;
 
@@ -152,7 +153,7 @@ typedef struct
 /**
  * Address of global page state table
  */
-#define MemPageStateTable ((MemPageStatus *) 0xFF800000)
+extern MemPageStatus * MemPageStateTable;
 
 /**
  * Address of the end of the page state table (after end)
