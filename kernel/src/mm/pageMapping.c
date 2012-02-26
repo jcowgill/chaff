@@ -23,52 +23,102 @@
 #include "inlineasm.h"
 #include "mm/pagingInt.h"
 #include "mm/region.h"
+#include "mm/physical.h"
+#include "mm/kmemory.h"
 
-//Page table for tmp pages
-MemPageTable kernelPageTable253[1024] __attribute__((aligned(4096)));
-
-//Increments the counter for the page directory containing this page table
-static void IncrementCounter(MemPageTable * table)
+//Kernel page mapper
+bool MemMapPage(void * address, MemPhysPage page)
 {
-	//Get first page table in directory
-	MemPageTable * firstTable = (MemPageTable *) ((unsigned int) table & 0xFFFFF000);
-			
-	//Increment from least significant to most significant
-	for(;;)
-	{
-	    //Increment, and it it's too much, go to next one
-	    if(firstTable->tableCount++ != 7)
-	    {
-	        //Finished, exit
-	        return;
-		}
-	    
-	    ++firstTable;
-	}
-}
-
-//Decrements the counter for the page directory containing this page table
-// Returns true if no pages left
-static bool DecrementCounter(MemPageTable * table)
-{
-	//Get first page table in directory
-	MemPageTable * firstTable = (MemPageTable *) ((unsigned int) table & 0xFFFFF000);
-
-	//Handle first iteration separately
-	if(firstTable->tableCount-- > 1)
+	//Validate address
+	unsigned int addr = ((unsigned int) address) & 0xFFFFF000;
+	if(addr < MEM_KFIXED_MAX || addr == 0xFFFFC000)
 	{
 		return false;
 	}
 
-	//Increment from second to least significant to most significant
+	//Get page table entry
+	MemPageTable * tableEntry = MemVirtualPageTables + ((addr - MEM_KFIXED_MAX) / 4096);
+
+	//Already mapped?
+	if(tableEntry->present)
+	{
+		return false;
+	}
+	else
+	{
+		//Write page information
+		tableEntry->rawValue = 0;
+		tableEntry->present = 1;
+		tableEntry->writable = 1;
+		tableEntry->global = 1;
+		tableEntry->pageID = page;
+
+		invlpg(address);
+		return true;
+	}
+}
+
+//Kernel page unmapper
+bool MemUnmapPage(void * address)
+{
+	//Validate address
+	unsigned int addr = ((unsigned int) address) & 0xFFFFF000;
+	if(addr < MEM_KFIXED_MAX)
+	{
+		return false;
+	}
+
+	//Get page table entry
+	MemPageTable * tableEntry = MemVirtualPageTables + ((addr - MEM_KFIXED_MAX) / 4096);
+
+	//Already mapped?
+	if(tableEntry->present)
+	{
+		//Wipe value and invalidate
+		tableEntry->rawValue = 0;
+
+		invlpg(address);
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+//Increments the counter for the given page directory
+static void IncrementCounter(MemPageDirectory * dir)
+{
+	//Increment from least significant to most significant
+	for(int i = 0; ; i++)
+	{
+	    //Increment, and it it's too much, go to next one
+	    if(++((MemPageTable *) MemPageAddr(dir[i].pageID))->tableCount != 0)
+	    {
+	        //Finished, exit
+	        return;
+		}
+	}
+}
+
+//Decrements the counter for the given page directory
+// Returns true if no pages left
+static bool DecrementCounter(MemPageDirectory * dir)
+{
+	//Handle first iteration separately
+	if(--((MemPageTable *) MemPageAddr(dir[0].pageID))->tableCount == 0)
+	{
+		return false;
+	}
+
+	//Decrement from second to least significant to most significant
 	for(int i = 1; i < 5; ++i)
 	{
-	    ++firstTable;
-	    
 	    //Decrement, if it was not 0 then go to next one
-		if(firstTable->tableCount-- != 0)
+		// If it was zero, we must "carry" to the next place
+		if(((MemPageTable *) MemPageAddr(dir[i].pageID))->tableCount-- != 0)
 		{
-		    return false;
+			return false;
 		}
 	}
 	
@@ -76,7 +126,8 @@ static bool DecrementCounter(MemPageTable * table)
 	return true;
 }
 
-void MemIntMapPage(void * address, MemPhysPage page, MemRegionFlags flags)
+//Maps user mode pages
+void MemIntMapUserPage(MemContext * context, void * address, MemPhysPage page, MemRegionFlags flags)
 {
 	//Ignore request if no readable, writable or executable flags
 	if((flags & (MEM_READABLE | MEM_WRITABLE | MEM_EXECUTABLE)) == 0)
@@ -84,40 +135,30 @@ void MemIntMapPage(void * address, MemPhysPage page, MemRegionFlags flags)
 	    return;
 	}
 
+	//Verify kernel maps are in the virtual region
+	if(address >= KERNEL_VIRTUAL_BASE)
+	{
+		Panic("MemIntMapUserPage: cannot map kernel pages");
+	}
+
 	//Ensure page table for address exists
 	unsigned int addr = (unsigned int) address;
-	MemPageDirectory * pDir = THIS_PAGE_DIRECTORY + (addr >> 22);
+	MemPageDirectory * pDir = &((MemPageDirectory *) MemPageAddr(context->physDirectory))[addr >> 22];
 
 	if(!pDir->present)
 	{
 		//Create page table
 		pDir->pageID = MemPhysicalAlloc(1, MEM_KERNEL);
 		pDir->writable = 1;
-
-		if(addr < 0xC0000000)
-		{
-			pDir->userMode = 1;
-		}
-		else
-		{
-			pDir->global = 1;		//For when this is interpreted as a page table
-		}
-		
+		pDir->userMode = 1;
 		pDir->present = 1;
 		
 		//Wipe page
-		MemSet((void *) ((unsigned int) (THIS_PAGE_TABLES + (addr >> 12)) & 0xFFFFF000), 0, 4096);
-		
-		//If kernel mode, update version and copy entry
-		if(addr >= 0xC0000000)
-		{
-			MemCurrentContext->kernelVersion = ++MemKernelContext->kernelVersion;
-            MemKernelPageDirectory[addr >> 22].rawValue = pDir->rawValue;
-		}
+		MemSet(MemPageAddr(pDir->pageID), 0, 4096);
 	}
 
 	//Get table entry
-	MemPageTable * pTable = THIS_PAGE_TABLES + (addr >> 12);
+	MemPageTable * pTable = &((MemPageTable *) MemPageAddr(pDir->pageID))[addr >> 12];
 
 	//Check if we'll be overwriting it
 	if(pTable->present)
@@ -133,44 +174,34 @@ void MemIntMapPage(void * address, MemPhysPage page, MemRegionFlags flags)
 	}
 	else
 	{
-		IncrementCounter(pTable);
+		IncrementCounter(pDir);
 	}
 	
-	//Set properties
-	pTable->pageID = page;
-
-	//Page is writable
-	pTable->writable = (flags & MEM_WRITABLE) ? 1 : 0;
-
-	//Disable cache
-	pTable->cacheDisable = (flags & MEM_CACHEDISABLE) ? 1 : 0;
-
-	if(addr < 0xC0000000)
-	{
-	    //Page is user-mode
-	    pTable->userMode = 1;
-	}
-	else
-	{
-	    //Kernel mode pages are global
-	    pTable->global = 1;
-	}
-	
-	//Page is present
+	//Set page properties
 	pTable->present = 1;
+	pTable->userMode = 1;
+	pTable->writable = (flags & MEM_WRITABLE) ? 1 : 0;
+	pTable->cacheDisable = (flags & MEM_CACHEDISABLE) ? 1 : 0;
+	pTable->pageID = page;
 }
 
-//Unmaps a page and returns the page which was unmapped
-MemPhysPage UnmapPage(void * address)
+//Unmaps a user mode page and returns the page which was unmapped
+MemPhysPage MemIntUnmapUserPage(MemContext * context, void * address)
 {
+	//Refuse kernel mode
+	if(address >= KERNEL_VIRTUAL_BASE)
+	{
+		Panic("MemIntUnmapUserPage: cannot unmap kernel pages");
+	}
+
 	//Only unmap if page table for address exists
 	unsigned int addr = (unsigned int) address;
-	MemPageDirectory * pDir = THIS_PAGE_DIRECTORY + (addr >> 22);
+	MemPageDirectory * pDir = &((MemPageDirectory *) MemPageAddr(context->physDirectory))[addr >> 22];
 
 	if(pDir->present)
 	{
 		//Get table entry
-		MemPageTable * pTable = THIS_PAGE_TABLES + (addr >> 12);
+		MemPageTable * pTable = &((MemPageTable *) MemPageAddr(pDir->pageID))[addr >> 12];
 		
 		//Only unmap if present
 		if(pTable->present)
@@ -178,18 +209,11 @@ MemPhysPage UnmapPage(void * address)
 		    MemPhysPage page = pTable->pageID;
 
 	        //Decrement counter
-	        if(DecrementCounter(pTable))
+	        if(DecrementCounter(pDir))
 	        {
 	            //No more pages left in page table - we can destroy it!
 	            MemPhysicalFree(pDir->pageID, 1);
 	            pDir->rawValue = 0;
-	            
-	            //If kernel mode, update version
-				if(addr >= 0xC0000000)
-				{
-					MemCurrentContext->kernelVersion = ++MemKernelContext->kernelVersion;
-		            MemKernelPageDirectory[addr >> 22].rawValue = 0;
-				}
 			}
 			else
 			{
@@ -207,69 +231,4 @@ MemPhysPage UnmapPage(void * address)
 	}
 	
 	return INVALID_PAGE;
-}
-
-void MemIntUnmapPage(void * address)
-{
-	UnmapPage(address);
-}
-
-void MemIntUnmapPageAndFree(void * address)
-{
-	MemPhysPage page = UnmapPage(address);
-	
-	if(page != INVALID_PAGE)
-	{
-	    MemPhysicalDeleteRef(page, 1);
-	}
-}
-
-void MemIntMapTmpPage(void * address, MemPhysPage page)
-{
-	//Map page (very simple)
-	unsigned int addr = (unsigned int) address;
-
-	if(addr < 0xFF400000 || addr >= 0xFF800000)
-	{
-		Panic("MemIntMapTmpPage: can only map pages in the temporary page zone");
-	}
-
-	//Get page table
-	MemPageTable * pTable = THIS_PAGE_TABLES + (addr >> 12);
-
-	//Overwrite?
-	if(pTable->present)
-	{
-		PrintLog(Warning, "MemIntMapTmpPage: Overwriting temporary page table entry");
-	}
-
-	//Set properties
-	pTable->rawValue = 0;
-	pTable->present = 1;
-	pTable->global = 1;
-	pTable->writable = 1;
-	pTable->pageID = page;
-
-	//Invalidate page
-	invlpg(address);
-}
-
-void MemIntUnmapTmpPage(void * address)
-{
-	//Unmap page (very simple)
-	unsigned int addr = (unsigned int) address;
-
-	if(addr < 0xFF400000 || addr >= 0xFF800000)
-	{
-		Panic("MemIntUnmapTmpPage: can only unmap pages in the temporary page zone");
-	}
-
-	//Get page table
-	MemPageTable * pTable = THIS_PAGE_TABLES + (addr >> 12);
-
-	//Set properties
-	pTable->rawValue = 0;
-
-	//Invalidate page
-	invlpg(address);
 }

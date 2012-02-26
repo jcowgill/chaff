@@ -51,16 +51,4 @@ void MemPageFaultHandler(IntrContext * context);
  */
 void MAllocInit();
 
-/**
- * Create a new region from static (non allocated) memory
- *
- * This is used to create fundamental regions before MAlloc has been setup.
- *
- * Drivers SHOULD NOT use this since the created regions cannot be deleted by MemRegionDelete().
- *
- * @see MemRegionCreate
- */
-bool MemRegionCreateStatic(MemContext * context, void * startAddress,
-		unsigned int length, MemRegionFlags flags, MemRegion * newRegion);
-
 #endif

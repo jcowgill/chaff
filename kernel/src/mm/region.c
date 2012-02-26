@@ -250,17 +250,10 @@ void MemRegionFreePages(MemRegion * region, void * address, unsigned int length)
 	//Free pages
 	MemContext * context = region->myContext;
 
-#warning MEM Review This
-/*
-	CONTEXT_SWAP(context)
+	for(; startAddr < endAddr; startAddr += 4096)
 	{
-		for(; startAddr < endAddr; startAddr += 4096)
-		{
-			MemIntUnmapPageAndFree((void *) startAddr);
-		}
+		MemIntUnmapUserPageAndFree(context, (void *) startAddr);
 	}
-	CONTEXT_SWAP_END
-	*/
 }
 
 //Finds the region which contains the given address
@@ -338,8 +331,7 @@ MemRegion * MemRegionCreate(MemContext * context, void * startAddress,
 	}
 
 	//Validate addresses
-	if((context == MemKernelContext && (startAddr < 0xC0000000 || startAddr + length >= (unsigned int) MEM_TEMPPAGE1)) ||
-		(context != MemKernelContext && (startAddr == 0 || startAddr + length >= 0xC0000000)))
+	if((startAddr == 0 || startAddr + length >= 0xC0000000))
 	{
 		PrintLog(Error, "MemRegionCreate: Region outside valid range");
 		return NULL;
@@ -427,17 +419,10 @@ void MemRegionResize(MemRegion * region, unsigned int newLength)
 
 		//Free pages in region
 		// Fixed pages are also freed (ref count decrement)
-#warning MEM Review This
-		/*
-		CONTEXT_SWAP(context)
+		for(; start < end; start += 4096)
 		{
-			for(; start < end; start += 4096)
-			{
-				MemIntUnmapPageAndFree((void *) start);
-			}
+			MemIntUnmapUserPageAndFree(context, (void *) start);
 		}
-		CONTEXT_SWAP_END
-		*/
 	}
 	else
 	{
@@ -449,26 +434,12 @@ void MemRegionResize(MemRegion * region, unsigned int newLength)
 			return;
 		}
 
-		//Disallow if it enters restricted area
-		if(region->start < 0xC0000000)
+		//Do not enter kernel zone
+		if(region->start + newLength > 0xC0000000)
 		{
-			//Do not enter kernel zone
-			if(region->start + newLength > 0xC0000000)
-			{
-				//Error
-				PrintLog(Error, "MemRegionResize: User mode region cannot be resized into kernel mode");
-				return;
-			}
-		}
-		else
-		{
-			//Do not enter memory manager zone
-			if(region->start + newLength > (unsigned int) MEM_TEMPPAGE1)
-			{
-				//Error
-				PrintLog(Error, "MemRegionResize: Region cannot be resized into memory manager area");
-				return;
-			}
+			//Error
+			PrintLog(Error, "MemRegionResize: User mode region cannot be resized into kernel mode");
+			return;
 		}
 
 		//Check for collision into next region

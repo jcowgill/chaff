@@ -10,9 +10,9 @@
 00001000   User mode code
 
 ==Kernel Mode==
-C0000000   Mapped to first physical memory.
+C0000000   Mapped to first physical memory
 F0000000   Mapped to custom virtual memory
-FFC00000   Memory manager temporary mappings (memory manager use only)
+FFFF0000   Memory manager temporary mappings (memory manager use only)
 FFFFC000   Reserved (cannot be mapped)
 @endverbatim
  */

@@ -31,7 +31,7 @@
 MemPageDirectory MemKernelPageDirectory[1024] __attribute__((aligned(4096)));
 
 //Page tables for virtual memory region (0xF0000000 and above)
-MemPageTable MemVirtualPageTables[64][1024] __attribute__((aligned(4096)));
+MemPageTable MemVirtualPageTables[64 * 1024] __attribute__((aligned(4096)));
 
 //Page status table variables
 MemPageStatus * MemPageStateTable;
@@ -214,9 +214,9 @@ void MemManagerInit(multiboot_info_t * bootInfo)
 		endOfAllocedTable += (MemPhysicalTotalPages * 4 + 4095) / 4096;
 
 		//Setup first virtual page
-		MemVirtualPageTables[0][0].rawValue = 0;
-		MemVirtualPageTables[0][0].present = 1;
-		MemVirtualPageTables[0][0].writable = 1;
+		MemVirtualPageTables[0].rawValue = 0;
+		MemVirtualPageTables[0].present = 1;
+		MemVirtualPageTables[0].writable = 1;
 
 		//Map physical memory
 		for(unsigned int i = 0x300; i < num4MBPages; i++)
@@ -228,23 +228,23 @@ void MemManagerInit(multiboot_info_t * bootInfo)
 			MemKernelPageDirectory[i].pageID = firstPTable;
 
 			//Map table to start of virtual memory
-			MemVirtualPageTables[0][0].pageID = firstPTable;
-			invlpg((void *) 0xF0000000);
+			MemVirtualPageTables[0].pageID = firstPTable;
+			invlpg((void *) MEM_KFIXED_MAX);
 
 			//Fill table
 			for(unsigned int j = 0; j < 1024; j++)
 			{
-				((MemPageTable *) 0xF0000000)[j].rawValue = 0;
-				((MemPageTable *) 0xF0000000)[j].present = 1;
-				((MemPageTable *) 0xF0000000)[j].writable = 1;
-				((MemPageTable *) 0xF0000000)[j].global = 1;
-				((MemPageTable *) 0xF0000000)[j].pageID = ((i - 0x300) * 0x400) + j;
+				((MemPageTable *) MEM_KFIXED_MAX)[j].rawValue = 0;
+				((MemPageTable *) MEM_KFIXED_MAX)[j].present = 1;
+				((MemPageTable *) MEM_KFIXED_MAX)[j].writable = 1;
+				((MemPageTable *) MEM_KFIXED_MAX)[j].global = 1;
+				((MemPageTable *) MEM_KFIXED_MAX)[j].pageID = ((i - 0x300) * 0x400) + j;
 			}
 		}
 
 		//Clear first virtual page
-		MemVirtualPageTables[0][0].rawValue = 0;
-		invlpg((void *) 0xF0000000);
+		MemVirtualPageTables[0].rawValue = 0;
+		invlpg((void *) MEM_KFIXED_MAX);
 	}
 
 	//PHASE 3 - Fill memory table
