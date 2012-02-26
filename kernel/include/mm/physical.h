@@ -58,9 +58,15 @@ typedef int MemPhysPage;
 /**
  * Gets the address of a physical page mapped directly into kernel space
  *
- * This can only be used for pages allocated in the #MEM_DMA and #MEM_KERNEL zones (not #MEM_HIGHMEM)
+ * This can only be used for pages allocated in the #MEM_DMA and #MEM_KERNEL zones (not #MEM_HIGHMEM).
+ *
+ * @param page page number to convert
+ * @return kernel mode pointer to page
  */
-#define MEM_PPAGE_ADDR(page) ((void *) ((unsigned int) KERNEL_VIRTUAL_BASE + (page) * PAGE_SIZE))
+static inline void * MemPageAddr(MemPhysPage page)
+{
+	return ((void *) ((unsigned int) KERNEL_VIRTUAL_BASE + (page) * PAGE_SIZE));
+}
 
 /**
  * @name Allocation Zones

@@ -136,7 +136,7 @@ typedef union
 /**
  * Kernel page directory
  */
-extern MemPageDirectory kernelPageDirectory[1024];
+extern MemPageDirectory MemKernelPageDirectory[1024];
 
 /**
  * 254th Kernel page directory
@@ -191,20 +191,6 @@ void MemIntMapTmpPage(void * address, MemPhysPage page);
 void MemIntUnmapTmpPage(void * address);
 
 /**
- * Location of page directory for the current memory context
- *
- * This is automatically updated and ALWAYS has the table for the current context
- */
-#define THIS_PAGE_DIRECTORY ((MemPageDirectory *) 0xFFFFF000)
-
-/**
- * Location of page tables for the current memory context
- *
- * This is automatically updated and ALWAYS has the table for the current context
- */
-#define THIS_PAGE_TABLES ((MemPageTable *) 0xFFC00000)
-
-/**
  * Temporary page 1
  *
  * Must be unmapped while outside memory functions
@@ -217,31 +203,5 @@ void MemIntUnmapTmpPage(void * address);
  * Must be unmapped while outside memory functions
  */
 #define MEM_TEMPPAGE2 ((void *) 0xFF401000)
-
-/**
- * Temporarily changes memory context
- *
- * Example:
- * @code
- * ...
- * CONTEXT_SWAP(newContext)
- *
- *     someCodeHere();
- *
- * CONTEXT_SWAP_END
- * ...
- * @endcode
- */
-#define CONTEXT_SWAP(context) \
-{ \
-	unsigned int _oldCR3 = getCR3(); \
-	MemContextSwitchTo(context);
-
-/**
- * Ends temporary change of context
- */
-#define CONTEXT_SWAP_END \
-	setCR3(_oldCR3); \
-}
 
 #endif

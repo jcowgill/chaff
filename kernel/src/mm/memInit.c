@@ -27,12 +27,15 @@
 #include "cpu.h"
 #include "inlineasm.h"
 
-//Page status table variables
-MemPageStatus * MemPageStateTable;
-MemPageStatus * MemPageStateTableEnd;
+//Kernel page directory
+MemPageDirectory MemKernelPageDirectory[1024] __attribute__((aligned(4096)));
 
 //Page tables for virtual memory region (0xF0000000 and above)
 MemPageTable MemVirtualPageTables[64][1024] __attribute__((aligned(4096)));
+
+//Page status table variables
+MemPageStatus * MemPageStateTable;
+MemPageStatus * MemPageStateTableEnd;
 
 //Kernel end symbol
 extern char _kernel_end_page[];
@@ -157,7 +160,7 @@ void MemManagerInit(multiboot_info_t * bootInfo)
 
 	//Set kernel context page directory location
 	MemKernelContext->physDirectory =
-			(((unsigned int) &kernelPageDirectory) - ((unsigned int) KERNEL_VIRTUAL_BASE)) / 4096;
+			(((unsigned int) &MemKernelPageDirectory) - ((unsigned int) KERNEL_VIRTUAL_BASE)) / 4096;
 
 	//Determine if 4MB pages are available
 	bool using4MBPages = CpuFeaturesEDX & (1 << 3);
@@ -170,10 +173,10 @@ void MemManagerInit(multiboot_info_t * bootInfo)
 	for(int i = 0; i < 64; i++)
 	{
 		//Only the directory is setup here
-		kernelPageDirectory[i].rawValue = 0;
-		kernelPageDirectory[i].present = 1;
-		kernelPageDirectory[i].writable = 1;
-		kernelPageDirectory[i].pageID = ((void *) &MemVirtualPageTables[i] - KERNEL_VIRTUAL_BASE) / 4096;
+		MemKernelPageDirectory[i].rawValue = 0;
+		MemKernelPageDirectory[i].present = 1;
+		MemKernelPageDirectory[i].writable = 1;
+		MemKernelPageDirectory[i].pageID = ((void *) &MemVirtualPageTables[i] - KERNEL_VIRTUAL_BASE) / 4096;
 	}
 
 	// Get page directory entries
@@ -196,12 +199,12 @@ void MemManagerInit(multiboot_info_t * bootInfo)
 		//Map physical memory using 4MB pages
 		for(unsigned int i = 0x300; i < num4MBPages; i++)
 		{
-			kernelPageDirectory[i].rawValue = 0;
-			kernelPageDirectory[i].present = 1;
-			kernelPageDirectory[i].writable = 1;
-			kernelPageDirectory[i].hugePage = 1;
-			kernelPageDirectory[i].global = 1;
-			kernelPageDirectory[i].pageID = (i - 0x300) * 0x400;
+			MemKernelPageDirectory[i].rawValue = 0;
+			MemKernelPageDirectory[i].present = 1;
+			MemKernelPageDirectory[i].writable = 1;
+			MemKernelPageDirectory[i].hugePage = 1;
+			MemKernelPageDirectory[i].global = 1;
+			MemKernelPageDirectory[i].pageID = (i - 0x300) * 0x400;
 		}
 	}
 	else
@@ -219,10 +222,10 @@ void MemManagerInit(multiboot_info_t * bootInfo)
 		for(unsigned int i = 0x300; i < num4MBPages; i++)
 		{
 			//Setup directory entry
-			kernelPageDirectory[i].rawValue = 0;
-			kernelPageDirectory[i].present = 1;
-			kernelPageDirectory[i].writable = 1;
-			kernelPageDirectory[i].pageID = firstPTable;
+			MemKernelPageDirectory[i].rawValue = 0;
+			MemKernelPageDirectory[i].present = 1;
+			MemKernelPageDirectory[i].writable = 1;
+			MemKernelPageDirectory[i].pageID = firstPTable;
 
 			//Map table to start of virtual memory
 			MemVirtualPageTables[0][0].pageID = firstPTable;

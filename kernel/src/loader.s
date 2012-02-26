@@ -20,9 +20,8 @@
 global _loader
 global TssESP0
 global GdtTLS
-global kernelPageTable192
 extern kMain
-extern kernelPageDirectory
+extern MemKernelPageDirectory
 
 ;Constants
 STACK_SIZE equ 0x4000
@@ -111,7 +110,7 @@ _loader:
 	; Also, DO NOT USE EAX OR EBX HERE - it contains the multiboot pointer
 
 	; Setup boot page directory
-	mov ecx, (kernelPageDirectory - KERNEL_VIRTUAL_BASE)
+	mov ecx, (MemKernelPageDirectory - KERNEL_VIRTUAL_BASE)
 	mov edx, (kernelPageTable192 - KERNEL_VIRTUAL_BASE)
 	or edx, 0x3
 	mov dword [ecx], edx
@@ -157,7 +156,7 @@ _loader:
 
 highLoader:
 	;Unmap first identity page
-	mov dword [kernelPageDirectory], 0x00000000
+	mov dword [MemKernelPageDirectory], 0x00000000
 	mov ecx, cr3
 	mov cr3, ecx
 

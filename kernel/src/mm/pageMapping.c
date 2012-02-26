@@ -112,7 +112,7 @@ void MemIntMapPage(void * address, MemPhysPage page, MemRegionFlags flags)
 		if(addr >= 0xC0000000)
 		{
 			MemCurrentContext->kernelVersion = ++MemKernelContext->kernelVersion;
-            kernelPageDirectory[addr >> 22].rawValue = pDir->rawValue;
+            MemKernelPageDirectory[addr >> 22].rawValue = pDir->rawValue;
 		}
 	}
 
@@ -188,7 +188,7 @@ MemPhysPage UnmapPage(void * address)
 				if(addr >= 0xC0000000)
 				{
 					MemCurrentContext->kernelVersion = ++MemKernelContext->kernelVersion;
-		            kernelPageDirectory[addr >> 22].rawValue = 0;
+		            MemKernelPageDirectory[addr >> 22].rawValue = 0;
 				}
 			}
 			else

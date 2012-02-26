@@ -24,16 +24,13 @@
 #include "process.h"
 #include "mm/region.h"
 #include "mm/pagingInt.h"
+#include "mm/physical.h"
 #include "mm/misc.h"
 
 #warning TODO Copy-On-Write Page tables
 
-//Kernel page directory data
-MemPageDirectory kernelPageDirectory[1024] __attribute__((aligned(4096)));
-MemPageTable kernelPageTable254[1024] __attribute__((aligned(4096)));			//For physical reference table
-
 //Kernel context
-MemContext MemKernelContextData = { LIST_INLINE_INIT(MemKernelContextData.regions), 0, INVALID_PAGE, 0 };
+MemContext MemKernelContextData = { LIST_INLINE_INIT(MemKernelContextData.regions), INVALID_PAGE, 0x1000 };
 	//INVALID_PAGE changed in MemManagerInit
 
 //Current context
@@ -50,29 +47,17 @@ MemContext * MemContextInit()
 	ListHeadInit(&newContext->regions);
 
 	//Allocate directory
-	newContext->physDirectory = MemPhysicalAlloc(1);
-	newContext->kernelVersion = 0;
+	newContext->physDirectory = MemPhysicalAlloc(1, MEM_KERNEL);
 	newContext->refCount = 0;
 
-	//Temporarily map directory
-	MemIntMapTmpPage(MEM_TEMPPAGE1, newContext->physDirectory);
+	//Get directory pointer
+	MemPageDirectory * dir = MemPageAddr(newContext->physDirectory);
 
 	//Wipe user area
-	MemPageDirectory * dir = (MemPageDirectory *) MEM_TEMPPAGE1;
 	MemSet(dir, 0, sizeof(MemPageDirectory) * 768);
 
 	//Copy kernel area
-	MemCpy(dir + 0x300, kernelPageDirectory + 0x300, sizeof(MemPageDirectory) * 255);
-	newContext->kernelVersion = MemKernelContext->kernelVersion;
-
-	//Setup final page
-	dir[1023].rawValue = 0;
-	dir[1023].present = 1;
-	dir[1023].writable = 1;
-	dir[1023].pageID = newContext->physDirectory;
-	
-	//Unmap directory
-	MemIntUnmapTmpPage(MEM_TEMPPAGE1);
+	MemCpy(dir + 0x300, MemKernelPageDirectory + 0x300, sizeof(MemPageDirectory) * 256);
 
 	//Return context
 	return newContext;
@@ -103,68 +88,50 @@ MemContext * MemContextClone()
 	}
 
 	//Allocate directory
-	newContext->physDirectory = MemPhysicalAlloc(1);
-	newContext->kernelVersion = 0;
+	newContext->physDirectory = MemPhysicalAlloc(1, MEM_KERNEL);
 	newContext->refCount = 0;
 
-	//Temporarily map directory
-	MemIntMapTmpPage(MEM_TEMPPAGE1, newContext->physDirectory);
-
 	//Copy kernel area
-	MemPageDirectory * dir = (MemPageDirectory *) MEM_TEMPPAGE1;
-	MemCpy(dir + 0x300, kernelPageDirectory + 0x300, sizeof(MemPageDirectory) * 255);
-	newContext->kernelVersion = MemKernelContext->kernelVersion;
+	MemPageDirectory * dir = MemPageAddr(newContext->physDirectory);
+	MemCpy(dir + 0x300, MemKernelPageDirectory + 0x300, sizeof(MemPageDirectory) * 256);
 
-	//Setup final page
-	dir[1023].rawValue = 0;
-	dir[1023].present = 1;
-	dir[1023].writable = 1;
-	dir[1023].pageID = newContext->physDirectory;
+	//Get CURRENT page directory
+	MemPageDirectory * currDir = MemPageAddr(MemCurrentContext->physDirectory);
 
 	//Copy all the page tables and increase refcounts on all pages
 	for(int i = 0; i < 0x300; ++i)
 	{
-		MemPageDirectory * currDir = THIS_PAGE_DIRECTORY + i;
-
 		//Copy directory entry
-		dir[i] = *currDir;
+		dir[i] = currDir[i];
 
 		//If present, increase page ref counts first
-		if(currDir->present)
+		if(currDir[i].present)
 		{
-			MemPageTable * tableBase = THIS_PAGE_TABLES + (i * 1024);
+			MemPageTable * table = MemPageAddr(currDir[i].pageID);
 
 			//Increase ref count on any pages
 			for(int j = 0; j < 1024; ++j)
 			{
-				MemPageTable * table = tableBase + j;
-
-				if(table->present)
+				if(table[j].present)
 				{
 					//Increase count and make readonly
-					MemPhysicalAddRef(table->pageID, 1);
+					MemPhysicalAddRef(table[j].pageID, 1);
 
 					//Fixed pages are made writable again in the page fault handler
-					table->writable = 0;
+					table[j].writable = 0;
 				}
 			}
 
 			//Duplicate page table
-			MemPhysPage newTable = MemPhysicalAlloc(1);
-
-			MemIntMapTmpPage(MEM_TEMPPAGE2, newTable);				//Page faults must not occur here
-				MemCpy(MEM_TEMPPAGE2, tableBase, sizeof(MemPageTable) * 1024);
-			MemIntUnmapTmpPage(MEM_TEMPPAGE2);
+			MemPhysPage newTable = MemPhysicalAlloc(1, MEM_KERNEL);
+			MemCpy(MemPageAddr(newTable), table, sizeof(MemPageTable) * 1024);
 
 			//Store in directory
 			dir[i].pageID = newTable;
 		}
 	}
-	
-	//Unmap directory
-	MemIntUnmapTmpPage(MEM_TEMPPAGE1);
 
-	//Flush paging caches
+	//Flush user mode paging caches
 	setCR3(getCR3());
 
 	//Return context
@@ -183,16 +150,6 @@ void MemContextSwitchTo(MemContext * context)
 
 	//Switch to directory
 	setCR3((unsigned int) context->physDirectory * 4096);
-
-	//Check kernel version
-	if(context->kernelVersion != MemKernelContext->kernelVersion)
-	{
-		//Update kernel page tables
-		// The TLB should already contain the correct values so we SHOULN'T need to INVLPG them
-		MemCpy(THIS_PAGE_DIRECTORY + 0x300, kernelPageDirectory + 0x300, sizeof(MemPageDirectory) * 255);
-
-		context->kernelVersion = MemKernelContext->kernelVersion;
-	}
 
 	//Save current context
 	MemCurrentContext = context;
@@ -219,39 +176,31 @@ void MemContextDelete(MemContext * context)
 		return;
 	}
 
-	//Switch to context to delete pages
-	CONTEXT_SWAP(context)
+	//Get root directory
+	MemPageDirectory * dir = MemPageAddr(context->physDirectory);
+
+	//Process user mode tables
+	for(int i = 0; i < 0x300; ++i)
 	{
-		//Process tables
-		for(int i = 0; i < 0x300; ++i)
+		//If present, free pages in page table first
+		if(dir[i].present)
 		{
-			MemPageDirectory * dir = THIS_PAGE_DIRECTORY + i;
+			MemPageTable * table = MemPageAddr(dir[i].pageID);
 
-			//If present, free pages in page table first
-			if(dir->present)
+			//Free pages
+			for(int j = 0; j < 1024; ++j)
 			{
-				MemPageTable * tableBase = THIS_PAGE_TABLES + (i * 1024);
-
-				//Free pages
-				for(int j = 0; j < 1024; ++j)
+				//Free page if present
+				if(table[j].present)
 				{
-					MemPageTable * table = tableBase + j;
-
-					//Free page if present
-					if(table->present)
-					{
-						MemPhysicalDeleteRef(table->pageID, 1);
-					}
+					MemPhysicalDeleteRef(table[j].pageID, 1);
 				}
-
-				MemPhysicalFree(dir->pageID, 1);
 			}
-		}
 
-		//Switch back to other directory
-		// We can skip the kernel update since there won't be one
+			//Free this table
+			MemPhysicalFree(dir[i].pageID, 1);
+		}
 	}
-	CONTEXT_SWAP_END
 
 	//Free directory
 	MemPhysicalFree(context->physDirectory, 1);
@@ -286,13 +235,6 @@ void MemContextDeleteReference(MemContext * context)
 //Frees the pages associated with a given region of memory without destroying the region
 void MemRegionFreePages(MemRegion * region, void * address, unsigned int length)
 {
-	//Check this op can be done on the region
-	if(region->flags & MEM_FIXED)
-	{
-		PrintLog(Warning, "MemRegionFreePages: Cannot free pages from fixed page region");
-		return;
-	}
-
 	//Check range is within region
 	unsigned int startAddr = (unsigned int) address;
 	if(startAddr < region->start || startAddr >= (region->start + region->length))
@@ -307,6 +249,9 @@ void MemRegionFreePages(MemRegion * region, void * address, unsigned int length)
 
 	//Free pages
 	MemContext * context = region->myContext;
+
+#warning MEM Review This
+/*
 	CONTEXT_SWAP(context)
 	{
 		for(; startAddr < endAddr; startAddr += 4096)
@@ -315,12 +260,20 @@ void MemRegionFreePages(MemRegion * region, void * address, unsigned int length)
 		}
 	}
 	CONTEXT_SWAP_END
+	*/
 }
 
 //Finds the region which contains the given address
 MemRegion * MemRegionFind(MemContext * context, void * address)
 {
 	unsigned int addr = (unsigned int) address;
+
+	//Check kernel context
+	if(context == MemKernelContext)
+	{
+		PrintLog(Error, "MemRegionFind: this function does not work with the kernel context");
+		return NULL;
+	}
 
 	//Check each address
 	MemRegion * region;
@@ -356,62 +309,32 @@ static bool MemRegionIsCollision(MemRegion * prevRegion, MemRegion * nextRegion)
 
 //Creates a new blank memory region
 MemRegion * MemRegionCreate(MemContext * context, void * startAddress,
-		unsigned int length, MemPhysPage firstPage, MemRegionFlags flags)
-{
-	MemRegion * region = MAlloc(sizeof(MemRegion));
-	if(MemRegionCreateStatic(context, startAddress, length, flags, region))
-	{
-		//Map pages if fixed
-		if(flags & MEM_FIXED)
-		{
-			region->firstPage = firstPage;
-
-			//Increment ref counts of pages
-			MemPhysicalAddRef(firstPage, length / PAGE_SIZE);
-
-			//With fixed regions, we map the pages now
-			CONTEXT_SWAP(context)
-			{
-				for(char * startAddr = (char *) startAddress; length > 0;
-						length -= 4096, startAddr += 4096, ++firstPage)
-				{
-					//Map this page
-					MemIntMapPage(startAddr, firstPage, flags);
-				}
-			}
-			CONTEXT_SWAP_END
-		}
-
-		return region;
-	}
-	else
-	{
-		MFree(region);
-		return NULL;
-	}
-}
-
-//Create region from already allocated MemRegion
-bool MemRegionCreateStatic(MemContext * context, void * startAddress,
-		unsigned int length, MemRegionFlags flags, MemRegion * newRegion)
+		unsigned int length, MemRegionFlags flags)
 {
 	unsigned int startAddr = (unsigned int) startAddress;
 
 	//Validate flags
 	flags &= MEM_ALLFLAGS;
 
+	//Not kernel context
+	if(context == MemKernelContext)
+	{
+		PrintLog(Error, "MemRegionCreate: this function does not work with the kernel context");
+		return NULL;
+	}
+
 	//Ensure start address and length are page aligned
 	if(startAddr % 4096 != 0 || length % 4096 != 0)
 	{
 		PrintLog(Error, "MemRegionCreate: Region start address and length must be page aligned");
-		return false;
+		return NULL;
 	}
 
 	if(startAddr + length < startAddr)
 	{
 		//Wrapped around
 		PrintLog(Error, "MemRegionCreate: Region range wrapped around");
-		return false;
+		return NULL;
 	}
 
 	//Validate addresses
@@ -419,10 +342,11 @@ bool MemRegionCreateStatic(MemContext * context, void * startAddress,
 		(context != MemKernelContext && (startAddr == 0 || startAddr + length >= 0xC0000000)))
 	{
 		PrintLog(Error, "MemRegionCreate: Region outside valid range");
-		return false;
+		return NULL;
 	}
 
-	//Enter data required for collision checking
+	//Allocate and initialize new region
+	MemRegion * newRegion = MAlloc(sizeof(MemRegion));
 	newRegion->flags = flags;
 	newRegion->length = length;
 	newRegion->start = startAddr;
@@ -459,7 +383,9 @@ bool MemRegionCreateStatic(MemContext * context, void * startAddress,
 		if(prevOverlap || MemRegionIsCollision(newRegion, region))
 		{
 			PrintLog(Error, "MemRegionCreate: Region overlaps with another region");
-			return false;
+
+			MFree(newRegion);
+			return NULL;
 		}
 	}
 
@@ -478,7 +404,7 @@ bool MemRegionCreateStatic(MemContext * context, void * startAddress,
 	}
 
 	// We do no mapping until a page fault
-	return true;
+	return newRegion;
 }
 
 //Resizes the region of allocated memory
@@ -501,6 +427,8 @@ void MemRegionResize(MemRegion * region, unsigned int newLength)
 
 		//Free pages in region
 		// Fixed pages are also freed (ref count decrement)
+#warning MEM Review This
+		/*
 		CONTEXT_SWAP(context)
 		{
 			for(; start < end; start += 4096)
@@ -509,6 +437,7 @@ void MemRegionResize(MemRegion * region, unsigned int newLength)
 			}
 		}
 		CONTEXT_SWAP_END
+		*/
 	}
 	else
 	{
@@ -570,5 +499,3 @@ void MemRegionDelete(MemRegion * region)
 	//Free region
 	MFree(region);
 }
-
-#warning TODO Memory Committing Function
