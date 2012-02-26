@@ -27,19 +27,15 @@
 //Performs the user mode memory checks on the current memory context
 static bool MemChecks(unsigned int addr, unsigned int length, unsigned int flagsReqd)
 {
-	MemContext * context;
-
-	//Get correct checking context
+	//Kernel checks handled separately
 	if(addr >= 0xC0000000)
 	{
-		context = MemKernelContext;
-	}
-	else
-	{
-		context = ProcCurrProcess->memContext;
+		//Return true if not wrapping around
+		return (addr + length) >= addr;
 	}
 
 	//Find first region
+	MemContext * context = ProcCurrProcess->memContext;
 	MemRegion * region = MemRegionFind(context, (void *) addr);
 
 	while(region != NULL && (region->flags & flagsReqd) == flagsReqd)

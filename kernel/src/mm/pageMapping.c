@@ -37,7 +37,7 @@ bool MemMapPage(void * address, MemPhysPage page)
 	}
 
 	//Get page table entry
-	MemPageTable * tableEntry = MemVirtualPageTables + ((addr - MEM_KFIXED_MAX) / 4096);
+	MemPageTable * tableEntry = &MemVirtualPageTables[(addr - MEM_KFIXED_MAX) / 4096];
 
 	//Already mapped?
 	if(tableEntry->present)
@@ -69,7 +69,7 @@ bool MemUnmapPage(void * address)
 	}
 
 	//Get page table entry
-	MemPageTable * tableEntry = MemVirtualPageTables + ((addr - MEM_KFIXED_MAX) / 4096);
+	MemPageTable * tableEntry = &MemVirtualPageTables[(addr - MEM_KFIXED_MAX) / 4096];
 
 	//Already mapped?
 	if(tableEntry->present)
@@ -143,7 +143,7 @@ void MemIntMapUserPage(MemContext * context, void * address, MemPhysPage page, M
 
 	//Ensure page table for address exists
 	unsigned int addr = (unsigned int) address;
-	MemPageDirectory * pDir = &((MemPageDirectory *) MemPageAddr(context->physDirectory))[addr >> 22];
+	MemPageDirectory * pDir = MemGetPageDirectory(context, addr);
 
 	if(!pDir->present)
 	{
@@ -158,7 +158,7 @@ void MemIntMapUserPage(MemContext * context, void * address, MemPhysPage page, M
 	}
 
 	//Get table entry
-	MemPageTable * pTable = &((MemPageTable *) MemPageAddr(pDir->pageID))[addr >> 12];
+	MemPageTable * pTable = MemGetPageTable(pDir, addr);
 
 	//Check if we'll be overwriting it
 	if(pTable->present)
@@ -196,12 +196,12 @@ MemPhysPage MemIntUnmapUserPage(MemContext * context, void * address)
 
 	//Only unmap if page table for address exists
 	unsigned int addr = (unsigned int) address;
-	MemPageDirectory * pDir = &((MemPageDirectory *) MemPageAddr(context->physDirectory))[addr >> 22];
+	MemPageDirectory * pDir = MemGetPageDirectory(context, addr);
 
 	if(pDir->present)
 	{
 		//Get table entry
-		MemPageTable * pTable = &((MemPageTable *) MemPageAddr(pDir->pageID))[addr >> 12];
+		MemPageTable * pTable = MemGetPageTable(pDir, addr);
 		
 		//Only unmap if present
 		if(pTable->present)

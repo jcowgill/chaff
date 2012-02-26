@@ -2,7 +2,8 @@
  * @file
  * Memory address validation checks
  *
- * These functions check whether memory can be used
+ * These functions check whether memory can be used.
+ * This DOES NOT validate kernel mode addresses (returns true)
  *
  * @date February 2012
  * @author James Cowgill
@@ -33,7 +34,7 @@
 /**
  * Verifies an area of memory can be read
  *
- * This function will allow reads to kernel regions.
+ * If a kernel address is passed (and does not wrap around), returns true.
  *
  * Use MemCheckUserArea() as well if the data pointer is from user mode.
  * This allows the caller to decide whether the function can be used by user mode.
@@ -48,7 +49,7 @@ bool MemCanRead(void * data, unsigned int length);
 /**
  * Verifies an area of memory can be written to
  *
- * This function will allow writes to kernel regions.
+ * If a kernel address is passed (and does not wrap around), returns true.
  *
  * Use MemCheckUserArea() as well if the data pointer is from user mode.
  * This allows the caller to decide whether the function can be used by user mode.
@@ -63,7 +64,7 @@ bool MemCanWrite(void * data, unsigned int length);
 /**
  * Verifies an area of memory can be read and commits it to memory
  *
- * This function will allow reads to kernel regions.
+ * If a kernel address is passed (and does not wrap around), returns true.
  *
  * Use MemCheckUserArea() as well if the data pointer is from user mode.
  * This allows the caller to decide whether the function can be used by user mode.
@@ -86,7 +87,7 @@ static inline bool MemCommitForRead(void * data, unsigned int length)
 /**
  * Verifies an area of memory can be written to and commits it to memory
  *
- * This function will allow reads to kernel regions.
+ * If a kernel address is passed (and does not wrap around), returns true.
  *
  * Use MemCheckUserArea() as well if the data pointer is from user mode.
  * This allows the caller to decide whether the function can be used by user mode.

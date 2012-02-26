@@ -33,6 +33,7 @@ void MemPageFaultHandler(IntrContext * intContext)
 {
 	//Get address causing fault
 	void * faultAddress = getCR2();
+	unsigned int addr = (unsigned int) faultAddress;
 	unsigned int errorCode = intContext->intrError;
 
 	//Check which error and handle accordingly
@@ -60,15 +61,7 @@ void MemPageFaultHandler(IntrContext * intContext)
 			//Protection violation (user mode accessed supervisor)
 			// Or a write to a read-only page
 
-			MemPageTable * table;
-
-			//Get page table entry for fault address
-			{
-				MemPageDirectory * dir = MemPageAddr(MemCurrentContext->physDirectory);
-				MemPageTable * rootPageTable =
-						MemPageAddr(dir[(unsigned int) faultAddress >> 22].pageID);
-				table = &rootPageTable[(unsigned int) faultAddress >> 12];
-			}
+			MemPageTable * table = MemGetPageTable(MemGetPageDirectory(MemCurrentContext, addr), addr);
 
 			//Check if copy-on-write
 			if(!(table->writable) && (region->flags & MEM_WRITABLE))
@@ -77,7 +70,7 @@ void MemPageFaultHandler(IntrContext * intContext)
 				if(MemPhysicalRefCount(table->pageID) > 1)
 				{
 					//Duplicate page first
-					unsigned int * basePageAddr = (unsigned int *) ((unsigned int) faultAddress & 0xFFFFF000);
+					unsigned int * basePageAddr = (unsigned int *) (addr & 0xFFFFF000);
 					MemPhysPage newPage = MemPhysicalAlloc(1, MEM_HIGHMEM);
 
 					MemMapPage(MEM_TEMPPAGE3, newPage);
@@ -100,7 +93,7 @@ void MemPageFaultHandler(IntrContext * intContext)
 			//Non-present page - allocate new page (demand paging)
 
 			// Map page
-			unsigned int * basePageAddr = (unsigned int *) ((unsigned int) faultAddress & 0xFFFFF000);
+			unsigned int * basePageAddr = (unsigned int *) (addr & 0xFFFFF000);
 			MemIntMapUserPage(MemCurrentContext, basePageAddr,
 					MemPhysicalAlloc(1, MEM_HIGHMEM), region->flags);
 
@@ -119,7 +112,7 @@ void MemPageFaultHandler(IntrContext * intContext)
 	else
 	{
 		//Kernel mode fault
-		if((unsigned int) faultAddress < 0x1000 || (unsigned int) faultAddress > 0xFFFFC000)
+		if(addr < 0x1000 || addr > 0xFFFFC000)
 		{
 			Panic("MemPageFaultHandler: Unable to handle kernel NULL pointer dereference");
 		}

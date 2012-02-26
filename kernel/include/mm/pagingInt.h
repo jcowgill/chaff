@@ -134,6 +134,28 @@ typedef union
 } MemPageTable;
 
 /**
+ * Gets a pointer to the page directory for the given address
+ *
+ * @param context memory context to use
+ * @param addr address to lookup
+ */
+static inline MemPageDirectory * MemGetPageDirectory(MemContext * context, unsigned int addr)
+{
+	return &((MemPageDirectory *) MemPageAddr(context->physDirectory))[addr >> 22];
+}
+
+/**
+ * Gets a pointer to the page table entry for the given address
+ *
+ * @param dir directory entry (from MemGetPageDirectory())
+ * @param addr address to lookup
+ */
+static inline MemPageTable * MemGetPageTable(MemPageDirectory * dir, unsigned int addr)
+{
+	return &((MemPageTable *) MemPageAddr(dir->pageID))[(addr >> 12) & 0xFFF];
+}
+
+/**
  * Kernel page directory
  */
 extern MemPageDirectory MemKernelPageDirectory[1024];
