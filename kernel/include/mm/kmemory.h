@@ -30,10 +30,59 @@
 #include "mm/physical.h"
 
 /**
+ * Reserves virtual memory with the given size.
+ * 
+ * The memory reserved is placed in the high virtual memory zone and cannot be
+ * used with physical devices. You generally use this function for large
+ * allocations which do not need to be accessed by hardware.
+ * 
+ * The number of bytes given is rounded up to the next page offset
+ * (only multiples of #PAGE_SIZE are allocated).
+ * 
+ * Memory is not actually allocated with this function, you must do it yourself
+ * with MemMapPage() or MemVirtualAlloc().
+ * 
+ * @param bytes number of bytes to reserve
+ * @return virtual memory address
+ */
+void * MemVirtualReserve(unsigned int bytes);
+
+/**
+ * Unreserves memory reserved by MemVirtualReserve()
+ * 
+ * Do not pass pointers from MemVirtualAlloc() to this function.
+ * 
+ * @param ptr pointer returned by MemVirtualReserve() to free
+ */
+void MemVirtualUnReserve(void * ptr);
+
+/**
+ * Allocates virtual memory with the given size.
+ * 
+ * This function is identical to MemVirtualReserve() except it allocates
+ * physical memory for the allocated memory (you usually want this function).
+ * 
+ * @param bytes number of bytes to allcate
+ * @return virtual memory address
+ */
+void * MemVirtualAlloc(unsigned int bytes);
+
+/**
+ * Frees memory allocated using MemVirtualAlloc()
+ * 
+ * Frees the physical memory and unreserves memory allocated using MemVirtualAlloc().
+ * Do not pass pointers from MemVirtualReserve() to this function.
+ * 
+ * @param ptr pointer returned by MemVirtualAlloc() to free
+ */
+void MemVirtualFree(void * ptr);
+
+
+/**
  * Maps a page to the given kernel virtual address
  *
  * The address supplied must be in the kernel virtual region (>= 0xF0000000).
- * You should almost always allocate the virtual address for this using @death.
+ * You should almost always allocate the virtual address for this using MemVirtualReserve().
  *
  * @note Implemented in pageMapping.c
  *
