@@ -28,7 +28,7 @@ CC			= gcc
 ASM			= nasm
 
 # Global flags (apply to kernel and user mode)
-CF_ALL		= -gdwarf-2 -m32 -Wall -Wextra -DDEBUG -std=gnu99 -nodefaultlibs
+CF_ALL		= -gdwarf-2 -m32 -Wall -Wextra -DDEBUG -std=gnu99
 LF_ALL		= -x -m elf_i386
 AF_ALL		= -Xgnu -f elf32 -F dwarf
 

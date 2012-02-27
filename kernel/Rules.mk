@@ -31,7 +31,7 @@ SOURCES_$(d) := $(foreach DIR, $(DIRS_$(d)), $(wildcard $(DIR)/*.c)) \
 TGTS_$(d) := bin/chaff.elf
 
 #  - Extra build options
-$(TGTS_$(d)):	CF_TGT := -Ikernel/include -fno-builtin -fno-stack-protector -ffreestanding -nostdlib
+$(TGTS_$(d)):	CF_TGT := -Ikernel/include -fno-builtin -ffreestanding -fno-stack-protector
 $(TGTS_$(d)):	LF_TGT := -T kernel/linker.ld
 
 #  - Common rules
