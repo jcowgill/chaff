@@ -42,9 +42,14 @@ unsigned int MemPhysicalFreePages;
 void MemPhysicalInit()
 {
 	//Calculate highest page from end of page state table
-	unsigned int highestPage = (MemPageStateTableEnd - MemPageStateTable) / sizeof(MemPageStatus);
+	unsigned int highestPage =
+			((unsigned int) MemPageStateTableEnd - (unsigned int) MemPageStateTable)
+				/ sizeof(MemPageStatus);
 
 	//DMA zone
+	zones[MEM_DMA].start = MemPageStateTable;
+	zones[MEM_DMA].headPtr = MemPageStateTable;
+
 	if(highestPage <= 0x1000)
 	{
 		//Set zone to end of memory
@@ -86,14 +91,14 @@ MemPhysPage MemPhysicalAlloc(unsigned int number, int zone)
 		return INVALID_PAGE;
 	}
 
-	if(zone < 0 || zone >= 3)
+	if(zone < MEM_DMA || zone > MEM_HIGHMEM)
 	{
 		PrintLog(Error,"MemPhysicalAlloc: Invalid allocation mode");
 		return INVALID_PAGE;
 	}
 
 	//Start zones loop
-	for(; zone > 0; --zone)
+	for(; zone >= MEM_DMA; --zone)
 	{
 		//Ensure zone exists
 		if(zones[zone].end > zones[zone].start)

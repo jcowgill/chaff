@@ -45,7 +45,7 @@ extern char _kernel_end_page[];
 #define BOUNDS_CHECK(start, end) \
 	do \
 	{ \
-		if(((position > (start)) && (position < (end))) || \
+		if(((position >= (start)) && (position < (end))) || \
 			(((start) > position) && ((start) < endPosition))) \
 		{ \
 			position = (end); \
@@ -125,8 +125,11 @@ static inline void GetPhysicalTableLocation(multiboot_info_t * bootInfo,
 			{
 				//Is block invading any of these zones?
 				//The end position of zones should be page aligned
-				// ROM area (0xA0000 - 0x100000)
-				BOUNDS_CHECK(0xA0000, 0x100000);
+
+#warning Bit of a hack for handling memory manager position
+				// HACK: Reserved entire lower region since this is usually
+				//  where the multiboot record is placed (this also reserves ROM area)
+				BOUNDS_CHECK(1, 0x100000);
 
 				// Kernel area (0x100000 - kernel end page * 4096)
 				BOUNDS_CHECK(0x100000, ((unsigned int) _kernel_end_page) * 4096);
@@ -170,13 +173,14 @@ void MemManagerInit(multiboot_info_t * bootInfo)
 
 	//PHASE 2 - Setup page tables for all kernel memory
 	// Setup page tables for virtual region
-	for(int i = 0; i < 64; i++)
+	for(int i = 0x3C0; i < 0x400; i++)
 	{
 		//Only the directory is setup here
 		MemKernelPageDirectory[i].rawValue = 0;
 		MemKernelPageDirectory[i].present = 1;
 		MemKernelPageDirectory[i].writable = 1;
-		MemKernelPageDirectory[i].pageID = ((void *) &MemVirtualPageTables[i] - KERNEL_VIRTUAL_BASE) / 4096;
+		MemKernelPageDirectory[i].pageID =
+				((void *) &MemVirtualPageTables[i - 0x3C0] - KERNEL_VIRTUAL_BASE) / 4096;
 	}
 
 	// Get page directory entries
@@ -197,7 +201,7 @@ void MemManagerInit(multiboot_info_t * bootInfo)
 	if(using4MBPages)
 	{
 		//Map physical memory using 4MB pages
-		for(unsigned int i = 0x300; i < num4MBPages; i++)
+		for(unsigned int i = 0x300; i < (num4MBPages + 0x300); i++)
 		{
 			MemKernelPageDirectory[i].rawValue = 0;
 			MemKernelPageDirectory[i].present = 1;
@@ -219,14 +223,8 @@ void MemManagerInit(multiboot_info_t * bootInfo)
 		MemVirtualPageTables[0].writable = 1;
 
 		//Map physical memory
-		for(unsigned int i = 0x300; i < num4MBPages; i++)
+		for(unsigned int i = 0x300; i < (num4MBPages + 0x300); i++)
 		{
-			//Setup directory entry
-			MemKernelPageDirectory[i].rawValue = 0;
-			MemKernelPageDirectory[i].present = 1;
-			MemKernelPageDirectory[i].writable = 1;
-			MemKernelPageDirectory[i].pageID = firstPTable;
-
 			//Map table to start of virtual memory
 			MemVirtualPageTables[0].pageID = firstPTable;
 			invlpg((void *) MEM_KFIXED_MAX);
@@ -240,6 +238,12 @@ void MemManagerInit(multiboot_info_t * bootInfo)
 				((MemPageTable *) MEM_KFIXED_MAX)[j].global = 1;
 				((MemPageTable *) MEM_KFIXED_MAX)[j].pageID = ((i - 0x300) * 0x400) + j;
 			}
+
+			//Setup directory entry
+			MemKernelPageDirectory[i].rawValue = 0;
+			MemKernelPageDirectory[i].present = 1;
+			MemKernelPageDirectory[i].writable = 1;
+			MemKernelPageDirectory[i].pageID = firstPTable;
 		}
 
 		//Clear first virtual page
@@ -250,7 +254,7 @@ void MemManagerInit(multiboot_info_t * bootInfo)
 	//PHASE 3 - Fill memory table
 	// Store table pointer and free everything
 	MemPageStateTable = (MemPageStatus *) ((tableLocation * 4096) + 0xC0000000);
-	MemPageStateTableEnd = MemPageStateTable + (MemPhysicalTotalPages * sizeof(MemPageStatus));
+	MemPageStateTableEnd = &MemPageStateTable[MemPhysicalTotalPages];
 	MemSet(MemPageStateTable, 0, MemPhysicalTotalPages * sizeof(MemPageStatus));
 
 	// Allocate reserved areas of the memory map
@@ -278,7 +282,6 @@ void MemManagerInit(multiboot_info_t * bootInfo)
 
 	// Allocate ROM and Kernel area
 	//  (Total not updated for kernel area)
-	MemPhysicalTotalPages -= (0x100 - 0xA0);
 	for(MemPhysPage page = 0xA0; page < ((int) _kernel_end_page); ++page)
 	{
 		MemPageStateTable[page].refCount = 1;
