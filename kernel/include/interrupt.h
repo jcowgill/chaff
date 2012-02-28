@@ -100,7 +100,7 @@ typedef struct IntrContext
  *
  * @private
  */
-void IntrInit();
+void INIT IntrInit();
 
 /**
  * Entry point for the interrupt handler

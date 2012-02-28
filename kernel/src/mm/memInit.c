@@ -58,7 +58,7 @@ extern char _kernel_end_page[];
 	((var) += ((4096 - ((tableLength) % 4096)) % 4096))
 
 //Gets the location of the physical page references table and its length
-static inline void GetPhysicalTableLocation(multiboot_info_t * bootInfo,
+static inline INIT void GetPhysicalTableLocation(multiboot_info_t * bootInfo,
 		unsigned int * numPages, MemPhysPage * tablePage, bool withPageTables)
 {
 	unsigned int highestAddr;
@@ -157,7 +157,7 @@ static inline void GetPhysicalTableLocation(multiboot_info_t * bootInfo,
 }
 
 //Memory manager initialisation
-void MemManagerInit(multiboot_info_t * bootInfo)
+void INIT MemManagerInit(multiboot_info_t * bootInfo)
 {
 	MemPhysPage tableLocation;
 

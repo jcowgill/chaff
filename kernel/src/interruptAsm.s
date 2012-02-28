@@ -27,7 +27,7 @@ global IntrISRList
 global Isr66
 global lidt
 
-section .text
+section .init
 
 ;LIDT instruction
 lidt:
@@ -43,6 +43,8 @@ lidt:
 	lidt [esp + 6]
 
 	ret
+
+section .text
 
 ;Basic ISR macros
 %macro IsrNoError 1

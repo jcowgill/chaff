@@ -48,6 +48,11 @@ SECTIONS {
        *(.gnu.linkonce.b*)
        _ebss = .;
    }
+   
+   .init ALIGN(0x1000) : AT(ADDR(.init) - 0xC0000000) {
+       _kernel_init_start = .;
+       *(.init)
+   }
 
    _kernel_end = .;
    _kernel_end_page = (ALIGN(0x1000) - 0xC0000000) >> 12;

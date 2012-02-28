@@ -52,7 +52,7 @@ CpuFeaturesECX:
 Cpu386ErrMsg:
 	db "CpuInit: You are running a 386 processor which Chaff does not support.", 0
 
-section .text
+section .init
 CpuInit:
 	;Initializes the CPU specific stuff
 	push ebx

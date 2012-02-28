@@ -85,7 +85,7 @@ static inline void * MemPageAddr(MemPhysPage page)
  *
  * @private
  */
-void MemPhysicalInit();
+void INIT MemPhysicalInit();
 
 /**
  * Allocates normal physical pages

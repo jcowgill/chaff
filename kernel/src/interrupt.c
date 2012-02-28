@@ -85,7 +85,7 @@ static IntrDispatchEntry IntrDispatchTable[0x30] =
 };
 
 //Initialise interrupts
-void IntrInit()
+void INIT IntrInit()
 {
 	//Setup descriptor table
 	int i;

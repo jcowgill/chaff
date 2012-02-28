@@ -32,7 +32,7 @@
  *
  * @private
  */
-void CpuInit();
+void INIT CpuInit();
 
 /**
  * Contains information about the signature of the processor

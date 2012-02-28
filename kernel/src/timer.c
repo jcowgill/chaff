@@ -63,7 +63,7 @@ static ListHead alarmQueueHead = LIST_INLINE_INIT(alarmQueueHead);
 static void TimerInterrupt(IntrContext * iContext);
 
 //Initialises the PIT and PC Speaker
-void TimerInit()
+void INIT TimerInit()
 {
 	//Register interrupts
 	if(!IntrRegister(0, 0, TimerInterrupt))

@@ -175,7 +175,7 @@ typedef struct IoDevice
  *
  * @private
  */
-void IoDevFsInit();
+void INIT IoDevFsInit();
 
 /**
  * Registers a device with devfs

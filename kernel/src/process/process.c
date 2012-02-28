@@ -66,7 +66,7 @@ ProcThread * ProcIdleThread;
 ProcThread * ProcInterruptsThread;
 
 //Initialise global processes and threads
-void ProcInit()
+void INIT ProcInit()
 {
 	//Create kernel process
 	// Malloc need this so we must do it with no dynamic memory

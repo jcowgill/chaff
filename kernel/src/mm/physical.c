@@ -39,7 +39,7 @@ unsigned int MemPhysicalTotalPages;
 unsigned int MemPhysicalFreePages;
 
 //Sets up the zones using the given total number of pages
-void MemPhysicalInit()
+void INIT MemPhysicalInit()
 {
 	//Calculate highest page from end of page state table
 	unsigned int highestPage =

@@ -53,6 +53,13 @@
 #define STDCALL __attribute__((stdcall))
 
 /**
+ * Function / Variable is used in init code only
+ *
+ * Drivers MUST NOT use / call any function marked with this
+ */
+#define INIT __attribute__((section(".init")))
+
+/**
  * Ignores an unused paremeter
  *
  * Prevents compiler warning about unused parameters (eg when implementing interfaces)

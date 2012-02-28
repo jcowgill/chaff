@@ -78,7 +78,7 @@ static IoFileOps rootDirOps =
 	};
 
 //Registers the devfs filesystem
-void IoDevFsInit()
+void INIT IoDevFsInit()
 {
 	//Register our filesystem
 	if(!IoFilesystemRegister(&fsType))

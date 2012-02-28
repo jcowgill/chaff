@@ -471,13 +471,17 @@ extern ProcThread * ProcInterruptsThread;
 
 /**
  * Initializes global processes and threads
+ *
+ * @private
  */
-void ProcInit();
+void INIT ProcInit();
 
 /**
  * Exits boot mode and starts running threads as normal
+ *
+ * @private
  */
-void NORETURN ProcExitBootMode();
+void INIT NORETURN ProcExitBootMode();
 
 /**
  * @}

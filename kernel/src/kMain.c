@@ -28,7 +28,7 @@
 #include "io/device.h"
 #include "cpu.h"
 
-void NORETURN kMain(unsigned int mBootCode, multiboot_info_t * mBootInfo)
+void INIT NORETURN kMain(unsigned int mBootCode, multiboot_info_t * mBootInfo)
 {
 	//Kernel C Entry Point
 	// Check boot code

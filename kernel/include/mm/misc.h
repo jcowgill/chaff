@@ -37,7 +37,7 @@
  *
  * @param bootInfo memory information from boot loader
  */
-void MemManagerInit(multiboot_info_t * bootInfo);
+void INIT MemManagerInit(multiboot_info_t * bootInfo);
 
 /**
  * Page fault handler
