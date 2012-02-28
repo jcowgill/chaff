@@ -59,13 +59,13 @@ bool MemMapPage(void * address, MemPhysPage page)
 }
 
 //Kernel page unmapper
-bool MemUnmapPage(void * address)
+MemPhysPage MemUnmapPage(void * address)
 {
 	//Validate address
 	unsigned int addr = ((unsigned int) address) & 0xFFFFF000;
 	if(addr < MEM_KFIXED_MAX)
 	{
-		return false;
+		return INVALID_PAGE;
 	}
 
 	//Get page table entry
@@ -75,14 +75,15 @@ bool MemUnmapPage(void * address)
 	if(tableEntry->present)
 	{
 		//Wipe value and invalidate
+		MemPhysPage page = tableEntry->pageID;
 		tableEntry->rawValue = 0;
 
 		invlpg(address);
-		return true;
+		return page;
 	}
 	else
 	{
-		return false;
+		return INVALID_PAGE;
 	}
 }
 

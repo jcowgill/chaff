@@ -103,9 +103,8 @@ bool MemMapPage(void * address, MemPhysPage page);
  * @note Implemented in pageMapping.c
  *
  * @param address address to unmap
- * @retval true the page was successfully unmapped
- * @retval false the address given is not mapped / is unmappable
+ * @return the page which was mapped or INVALID_PAGE if nothing is mapped
  */
-bool MemUnmapPage(void * address);
+MemPhysPage MemUnmapPage(void * address);
 
 #endif
