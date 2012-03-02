@@ -11,7 +11,7 @@ Compiling
 Compiling Chaff requires:
 
 * unix environment
-* gcc (for elf-i386)
+* clang OR gcc (for elf-i386)
 * binutils (for elf-i386)
 * make
 * nasm
@@ -19,13 +19,17 @@ Compiling Chaff requires:
 
 For Linux, everything except nasm should already be installed on most distributions.
 
-For Windows, you need a unix environment to compile the code in. If you've installed [msysgit](http://code.google.com/p/msysgit/) (which I highly reccomend you do), you can use the "Git Bash" provided. All the other files nessesary for Windows can be found in the windows_tools.zip download. Extract this somewhere and put the bin folder in your system path - you may also need to set the environment variable CPATH to the include directory.
+For Windows, you need a unix environment to compile the code in. If you've installed [msysgit](http://code.google.com/p/msysgit/) (which I highly reccomend you do), you can use the "Git Bash" provided. All the other files nessesary for Windows can be found in the windows_tools.zip download. Extract this somewhere and put the bin folder in your system path.
 
 Once you've done all this, go to the chaff source and type
 
     make
 
 This should build the chaff image and place it in the file bin/chaff.elf
+
+On linux, you may want to build it using GCC, to do that use
+
+	make all-gcc
 
 To build the documentation, you need to install doxygen and type
 

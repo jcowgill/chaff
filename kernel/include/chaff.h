@@ -133,7 +133,7 @@ void PrintLog(LogLevel level, const char * msg, ...);
  * @param size number of bytes to allocate
  * @return a pointer to the allocated memory
  */
-void * MAlloc(unsigned int size) __attribute__((alloc_size(1), malloc));
+void * MAlloc(unsigned int size) __attribute__((malloc));
 
 /**
  * Frees a block of kernel memory allocated by MAlloc()
