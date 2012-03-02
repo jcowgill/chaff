@@ -24,6 +24,15 @@
 #  kernel	= Build kernel
 #
 
+# Detect if using windows
+ifneq (,$(findstring NT,$(shell uname)))
+WINDOWS := 1
+CYGWIN := nodosfilewarning
+export CYGWIN
+else
+WINDOWS := 0
+endif
+
 # Compilers
 LD			= ld
 CC			= clang
@@ -41,26 +50,12 @@ AF_ALL		= -Xgnu -f elf32 -F dwarf
 
 # Compiling commands
 ASMCOMP		= $(ASM) $(AF_ALL) $(AF_TGT) -o $@ $<
-COMP		= $(CC) $(CF_ALL) $(CF_TGT) -MD -o $@ -c $<
 LINK		= $(LD) $(LF_ALL) $(LF_TGT) -o $@ $^
-
-# Detect if using windows
-ifneq (,$(findstring NT,$(shell uname)))
-WINDOWS := 1
-CYGWIN := nodosfilewarning
-export CYGWIN
-else
-WINDOWS := 0
-endif
+COMP		= $(CC) $(CF_ALL) $(CF_TGT) -MMD -o $@ -c $<
 
 # Main target
-.PHONY:	all all-gcc all-clang
-all:	all-clang
-
-all-clang: CC=clang
-all-clang: targets
-all-gcc: CC=gcc
-all-gcc: targets
+.PHONY:	all
+all:	targets
 
 # Things to build
 dir		:= kernel

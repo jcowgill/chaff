@@ -29,7 +29,7 @@ This should build the chaff image and place it in the file bin/chaff.elf
 
 On linux, you may want to build it using GCC, to do that use
 
-	make all-gcc
+	make CC=gcc
 
 To build the documentation, you need to install doxygen and type
 
