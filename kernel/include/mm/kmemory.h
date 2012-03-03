@@ -30,17 +30,48 @@
 #include "list.h"
 #include "mm/physical.h"
 
-struct MemCache;
-
 /**
- * @name Slab flags
+ * @name Simple Allocators
  * @{
  */
 
+/**
+ * Allocates the given number of bytes of kernel memory
+ *
+ * Memory returned is allocated with #MEM_KERNEL
+ *
+ * @param bytes number of bytes to allocate
+ */
+void * MemKAlloc(unsigned int bytes);
+
+/**
+ * Allocates the given number of bytes of kernel memory
+ *
+ * Memory returned is allocated with #MEM_KERNEL.
+ *
+ * The memory returned is wiped
+ *
+ * @param bytes number of bytes to allocate
+ */
+void * MemKZAlloc(unsigned int bytes);
+
+/**
+ * Frees a pointer allocated with MemKAlloc() or MemKZAlloc()
+ *
+ * @param ptr pointer to free
+ */
+void MemKFree(void * ptr);
+
+/**
+ * @}
+ * @name SLAB Allocator
+ * @{
+ */
+
+struct MemCache;
+
 #define MEM_SLAB_DMA 1		///< Cache allocates memory using #MEM_DMA instead of #MEM_KERNEL
 #define MEM_SLAB_LARGE 2	///< Cache uses large slabs (set automatically) @private
-
-/** @} */
 
 /**
  * Contains information about a cache of objects used by the slab allocator
@@ -132,6 +163,12 @@ void MemSlabFree(MemCache * cache, void * ptr);
 int MemSlabShrink(MemCache * cache);
 
 /**
+ * @}
+ * @name Virtual Memory Management
+ * @{
+ */
+
+/**
  * Reserves virtual memory with the given size.
  * 
  * The memory reserved is placed in the high virtual memory zone and cannot be
@@ -208,5 +245,7 @@ bool MemMapPage(void * address, MemPhysPage page);
  * @return the page which was mapped or INVALID_PAGE if nothing is mapped
  */
 MemPhysPage MemUnmapPage(void * address);
+
+/** @} */
 
 #endif

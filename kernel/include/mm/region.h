@@ -105,9 +105,6 @@ void MemContextSwitchTo(MemContext * context);
  *
  * The context passed must not be the current context.
  *
- * #MEM_FIXED regions are deleted by this once it runs out of references
- *  if you want to "save" it, keep some references to it
- *
  * @param context memory context to delete
  */
 void MemContextDelete(MemContext * context);
@@ -126,8 +123,6 @@ static inline void MemContextAddReference(MemContext * context)
  * Deletes a reference to a memory context
  *
  * The context passed must not be the current context.
- *
- * #MEM_FIXED regions are deleted by this
  *
  * @param context memory context to delete
  */
