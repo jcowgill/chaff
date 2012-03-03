@@ -94,7 +94,7 @@ static void IncrementCounter(MemPageDirectory * dir)
 	for(int i = 0; ; i++)
 	{
 	    //Increment, and it it's too much, go to next one
-	    if(++((MemPageTable *) MemPageAddr(dir[i].pageID))->tableCount != 0)
+	    if(++((MemPageTable *) MemPhys2Virt(dir[i].pageID))->tableCount != 0)
 	    {
 	        //Finished, exit
 	        return;
@@ -107,7 +107,7 @@ static void IncrementCounter(MemPageDirectory * dir)
 static bool DecrementCounter(MemPageDirectory * dir)
 {
 	//Handle first iteration separately
-	if(--((MemPageTable *) MemPageAddr(dir[0].pageID))->tableCount == 0)
+	if(--((MemPageTable *) MemPhys2Virt(dir[0].pageID))->tableCount == 0)
 	{
 		return false;
 	}
@@ -117,7 +117,7 @@ static bool DecrementCounter(MemPageDirectory * dir)
 	{
 	    //Decrement, if it was not 0 then go to next one
 		// If it was zero, we must "carry" to the next place
-		if(((MemPageTable *) MemPageAddr(dir[i].pageID))->tableCount-- != 0)
+		if(((MemPageTable *) MemPhys2Virt(dir[i].pageID))->tableCount-- != 0)
 		{
 			return false;
 		}
@@ -155,7 +155,7 @@ void MemIntMapUserPage(MemContext * context, void * address, MemPhysPage page, M
 		pDir->present = 1;
 		
 		//Wipe page
-		MemSet(MemPageAddr(pDir->pageID), 0, 4096);
+		MemSet(MemPhys2Virt(pDir->pageID), 0, 4096);
 	}
 
 	//Get table entry

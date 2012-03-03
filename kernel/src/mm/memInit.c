@@ -34,8 +34,8 @@ MemPageDirectory MemKernelPageDirectory[1024] __attribute__((aligned(4096)));
 MemPageTable MemVirtualPageTables[64 * 1024] __attribute__((aligned(4096)));
 
 //Page status table variables
-MemPageStatus * MemPageStateTable;
-MemPageStatus * MemPageStateTableEnd;
+MemPage * MemPageStateTable;
+MemPage * MemPageStateTableEnd;
 
 //Kernel end symbol
 extern char _kernel_end_page[];
@@ -98,7 +98,7 @@ static inline INIT void GetPhysicalTableLocation(multiboot_info_t * bootInfo,
 	*numPages = (highestAddr / 4096);
 
 	//Calculate length of status table
-	unsigned int tableLength = *numPages * sizeof(MemPageStatus);
+	unsigned int tableLength = *numPages * sizeof(MemPage);
 
 	if(withPageTables)
 	{
@@ -189,7 +189,7 @@ void INIT MemManagerInit(multiboot_info_t * bootInfo)
 
 	//  End of pre-allocated table (marked as allocated later)
 	MemPhysPage endOfAllocedTable = tableLocation +
-			((MemPhysicalTotalPages * sizeof(MemPageStatus) + 4095) / 4096);
+			((MemPhysicalTotalPages * sizeof(MemPage) + 4095) / 4096);
 
 	//Limit number of pages
 	if(num4MBPages > 0x3C0)
@@ -253,9 +253,9 @@ void INIT MemManagerInit(multiboot_info_t * bootInfo)
 
 	//PHASE 3 - Fill memory table
 	// Store table pointer and free everything
-	MemPageStateTable = (MemPageStatus *) ((tableLocation * 4096) + 0xC0000000);
+	MemPageStateTable = (MemPage *) ((tableLocation * 4096) + 0xC0000000);
 	MemPageStateTableEnd = &MemPageStateTable[MemPhysicalTotalPages];
-	MemSet(MemPageStateTable, 0, MemPhysicalTotalPages * sizeof(MemPageStatus));
+	MemSet(MemPageStateTable, 0, MemPhysicalTotalPages * sizeof(MemPage));
 
 	// Allocate reserved areas of the memory map
 	unsigned int highestAddr = MemPhysicalTotalPages * 4096;

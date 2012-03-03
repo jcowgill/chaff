@@ -51,7 +51,7 @@ MemContext * MemContextInit()
 	newContext->refCount = 0;
 
 	//Get directory pointer
-	MemPageDirectory * dir = MemPageAddr(newContext->physDirectory);
+	MemPageDirectory * dir = MemPhys2Virt(newContext->physDirectory);
 
 	//Wipe user area
 	MemSet(dir, 0, sizeof(MemPageDirectory) * 768);
@@ -92,11 +92,11 @@ MemContext * MemContextClone()
 	newContext->refCount = 0;
 
 	//Copy kernel area
-	MemPageDirectory * dir = MemPageAddr(newContext->physDirectory);
+	MemPageDirectory * dir = MemPhys2Virt(newContext->physDirectory);
 	MemCpy(dir + 0x300, MemKernelPageDirectory + 0x300, sizeof(MemPageDirectory) * 256);
 
 	//Get CURRENT page directory
-	MemPageDirectory * currDir = MemPageAddr(MemCurrentContext->physDirectory);
+	MemPageDirectory * currDir = MemPhys2Virt(MemCurrentContext->physDirectory);
 
 	//Copy all the page tables and increase refcounts on all pages
 	for(int i = 0; i < 0x300; ++i)
@@ -107,7 +107,7 @@ MemContext * MemContextClone()
 		//If present, increase page ref counts first
 		if(currDir[i].present)
 		{
-			MemPageTable * table = MemPageAddr(currDir[i].pageID);
+			MemPageTable * table = MemPhys2Virt(currDir[i].pageID);
 
 			//Increase ref count on any pages
 			for(int j = 0; j < 1024; ++j)
@@ -124,7 +124,7 @@ MemContext * MemContextClone()
 
 			//Duplicate page table
 			MemPhysPage newTable = MemPhysicalAlloc(1, MEM_KERNEL);
-			MemCpy(MemPageAddr(newTable), table, sizeof(MemPageTable) * 1024);
+			MemCpy(MemPhys2Virt(newTable), table, sizeof(MemPageTable) * 1024);
 
 			//Store in directory
 			dir[i].pageID = newTable;
@@ -177,7 +177,7 @@ void MemContextDelete(MemContext * context)
 	}
 
 	//Get root directory
-	MemPageDirectory * dir = MemPageAddr(context->physDirectory);
+	MemPageDirectory * dir = MemPhys2Virt(context->physDirectory);
 
 	//Process user mode tables
 	for(int i = 0; i < 0x300; ++i)
@@ -185,7 +185,7 @@ void MemContextDelete(MemContext * context)
 		//If present, free pages in page table first
 		if(dir[i].present)
 		{
-			MemPageTable * table = MemPageAddr(dir[i].pageID);
+			MemPageTable * table = MemPhys2Virt(dir[i].pageID);
 
 			//Free pages
 			for(int j = 0; j < 1024; ++j)

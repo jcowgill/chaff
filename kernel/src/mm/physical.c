@@ -25,9 +25,9 @@
 //Contains information about a zone of physical memory
 typedef struct MemPhysicalZone
 {
-	MemPageStatus * headPtr;
-	MemPageStatus * start;
-	MemPageStatus * end;
+	MemPage * headPtr;
+	MemPage * start;
+	MemPage * end;
 
 } MemPhysicalZone;
 
@@ -44,7 +44,7 @@ void INIT MemPhysicalInit()
 	//Calculate highest page from end of page state table
 	unsigned int highestPage =
 			((unsigned int) MemPageStateTableEnd - (unsigned int) MemPageStateTable)
-				/ sizeof(MemPageStatus);
+				/ sizeof(MemPage);
 
 	//DMA zone
 	zones[MEM_DMA].start = MemPageStateTable;
@@ -104,9 +104,9 @@ MemPhysPage MemPhysicalAlloc(unsigned int number, int zone)
 		if(zones[zone].end > zones[zone].start)
 		{
 			//Start bitmap lookup
-			MemPageStatus * head = zones[zone].headPtr;
+			MemPage * head = zones[zone].headPtr;
 
-			MemPageStatus * firstFree = NULL;
+			MemPage * firstFree = NULL;
 			unsigned int freeLength;
 
 			do
@@ -139,7 +139,7 @@ MemPhysPage MemPhysicalAlloc(unsigned int number, int zone)
 						MemPhysicalFreePages -= number;
 
 						//Increment refcounts
-						for(MemPageStatus * page = firstFree; number > 0; ++page, --number)
+						for(MemPage * page = firstFree; number > 0; ++page, --number)
 						{
 							page->refCount = 1;
 						}
@@ -148,7 +148,7 @@ MemPhysPage MemPhysicalAlloc(unsigned int number, int zone)
 						zones[zone].headPtr = head;
 
 						//Return first page in set
-						return ((unsigned int) firstFree - (unsigned int) MemPageStateTable) / sizeof(MemPageStatus);
+						return ((unsigned int) firstFree - (unsigned int) MemPageStateTable) / sizeof(MemPage);
 					}
 				}
 				else

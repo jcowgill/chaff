@@ -63,9 +63,22 @@ typedef int MemPhysPage;
  * @param page page number to convert
  * @return kernel mode pointer to page
  */
-static inline void * MemPageAddr(MemPhysPage page)
+static inline void * MemPhys2Virt(MemPhysPage page)
 {
 	return ((void *) ((unsigned int) KERNEL_VIRTUAL_BASE + (page) * PAGE_SIZE));
+}
+
+/**
+ * Gets the physical page from an address mapped directly into kernel space
+ *
+ * This can only be used for pages allocated in the #MEM_DMA and #MEM_KERNEL zones (not #MEM_HIGHMEM).
+ *
+ * @param addr address to get page of
+ * @return physical page number
+ */
+static inline MemPhysPage MemVirt2Phys(void * addr)
+{
+	return (addr - KERNEL_VIRTUAL_BASE) / PAGE_SIZE;
 }
 
 /**
@@ -154,17 +167,17 @@ typedef struct
 	 */
 	unsigned int refCount;
 
-} MemPageStatus;
+} MemPage;
 
 /**
  * Address of global page state table
  */
-extern MemPageStatus * MemPageStateTable;
+extern MemPage * MemPageStateTable;
 
 /**
  * Address of the end of the page state table (after end)
  */
-extern MemPageStatus * MemPageStateTableEnd;
+extern MemPage * MemPageStateTableEnd;
 
 /**
  * Returns the number of references to a page

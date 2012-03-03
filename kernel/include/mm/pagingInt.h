@@ -141,7 +141,7 @@ typedef union
  */
 static inline MemPageDirectory * MemGetPageDirectory(MemContext * context, unsigned int addr)
 {
-	return &((MemPageDirectory *) MemPageAddr(context->physDirectory))[addr >> 22];
+	return &((MemPageDirectory *) MemPhys2Virt(context->physDirectory))[addr >> 22];
 }
 
 /**
@@ -152,7 +152,7 @@ static inline MemPageDirectory * MemGetPageDirectory(MemContext * context, unsig
  */
 static inline MemPageTable * MemGetPageTable(MemPageDirectory * dir, unsigned int addr)
 {
-	return &((MemPageTable *) MemPageAddr(dir->pageID))[(addr >> 12) & 0xFFF];
+	return &((MemPageTable *) MemPhys2Virt(dir->pageID))[(addr >> 12) & 0xFFF];
 }
 
 /**
