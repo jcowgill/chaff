@@ -38,16 +38,9 @@ struct MemCache;
  */
 
 #define MEM_SLAB_DMA 1		///< Cache allocates memory using #MEM_DMA instead of #MEM_KERNEL
+#define MEM_SLAB_LARGE 2	///< Cache uses large slabs (set automatically) @private
 
 /** @} */
-
-/**
- * Callback made by the slab allocator to construct / destroy an object on a slab
- *
- * @param object object to construct / destroy
- * @param cache cache the object is being manipulated on
- */
-typedef void (* MemSlabCallback)(void * object, struct MemCache * cache);
 
 /**
  * Contains information about a cache of objects used by the slab allocator
@@ -60,34 +53,29 @@ typedef struct MemCache
     ListHead slabsPartial;      ///< List of partially full slabs
     ListHead slabsEmpty;        ///< List of empty slabs
 
-    MemSlabCallback ctor;		///< Object constructor
-    MemSlabCallback dtor;		///< Object destructor
-
     unsigned int objectSize;    ///< Size of objects used in this cache
     unsigned int flags;			///< Slab flags
-
     unsigned int pagesPerSlab;	///< Number of physical pages to allocate per slab
-    unsigned int headerOff;		///< Offset to start slab header
+    unsigned int objectsPerSlab;///< Number of objects in each slab
 
 } MemCache;
 
 /**
  * Marks the end of the free list (slab is full)
  */
-#define MEM_SLAB_END    ((unsigned short) (~1))
+#define MEM_SLAB_END    ((unsigned int) ~0)
 
 /**
  * Contains information about a slab of objects
  */
 typedef struct MemSlab
 {
-    MemCache * cache;           ///< Cache used by this slab
-    ListHead slabList;          ///< Entry in the cache slab list
+	MemCache * cache;           ///< Cache used by this slab
+    ListHead slabList;			///< Entry in the cache slab list
 
-    char * memory;              ///< Physical memory address of the start of the slab
-
-    unsigned short freePtr;     ///< Pointer to first free object id
-    unsigned short freeList[];  ///< Chain of free objects
+    unsigned int activeObjs;	///< Number of objects in use
+    MemPhysPage memory;			///< Physical page of the start of the slab
+    unsigned int * freePtr;		///< Pointer to first free object id
 
 } MemSlab;
 
@@ -96,12 +84,9 @@ typedef struct MemSlab
  *
  * @param size size of objects allocated by the cache
  * @param flags any flags to create the cache with
- * @param ctor object constructor (can be NULL to do nothing)
- * @param dtor object destructor (can be NULL to do nothing)
  * @return pointer to the new cache or NULL on error
  */
-MemCache * MemSlabCreate(unsigned int size, unsigned int flags,
-		MemSlabCallback ctor, MemSlabCallback dtor);
+MemCache * MemSlabCreate(unsigned int size, unsigned int flags);
 
 /**
  * Destroys a slab cache

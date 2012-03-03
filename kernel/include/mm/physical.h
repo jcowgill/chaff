@@ -155,17 +155,24 @@ extern unsigned int MemPhysicalTotalPages;
  */
 extern unsigned int MemPhysicalFreePages;
 
+struct MemSlab;
+
 /**
  * Memory page status structure
  *
  * Contains page reference counts
  */
-typedef struct
+typedef struct MemPage
 {
 	/**
 	 * The number of references to this page (contexts)
 	 */
 	unsigned int refCount;
+
+	/**
+	 * SLAB associated with this page (only used when page is part of a slab)
+	 */
+	struct MemSlab * slab;
 
 } MemPage;
 
