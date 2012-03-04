@@ -35,6 +35,15 @@
 void INIT CpuInit();
 
 /**
+ * Late CPU initializer to initialize FPU state allocator
+ *
+ * Call this after setting up the slab allocator
+ *
+ * @private
+ */
+void INIT CpuInitLate();
+
+/**
  * Contains information about the signature of the processor
  */
 typedef struct CpuIdSignatureType
@@ -94,6 +103,11 @@ extern unsigned int CpuFeaturesEDX;
 extern unsigned int CpuFeaturesECX;
 
 /**
+ * True if the CPU supports the "Denormals are Zero" (DAZ) flag in the MXCSR register
+ */
+extern bool CpuHasDenormalsAreZero;
+
+/**
  * Returns true if the CPU has a Floating-Point Unit (FPU)
  */
 static inline bool CpuHasFpu()
@@ -129,7 +143,7 @@ static inline bool CpuHasSse()
 /**
  * Number of bytes needed to store FPU and SSE state with FXSAVE
  */
-#define CPU_EXTRA_FXSAVE 0x120
+#define CPU_EXTRA_FXSAVE 0x200
 
 /**
  * Once ProcThread::fpuSwitches is above this value, the FPU registers are not saved lazily

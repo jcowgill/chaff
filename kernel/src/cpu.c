@@ -23,93 +23,100 @@
 #include "inlineasm.h"
 #include "process.h"
 #include "cpu.h"
+#include "mm/kmemory.h"
 
+//TS bit of CR0 register
 #define CR0_TS_BIT (1 << 3)
-#define FPU_INIT_CTRL 0x37F
 
-#define FPU_STATE_ALIGN(statePtr) (unsigned short *) (((unsigned int) (statePtr) + 8) & ~0xF)
+//Initialization words
+#define FPU_INIT_CTRL 0x37F
+#define MXCSR_INIT 0x1F80
 
 //Current thread registers
 // fpuState must be valid for these
 static ProcThread * fpuCurrent = NULL;
 
-//Does the requested FPU switch
-// TS bit must be cleared before this
-static void DoFpuSwitch()
-{
-	unsigned short * alignedFpuState;
+//FPU States cache
+static MemCache * fpuStateCache;
 
-	//Use new FXSAVE?
+//Setup FPU state slab allocator
+void INIT CpuInitLate()
+{
 	if(CpuHasFxSave())
 	{
-		//Save old registers
-		if(fpuCurrent != NULL)
-		{
-			alignedFpuState = FPU_STATE_ALIGN(fpuCurrent->fpuState);
-			asm volatile("fxsave %0":"=m" (*alignedFpuState));
-		}
-
-		//Check if the new thread has an FPU state
-		if(ProcCurrThread->fpuState == NULL)
-		{
-			//Allocate fpu state
-#warning Needs to be 16 byte aligned (this works assuming MAlloc aligns to 8 bytes)
-			ProcCurrThread->fpuState = MAlloc(CPU_EXTRA_FXSAVE + 8);
-
-			//Get aligned pointer
-			alignedFpuState = FPU_STATE_ALIGN(ProcCurrThread->fpuState);
-
-			//Wipe and fill with initial FPU control
-			MemSet(alignedFpuState, 0, CPU_EXTRA_FXSAVE);
-			*alignedFpuState = FPU_INIT_CTRL;
-		}
-		else
-		{
-			//Get aligned state
-			alignedFpuState = FPU_STATE_ALIGN(ProcCurrThread->fpuState);
-		}
-
-		//Restore registers
-		asm volatile("fxrstor %0"::"m"(*alignedFpuState));
-	}
-	else if(CpuHasFpu())
-	{
-		//Save old registers
-		if(fpuCurrent != NULL)
-		{
-			alignedFpuState = (unsigned short *) fpuCurrent->fpuState;
-			asm volatile("fnsave %0; fwait":"=m" (*alignedFpuState));
-		}
-
-		//Check if the new thread has an FPU state
-		if(ProcCurrThread->fpuState == NULL)
-		{
-			//Allocate fpu state
-			ProcCurrThread->fpuState = MAlloc(CPU_EXTRA_FPU);
-			alignedFpuState = (unsigned short *) ProcCurrThread->fpuState;
-
-			//Wipe and fill with initial FPU control
-			MemSet(alignedFpuState, 0, CPU_EXTRA_FPU);
-			*alignedFpuState = FPU_INIT_CTRL;
-		}
-		else
-		{
-			alignedFpuState = (unsigned short *) ProcCurrThread->fpuState;
-		}
-
-		//Restore registers
-		// frstor generates exceptions, so we use frstor with the default control word
-		// and then load the separate word with fldcw afterwards
-		unsigned short oldFpuCtrlWord = *alignedFpuState;
-		*alignedFpuState = FPU_INIT_CTRL;
-
-		asm volatile("frstor %0; fldcw %1"::"m"(*alignedFpuState), "m"(oldFpuCtrlWord));
-
-		*alignedFpuState = oldFpuCtrlWord;
+		fpuStateCache = MemSlabCreate(CPU_EXTRA_FXSAVE, 0);
 	}
 	else
 	{
-		return;
+		fpuStateCache = MemSlabCreate(CPU_EXTRA_FPU, 0);
+	}
+}
+
+//Does the requested FPU switch
+// TS bit must be cleared before this
+// Assumes CPU has an FPU (use CpuHasFpu() before this)
+static void DoFpuSwitch()
+{
+	unsigned short * fpuState;
+
+	//Save old registers
+	if(fpuCurrent != NULL)
+	{
+		fpuState = (unsigned short *) fpuCurrent->fpuState;
+
+		//Actually do the save
+		if(CpuHasFxSave())
+		{
+			asm volatile("fxsave %0":"=m" (*fpuState));
+		}
+		else
+		{
+			asm volatile("fnsave %0; fwait":"=m" (*fpuState));
+		}
+	}
+
+	//Ensure the new thread has a usable FPU state
+	if(ProcCurrThread->fpuState == NULL)
+	{
+		//Allocate fpu state and wipe
+		ProcCurrThread->fpuState = MemSlabZAlloc(fpuStateCache);
+
+		//Fill with initial FPU control word
+		fpuState = (unsigned short *) ProcCurrThread->fpuState;
+		fpuState[0] = FPU_INIT_CTRL;
+
+		//Set MXCSR register and mask
+		if(CpuHasFxSave())
+		{
+			fpuState[12] = MXCSR_INIT;
+
+			if(CpuHasDenormalsAreZero)
+			{
+				fpuState[13] = 0xFFFF;
+			}
+		}
+	}
+	else
+	{
+		fpuState = (unsigned short *) ProcCurrThread->fpuState;
+	}
+
+	//Restore registers
+	if(CpuHasFxSave())
+	{
+		asm volatile("fxrstor %0"::"m"(*fpuState));
+	}
+	else
+	{
+		//Restore for standard FPUs
+		// frstor generates exceptions, so we use frstor with the default control word
+		// and then load the separate word with fldcw afterwards
+		unsigned short oldFpuCtrlWord = *fpuState;
+		*fpuState = FPU_INIT_CTRL;
+
+		asm volatile("frstor %0; fldcw %1"::"m"(*fpuState), "m"(oldFpuCtrlWord));
+
+		*fpuState = oldFpuCtrlWord;
 	}
 
 	//Increment number of fpu switches
@@ -181,7 +188,7 @@ void CpuFreeFpuState(ProcThread * thread)
 	//Free state
 	if(thread->fpuState)
 	{
-		MFree(thread->fpuState);
+		MemSlabFree(fpuStateCache, thread->fpuState);
 		thread->fpuState = NULL;
 	}
 }

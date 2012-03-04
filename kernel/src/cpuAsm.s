@@ -23,6 +23,7 @@ global CpuIdVendor
 global CpuIdSignature
 global CpuFeaturesEDX
 global CpuFeaturesECX
+global CpuHasDenormalsAreZero
 extern Panic
 
 section .data
@@ -49,10 +50,18 @@ CpuFeaturesEDX:
 CpuFeaturesECX:
 	dd 0
 
+CpuHasDenormalsAreZero:
+	;Has DAZ flag (bit 6) in MXCSR register
+	dd 0
+
+section .init
 Cpu386ErrMsg:
 	db "CpuInit: You are running a 386 processor which Chaff does not support.", 0
 
-section .init
+CpuTmpFxSave:
+	;Temporary space to store fxsave result
+	times 512 db 0
+
 CpuInit:
 	;Initializes the CPU specific stuff
 	push ebx
@@ -216,6 +225,15 @@ CpuInit:
 	mov eax, cr4
 	or eax, ecx
 	mov cr4, eax
+
+	;Test for Denormals are Zero
+	test ecx, 0x600
+	jz .postCPUExtend
+
+	;DAZ is enabled if the DAZ flag in the mask is enabled
+	fxsave [CpuTmpFxSave]
+	test word [CpuTmpFxSave + 0x24], (1 << 6)
+	setnz [CpuHasDenormalsAreZero]
 
 .postCPUExtend:
 	;Finished
