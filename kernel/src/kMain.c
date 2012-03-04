@@ -38,6 +38,9 @@ void INIT NORETURN kMain(unsigned int mBootCode, multiboot_info_t * mBootInfo)
 		Panic("kMain: OS must be loaded by a multiboot bootloader");
 	}
 
+	// Initialize interrupts
+	IntrInit();
+
 	// Initialize CPU specific instructions
 	CpuInit();
 
@@ -46,9 +49,6 @@ void INIT NORETURN kMain(unsigned int mBootCode, multiboot_info_t * mBootInfo)
 
 	// Initialize SLAB allocator
 	MemSlabInit();
-
-	// Initialize interrupts
-	IntrInit();
 
 	// Initialize timer system
 	TimerInit();

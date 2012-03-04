@@ -71,10 +71,10 @@ void * MemKAlloc(unsigned int bytes)
 	//Find best cache
 	if(bytes > 8)
 	{
-		cacheIndex = 31 - BitScanForward(bytes);
+		cacheIndex = 28 - BitScanReverse(bytes);
 
 		//Add 1 of not exactly a power of 2
-		if(1 << cacheIndex != bytes)
+		if(1 << (cacheIndex + 3) != bytes)
 		{
 			cacheIndex++;
 		}
@@ -273,7 +273,7 @@ static inline MemSlab * CreateSlab(MemCache * cache)
 	slab->cache = cache;
 	ListHeadInit(&slab->slabList);
 	slab->memory = rawData;
-	slab->freePtr = 0;
+	slab->freePtr = MemPhys2Virt(rawData);
 	slab->activeObjs = 0;
 
 	//Add to cache lists

@@ -55,12 +55,13 @@ CpuHasDenormalsAreZero:
 	dd 0
 
 section .init
-Cpu386ErrMsg:
-	db "CpuInit: You are running a 386 processor which Chaff does not support.", 0
-
 CpuTmpFxSave:
 	;Temporary space to store fxsave result
+	align 16
 	times 512 db 0
+
+Cpu386ErrMsg:
+	db "CpuInit: You are running a 386 processor which Chaff does not support.", 0
 
 CpuInit:
 	;Initializes the CPU specific stuff
@@ -158,8 +159,8 @@ CpuInit:
 .afterProbe:
 	;Setup CR0 register (FPU, CPU caches and WP bit)
 	mov ecx, cr0
-	or ecx, 0x00050028	;Set TS, NE, WP and AM bits
-	and ecx, 0x9FFFFFF9	;Clear EM, MP, CD and NW bits
+	or ecx, 0x00050020	;Set NE, WP and AM bits
+	and ecx, 0x9FFFFFF1	;Clear TS, EM, MP, CD and NW bits
 
 	;Add bits for FPU
 	test eax, eax
@@ -232,7 +233,7 @@ CpuInit:
 
 	;DAZ is enabled if the DAZ flag in the mask is enabled
 	fxsave [CpuTmpFxSave]
-	test word [CpuTmpFxSave + 0x24], (1 << 6)
+	test word [CpuTmpFxSave + 0x1C], (1 << 6)
 	setnz [CpuHasDenormalsAreZero]
 
 .postCPUExtend:
