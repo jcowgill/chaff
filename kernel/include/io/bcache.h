@@ -108,23 +108,28 @@ typedef struct IoBlockCache
 } IoBlockCache;
 
 /**
- * Initializes a block cache
+ * Initializes the block cache system
  *
- * Do not call more than once on a cache
- *
- * @param cache cache to initialize
- * @param blockSize size of each block in the cache
+ * @private
  */
-void IoBlockCacheInit(IoBlockCache * cache, int blockSize);
+void INIT IoBlockCacheInit();
 
 /**
- * Empties all the blocks from the cache
+ * Initializes a block cache
  *
- * @param cache cache to empty
- * @retval true all the blocks in the cache were destroyed
- * @retval false if some blocks were locked
+ * @param blockSize size of each block in the cache
+ * @return the new block cache or NULL on error
  */
-bool IoBlockCacheEmpty(IoBlockCache * cache);
+IoBlockCache * IoBlockCacheCreate(int blockSize);
+
+/**
+ * Destroies a block cache
+ *
+ * @param cache cache to destroy
+ * @retval true all the blocks in the cache were destroyed
+ * @retval false if some blocks were locked (cache not destroied)
+ */
+bool IoBlockCacheDestroy(IoBlockCache * cache);
 
 /**
  * Reads a block of data from the block cache or the device

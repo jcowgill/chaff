@@ -163,6 +163,19 @@ void * MemVirtualAlloc(unsigned int bytes)
 	return data;
 }
 
+//Allocates virtual memory with the given size and wipes the memory
+void * MemVirtualZAlloc(unsigned int bytes)
+{
+	void * data = MemVirtualAlloc(bytes);
+
+	if(data)
+	{
+		MemSet(data, 0, bytes);
+	}
+
+	return data;
+}
+
 //Frees memory allocated using MemVirtualAlloc()
 void MemVirtualFree(void * ptr)
 {

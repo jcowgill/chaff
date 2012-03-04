@@ -24,6 +24,7 @@
 #include "io/fs.h"
 #include "errno.h"
 #include "htable.h"
+#include "mm/kmemory.h"
 
 //IoOpen and IoLookupPath calls
 //
@@ -331,7 +332,7 @@ int IoOpen(SecContext * secContext, IoContext * ioContext, const char * path,
 						iNode.fs,
 						&iNode,
 						fileStart,
-						StrLen(fileStart),
+						StrLen(fileStart, IO_NAME_MAX),
 						mode,
 						&outINode);
 
@@ -398,7 +399,7 @@ int IoOpen(SecContext * secContext, IoContext * ioContext, const char * path,
 	}
 
 	//Create descriptor
-	IoFile * file = MAlloc(sizeof(IoFile));
+	IoFile * file = MemKAlloc(sizeof(IoFile));
 	file->refCount = 1;
 	file->off = 0;
 	file->flags = flags & (IO_O_RDWR | IO_O_APPEND | IO_O_DIRECTORY);
@@ -409,7 +410,7 @@ int IoOpen(SecContext * secContext, IoContext * ioContext, const char * path,
 	res = file->ops->open(&iNode, file);
 	if(res != 0)
 	{
-		MFree(file);
+		MemKFree(file);
 		goto returnError;
 	}
 
@@ -429,7 +430,7 @@ int IoOpen(SecContext * secContext, IoContext * ioContext, const char * path,
 		//Test result
 		if(res != 0)
 		{
-			MFree(file);
+			MemKFree(file);
 			goto returnError;
 		}
 	}

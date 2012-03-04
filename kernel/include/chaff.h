@@ -135,21 +135,6 @@ typedef enum
 void PrintLog(LogLevel level, const char * msg, ...);
 
 /**
- * Allocates a block of kernel memory
- *
- * @param size number of bytes to allocate
- * @return a pointer to the allocated memory
- */
-void * MAlloc(unsigned int size) __attribute__((malloc));
-
-/**
- * Frees a block of kernel memory allocated by MAlloc()
- *
- * @param data pointer to the memory to free
- */
-void MFree(void * data);
-
-/**
  * Sets @a count bytes of @a data to the specified value
  *
  * @param data pointer to the data to set
@@ -197,17 +182,19 @@ void MFree(void * data);
  * Duplicates a null-terminated string using MAlloc()
  *
  * @param str null-terminated string to duplicate
+ * @param maxLen maximum length to duplicate
  * @return a pointer to the new string
  */
-#define StrDup __builtin_strdup
+char * StrDup(const char * s, unsigned int maxLen);
 
 /**
  * Returns the length of a null-terminated string
  *
  * @param str null-terminated string to get length of
+ * @param maxLen maximum length to return
  * @return the length of the string
  */
-#define StrLen __builtin_strlen
+unsigned int StrLen(const char * str, unsigned int maxLen);
 
 /**
  * Compares two null-terminated strings

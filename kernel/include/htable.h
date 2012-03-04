@@ -45,7 +45,7 @@
 /**
  * Initial number of buckets in the table
  */
-#define HASH_INITIAL_SIZE		256
+#define HASH_INITIAL_SIZE		1024
 
 /**
  * Reference for GROW and SHRINK

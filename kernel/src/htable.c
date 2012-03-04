@@ -21,6 +21,7 @@
 
 #include "chaff.h"
 #include "htable.h"
+#include "mm/kmemory.h"
 
 //Generic Variable-Sized Hash Table
 //
@@ -35,8 +36,7 @@ static void HashTableResize(HashTable * table, unsigned int newSize)
 	}
 
 	//Allocate new bucket table and wipe it
-	HashItem ** buckets = MAlloc(sizeof(HashItem *) * newSize);
-	MemSet(buckets, 0, sizeof(HashItem *) * newSize);
+	HashItem ** buckets = MemVirtualZAlloc(sizeof(HashItem *) * newSize);
 
 	//Re-add all items to buckets
 	for(unsigned int i = 0; i < table->bucketCount; i++)
@@ -62,7 +62,7 @@ static void HashTableResize(HashTable * table, unsigned int newSize)
 	//Replace old bucket pointer
 	if(table->buckets)
 	{
-		MFree(table->buckets);
+		MemVirtualFree(table->buckets);
 	}
 
 	table->buckets = buckets;

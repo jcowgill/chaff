@@ -23,6 +23,7 @@
 #include "timer.h"
 #include "process.h"
 #include "inlineasm.h"
+#include "mm/kmemory.h"
 
 //PIT Frequencies and Magic Numbers
 // These are for 100Hz (frequency of out PIT IRQ)
@@ -139,7 +140,7 @@ TimerTime TimerSleep(TimerTime time)
 	time += currentTime;
 
 	//Create entry
-	TimerQueue * newQueueEntry = MAlloc(sizeof(TimerQueue));
+	TimerQueue * newQueueEntry = MemKAlloc(sizeof(TimerQueue));
 	newQueueEntry->thread = ProcCurrThread;
 	newQueueEntry->endTime = time;
 
@@ -151,7 +152,7 @@ TimerTime TimerSleep(TimerTime time)
 	{
 		//Interrupted, we must manually remove the queue entry
 		ListDelete(&newQueueEntry->list);
-		MFree(newQueueEntry);
+		MemKFree(newQueueEntry);
 
 		//Return difference between current time and given time
 		return currentTime - time;
@@ -176,7 +177,7 @@ TimerTime TimerSetAlarm(TimerTime time)
 
 		//Remove from list + free
 		ListDelete(&queueHead->list);
-		MFree(queueHead);
+		MemKFree(queueHead);
 
 		//Wipe from process
 		ProcCurrProcess->alarmPtr = NULL;
@@ -190,7 +191,7 @@ TimerTime TimerSetAlarm(TimerTime time)
 	if(time != 0)
 	{
 		//Create alarm
-		queueHead = MAlloc(sizeof(TimerQueue));
+		queueHead = MemKAlloc(sizeof(TimerQueue));
 		queueHead->process = ProcCurrProcess;
 		queueHead->endTime = time;
 
@@ -279,7 +280,7 @@ static void TimerInterrupt(IntrContext * iContext)
 
 			//Remove current from queue
 			ListDelete(&head->list);
-			MFree(head);
+			MemKFree(head);
 
 			//Next head
 			head = newHead;
@@ -309,7 +310,7 @@ static void TimerInterrupt(IntrContext * iContext)
 
 			//Remove current from queue
 			ListDelete(&head->list);
-			MFree(head);
+			MemKFree(head);
 
 			//Next head
 			head = newHead;

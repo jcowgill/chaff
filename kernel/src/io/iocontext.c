@@ -24,6 +24,7 @@
 #include "io/iocontext.h"
 #include "errno.h"
 #include "mm/check.h"
+#include "mm/kmemory.h"
 
 //This file contains most io front-end functions except open
 // which is located in open.c
@@ -70,7 +71,7 @@ static int IoReleaseFile(IoFile * file, IoContext * context, int fd)
 		if(context->files[fd] == file)
 		{
 			//Free file
-			MFree(file);
+			MemKFree(file);
 
 			//Delete descriptor reference
 			context->files[fd] = NULL;
@@ -103,7 +104,7 @@ IoContext * IoContextCreate()
 	}
 
 	//Allocate context
-	IoContext * context = MAlloc(sizeof(IoContext));
+	IoContext * context = MemKAlloc(sizeof(IoContext));
 
 	//Wipe stuff
 	MemSet(context->files, 0, sizeof(context->files));
@@ -124,7 +125,7 @@ IoContext * IoContextCreate()
 IoContext * IoContextClone(IoContext * context)
 {
 	//Allocate context
-	IoContext * newContext = MAlloc(sizeof(IoContext));
+	IoContext * newContext = MemKAlloc(sizeof(IoContext));
 
 	//Copy the entire context
 	MemCpy(newContext, context, sizeof(IoContext));
@@ -162,7 +163,7 @@ void IoContextDeleteReference(IoContext * context)
 		}
 
 		//Free context
-		MFree(context);
+		MemKFree(context);
 	}
 	else
 	{

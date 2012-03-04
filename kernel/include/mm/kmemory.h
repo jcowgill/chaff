@@ -206,10 +206,20 @@ void MemVirtualUnReserve(void * ptr);
  * This function is identical to MemVirtualReserve() except it allocates
  * physical memory for the allocated memory (you usually want this function).
  * 
- * @param bytes number of bytes to allcate
+ * @param bytes number of bytes to allocate
  * @return virtual memory address
  */
 void * MemVirtualAlloc(unsigned int bytes);
+
+/**
+ * Allocates virtual memory with the given size and wipes the memory.
+ *
+ * See MemVirtualAlloc() for details
+ *
+ * @param bytes number of bytes to allocate
+ * @return virtual memory address
+ */
+void * MemVirtualZAlloc(unsigned int bytes);
 
 /**
  * Frees memory allocated using MemVirtualAlloc()

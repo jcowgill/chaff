@@ -111,7 +111,7 @@ int IoDevFsRegister(IoDevice * device)
 	}
 
 	//Attempt to add to hash table
-	if(HashTableInsert(&files, &device->devFsHItem, device->name, StrLen(device->name)))
+	if(HashTableInsert(&files, &device->devFsHItem, device->name, StrLen(device->name, IO_NAME_MAX)))
 	{
 		//Add to devices
 		devices[freeINode] = device;
@@ -336,7 +336,7 @@ static int DevFsReadDir(IoFile * file, void * buf, IoDirectoryFiller filler, int
 				if(toSkip == 0)
 				{
 					//Send back this file
-					filler(buf, i - 1, devices[i]->name, StrLen(devices[i]->name));
+					filler(buf, i - 1, devices[i]->name, StrLen(devices[i]->name, IO_NAME_MAX));
 					readSoFar++;
 
 					//If we've read enough, exit

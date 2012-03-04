@@ -26,6 +26,7 @@
 #include "mm/pagingInt.h"
 #include "mm/physical.h"
 #include "mm/misc.h"
+#include "mm/kmemory.h"
 
 #warning TODO Copy-On-Write Page tables
 
@@ -43,7 +44,7 @@ static bool MemRegionIsCollision(MemRegion * thisRegion, MemRegion * nextRegion)
 MemContext * MemContextInit()
 {
 	//Allocate new context
-	MemContext * newContext = MAlloc(sizeof(MemContext));
+	MemContext * newContext = MemKAlloc(sizeof(MemContext));
 	ListHeadInit(&newContext->regions);
 
 	//Allocate directory
@@ -67,7 +68,7 @@ MemContext * MemContextInit()
 MemContext * MemContextClone()
 {
 	//Allocate new context
-	MemContext * newContext = MAlloc(sizeof(MemContext));
+	MemContext * newContext = MemKAlloc(sizeof(MemContext));
 	ListHeadInit(&newContext->regions);
 
 	//Copy regions
@@ -75,7 +76,7 @@ MemContext * MemContextClone()
 	ListForEachEntry(oldRegion, &MemCurrentContext->regions, listItem)
 	{
 		//Allocate new region
-		MemRegion * newRegion = MAlloc(sizeof(MemRegion));
+		MemRegion * newRegion = MemKAlloc(sizeof(MemRegion));
 
 		//Copy region data
 		MemCpy(newRegion, oldRegion, sizeof(MemRegion));
@@ -210,11 +211,11 @@ void MemContextDelete(MemContext * context)
 	ListForEachEntrySafe(region, tmpRegion, &context->regions, listItem)
 	{
 		//Free region
-		MFree(region);
+		MemKFree(region);
 	}
 
 	//Free the final context
-	MFree(context);
+	MemKFree(context);
 }
 
 //Deletes a reference to a memory context
@@ -338,7 +339,7 @@ MemRegion * MemRegionCreate(MemContext * context, void * startAddress,
 	}
 
 	//Allocate and initialize new region
-	MemRegion * newRegion = MAlloc(sizeof(MemRegion));
+	MemRegion * newRegion = MemKAlloc(sizeof(MemRegion));
 	newRegion->flags = flags;
 	newRegion->length = length;
 	newRegion->start = startAddr;
@@ -376,7 +377,7 @@ MemRegion * MemRegionCreate(MemContext * context, void * startAddress,
 		{
 			PrintLog(Error, "MemRegionCreate: Region overlaps with another region");
 
-			MFree(newRegion);
+			MemKFree(newRegion);
 			return NULL;
 		}
 	}
@@ -468,5 +469,5 @@ void MemRegionDelete(MemRegion * region)
 	ListDelete(&region->listItem);
 
 	//Free region
-	MFree(region);
+	MemKFree(region);
 }

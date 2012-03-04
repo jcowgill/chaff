@@ -27,6 +27,7 @@
 #include "timer.h"
 #include "process.h"
 #include "cpu.h"
+#include "mm/kmemory.h"
 
 //Interrupt gate structure
 typedef struct
@@ -226,7 +227,7 @@ bool IntrRegister(int irq, int flags, void (* handler)(IntrContext *))
 		}
 
 		//Allocate new entry
-		IntrDispatchEntry * newEntry = MAlloc(sizeof(IntrDispatchEntry));
+		IntrDispatchEntry * newEntry = MemKAlloc(sizeof(IntrDispatchEntry));
 
 		//Set entry chain properties
 		newEntry->next = intrEntry->next;
@@ -295,7 +296,7 @@ bool IntrUnRegister(int irq, void (* handler)(IntrContext *))
 			MemCpy(intrEntry, nextEntry, sizeof(IntrDispatchEntry));
 
 			//Free unused entry
-			MFree(nextEntry);
+			MemKFree(nextEntry);
 		}
 		else
 		{
@@ -319,7 +320,7 @@ bool IntrUnRegister(int irq, void (* handler)(IntrContext *))
 		prevEntry->next = intrEntry->next;
 
 		//Free current entry
-		MFree(intrEntry);
+		MemKFree(intrEntry);
 	}
 
 	return true;

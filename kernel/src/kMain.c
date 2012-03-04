@@ -28,6 +28,7 @@
 #include "io/device.h"
 #include "cpu.h"
 #include "mm/kmemory.h"
+#include "io/bcache.h"
 
 void INIT NORETURN kMain(unsigned int mBootCode, multiboot_info_t * mBootInfo)
 {
@@ -55,6 +56,9 @@ void INIT NORETURN kMain(unsigned int mBootCode, multiboot_info_t * mBootInfo)
 
 	// Initialize process manager and scheduler
 	ProcInit();
+
+	// Initialize block cache system
+	IoBlockCacheInit();
 
 	// Initialize devfs
 	IoDevFsInit();

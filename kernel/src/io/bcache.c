@@ -24,6 +24,10 @@
 #include "io/device.h"
 #include "errno.h"
 #include "mm/check.h"
+#include "mm/kmemory.h"
+
+//Cache of IoBlock objects
+static MemCache * blockHeadCache;
 
 //Insert into block cache table
 static inline bool IoBlockHashInsert(IoBlockCache * cache, IoBlock * block)
@@ -45,29 +49,54 @@ static inline IoBlock * IoBlockHashFind(IoBlockCache * cache, unsigned long long
 	}
 }
 
+//Frees a block
+static inline void FreeBlock(IoBlockCache * bCache, IoBlock * block)
+{
+	//Free block memory
+	if(bCache->blockSize >= PAGE_SIZE)
+	{
+		MemPhysicalFree(MemVirt2Phys(block->address), bCache->blockSize / PAGE_SIZE);
+	}
+	else
+	{
+		MemKFree(block->address);
+	}
+
+	//Free block itself
+	MemSlabFree(blockHeadCache, block);
+}
+
+//Initialize block cache
+void INIT IoBlockCacheInit()
+{
+	blockHeadCache = MemSlabCreate(sizeof(IoBlock), 0);
+}
+
 //Initializes a block cache
-void IoBlockCacheInit(IoBlockCache * cache, int blockSize)
+IoBlockCache * IoBlockCacheCreate(int blockSize)
 {
 	//Setup cache parameters
 	// Check block size
 	if((blockSize & (blockSize - 1)) != 0 || blockSize == 0)
 	{
 		PrintLog(Critical, "IoBlockCacheInit: can only create block cache with power of 2 size");
-		return;
+		return NULL;
 	}
 	else if(blockSize < 16)
 	{
 		PrintLog(Warning, "IoBlockCacheInit: low block cache size isn't very efficient");
 	}
 
+	//Create and setup cache
+	IoBlockCache * cache = MemKAlloc(sizeof(IoBlockCache));
 	cache->blockSize = blockSize;
-
-	//Setup cache structures
 	ListHeadInit(&cache->blockList);
+
+	return cache;
 }
 
 //Destroys a block cache
-bool IoBlockCacheEmpty(IoBlockCache * cache)
+bool IoBlockCacheDestroy(IoBlockCache * cache)
 {
 	//Remove each entry from the list
 	IoBlock * block;
@@ -82,13 +111,18 @@ bool IoBlockCacheEmpty(IoBlockCache * cache)
 			HashTableRemoveItem(&cache->blockTable, &block->hItem);
 			ListDelete(&block->listItem);
 
-			MFree(block->address);
-			MFree(block);
+			FreeBlock(cache, block);
 		}
 		else
 		{
 			allUnlocked = false;
 		}
+	}
+
+	//Destroy final cache
+	if(allUnlocked)
+	{
+		MemKFree(cache);
 	}
 
 	return allUnlocked;
@@ -98,14 +132,23 @@ bool IoBlockCacheEmpty(IoBlockCache * cache)
 static IoBlock * CreateEmptyBlock(IoBlockCache * bCache, unsigned long long off)
 {
 	// Create new block and memory region
-	IoBlock * block = MAlloc(sizeof(IoBlock));
+	IoBlock * block = MemSlabAlloc(blockHeadCache);
 
 	block->offset = off;
 	ListHeadInit(&block->listItem);
 	ProcWaitQueueInit(&block->waitingThreads);
 	block->refCount = 1;
 
-	block->address = MAlloc(bCache->blockSize);
+	// If size >= page, use direct physical allocation
+	if(bCache->blockSize >= PAGE_SIZE)
+	{
+		block->address = MemPhys2Virt(
+				MemPhysicalAlloc(bCache->blockSize / PAGE_SIZE, MEM_KERNEL));
+	}
+	else
+	{
+		block->address = MemKAlloc(bCache->blockSize);
+	}
 
 	// Insert block into hash map
 	IoBlockHashInsert(bCache, block);
@@ -190,8 +233,6 @@ int IoBlockCacheRead(IoDevice * device, unsigned long long off, IoBlock ** block
 //Decrements the reference count on a block from the cache
 void IoBlockCacheUnlock(IoDevice * device, IoBlock * block)
 {
-	IGNORE_PARAM device;
-
 	//Very simple at the moment
 	if(block->refCount > 0)
 	{
@@ -201,8 +242,7 @@ void IoBlockCacheUnlock(IoDevice * device, IoBlock * block)
 		{
 			//Erase block
 			ListDelete(&block->listItem);
-			MFree(block->address);
-			MFree(block);
+			FreeBlock(device->blockCache, block);
 		}
 	}
 	else
