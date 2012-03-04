@@ -46,9 +46,4 @@ void INIT MemManagerInit(multiboot_info_t * bootInfo);
  */
 void MemPageFaultHandler(IntrContext * context);
 
-/**
- * MAlloc initializer
- */
-void MAllocInit();
-
 #endif

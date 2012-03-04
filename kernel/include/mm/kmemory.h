@@ -111,6 +111,11 @@ typedef struct MemSlab
 } MemSlab;
 
 /**
+ * Initializes the slab allocator and MemKAlloc() allocator
+ */
+void INIT MemSlabInit();
+
+/**
  * Creates a new slab cache
  *
  * @param size size of objects allocated by the cache

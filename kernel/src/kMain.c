@@ -27,6 +27,7 @@
 #include "timer.h"
 #include "io/device.h"
 #include "cpu.h"
+#include "mm/kmemory.h"
 
 void INIT NORETURN kMain(unsigned int mBootCode, multiboot_info_t * mBootInfo)
 {
@@ -43,11 +44,11 @@ void INIT NORETURN kMain(unsigned int mBootCode, multiboot_info_t * mBootInfo)
 	// Initialize memory manager
 	MemManagerInit(mBootInfo);
 
+	// Initialize SLAB allocator
+	MemSlabInit();
+
 	// Initialize interrupts
 	IntrInit();
-
-	//Malloc must be initialized after interrupts (to allow page faults)
-	MAllocInit();
 
 	// Initialize timer system
 	TimerInit();

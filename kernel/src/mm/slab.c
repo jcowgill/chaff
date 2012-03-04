@@ -24,12 +24,10 @@
 #include "mm/physical.h"
 #include "mm/kmemory.h"
 
-static MemCache rootSlabCache;
-
 //Cache which stores cache objects
 static MemCache rootCache =
 {
-		.cacheList = { &rootSlabCache.cacheList, &rootSlabCache.cacheList },
+		.cacheList = LIST_INLINE_INIT(rootCache.cacheList),
 
 		.slabsFull = LIST_INLINE_INIT(rootCache.slabsFull),
 		.slabsPartial = LIST_INLINE_INIT(rootCache.slabsPartial),
@@ -37,24 +35,88 @@ static MemCache rootCache =
 
 		.objectSize = sizeof(MemCache),
 		.flags = 0,
-		.pagesPerSlab = (PAGE_SIZE - sizeof(MemSlab)) / sizeof(MemCache),
-		.objectsPerSlab = 0,
+		.pagesPerSlab = 1,
+		.objectsPerSlab = (PAGE_SIZE - sizeof(MemSlab)) / sizeof(MemCache),
 };
 
 //Slab cache storing slab headers for large slabs
-static MemCache rootSlabCache =
+static MemCache * rootSlabCache;
+static MemCache * kAllocCache[11];
+
+//Initializes the slab allocator
+void INIT MemSlabInit()
 {
-		.cacheList = { &rootCache.cacheList, &rootCache.cacheList },
+	//Slab header cache
+	rootSlabCache = MemSlabCreate(sizeof(MemSlab), 0);
 
-		.slabsFull = LIST_INLINE_INIT(rootCache.slabsFull),
-		.slabsPartial = LIST_INLINE_INIT(rootCache.slabsPartial),
-		.slabsEmpty = LIST_INLINE_INIT(rootCache.slabsEmpty),
+	//MemKAlloc caches
+	for(int i = 0; i < 11; i++)
+	{
+		kAllocCache[i] = MemSlabCreate(8 << i, 0);
+	}
+}
 
-		.objectSize = sizeof(MemSlab),
-		.flags = 0,
-		.pagesPerSlab = 1,
-		.objectsPerSlab = (PAGE_SIZE - sizeof(MemSlab)) / sizeof(MemSlab),
-};
+//Allocate generic memory
+void * MemKAlloc(unsigned int bytes)
+{
+	//Check size
+	if(bytes == 0 || bytes > 8 << 10)
+	{
+		PrintLog(Error, "MemKAlloc: Allocation too large or 0 bytes");
+		return NULL;
+	}
+
+	unsigned int cacheIndex = 0;
+
+	//Find best cache
+	if(bytes > 8)
+	{
+		cacheIndex = 31 - BitScanForward(bytes);
+
+		//Add 1 of not exactly a power of 2
+		if(1 << cacheIndex != bytes)
+		{
+			cacheIndex++;
+		}
+	}
+
+	//Allocate using cache
+	return MemSlabAlloc(kAllocCache[cacheIndex]);
+}
+
+//Allocate and zero memory
+void * MemKZAlloc(unsigned int bytes)
+{
+	void * data = MemKAlloc(bytes);
+
+	//Wipe data
+	if(data)
+	{
+		MemSet(data, 0, bytes);
+	}
+
+	return data;
+}
+
+//Free MemKAlloc memory
+void MemKFree(void * ptr)
+{
+	//Get slab
+	MemPhysPage page = MemVirt2Phys(ptr);
+	MemSlab * slab = MemPageStateTable[page].slab;
+
+	if(!slab)
+	{
+		PrintLog(Error, "MemKFree: invalid pointer (no associated slab)");
+		return;
+	}
+
+	//Get cache
+	MemCache * cache = slab->cache;
+
+	//Free pointer
+	MemSlabFree(cache, ptr);
+}
 
 //Creates a new slab cache
 MemCache * MemSlabCreate(unsigned int size, unsigned int flags)
@@ -174,7 +236,7 @@ static inline MemSlab * CreateSlab(MemCache * cache)
 	if(cache->flags & MEM_SLAB_LARGE)
 	{
 		//Allocate separately
-		slab = MemSlabAlloc(&rootSlabCache);
+		slab = MemSlabAlloc(rootSlabCache);
 	}
 	else
 	{
@@ -338,7 +400,7 @@ int MemSlabShrink(MemCache * cache)
 		//If header is stored off slab, free it as well
 		if(cache->flags & MEM_SLAB_LARGE)
 		{
-			MemSlabFree(&rootSlabCache, slab);
+			MemSlabFree(rootSlabCache, slab);
 		}
 
 		//Add pages freed
