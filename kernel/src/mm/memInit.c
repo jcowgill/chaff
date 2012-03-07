@@ -37,8 +37,9 @@ MemPageTable MemVirtualPageTables[64 * 1024] __attribute__((aligned(4096)));
 MemPage * MemPageStateTable;
 MemPage * MemPageStateTableEnd;
 
-//Kernel end symbol
+//Kernel end symbols
 extern char _kernel_end_page[];
+extern char _kernel_init_start_page[];
 
 //Performs a bounds check
 // We check if the start of either ranges is within the other
@@ -323,4 +324,12 @@ void INIT MemManagerInit(multiboot_info_t * bootInfo)
 
 	//Setup physical manager zones
 	MemPhysicalInit();
+}
+
+//Frees INIT pages
+void INIT MemFreeInitPages()
+{
+	//Free all pages between kernel_init_start_page and kernel_end_page
+	MemPhysicalFree((MemPhysPage) _kernel_init_start_page,
+			(unsigned int) _kernel_end_page - (unsigned int) _kernel_init_start_page);
 }

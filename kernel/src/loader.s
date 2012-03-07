@@ -29,10 +29,6 @@ KERNEL_VIRTUAL_BASE equ 0xC0000000	;Position kernel is loaded into
 KERNEL_PAGE_OFFSET equ (KERNEL_VIRTUAL_BASE >> 20)	;Offset of kernel 4MB area in page directory
 
 section .bss
-align 4096
-startupStack:
-	resb STACK_SIZE		;Allocate 16k of startup stack
-
 ;Global TSS
 TssStart:
 	resb 4
@@ -96,6 +92,10 @@ section .text
 	dd 0						;Depth / Bits per pixel (or 0 for text mode)
 
 section .init
+align 4096
+startupStack:
+	resb STACK_SIZE		;Allocate 16k of startup stack
+
 align 4096
 kernelPageTable192:
 	;Identity maps first 4MB to base of physical memory

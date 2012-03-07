@@ -39,31 +39,21 @@ void INIT NORETURN kMain(unsigned int mBootCode, multiboot_info_t * mBootInfo)
 		Panic("kMain: OS must be loaded by a multiboot bootloader");
 	}
 
-	// Initialize interrupts
+	// Core Initialization (most other stuff depends on this)
 	IntrInit();
-
-	// Initialize CPU specific instructions
 	CpuInit();
-
-	// Initialize memory manager
 	MemManagerInit(mBootInfo);
-
-	// Initialize SLAB allocator
 	MemSlabInit();
 
-	// Initialize timer system
+	// Other Initializations
+	CpuInitLate();
 	TimerInit();
-
-	// Initialize process manager and scheduler
 	ProcInit();
-
-	// Initialize block cache system
 	IoBlockCacheInit();
-
-	// Initialize devfs
 	IoDevFsInit();
 
 	// Exit boot mode
+	MemFreeInitPages();
 	ProcExitBootMode();
 }
 

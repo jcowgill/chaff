@@ -40,6 +40,11 @@
 void INIT MemManagerInit(multiboot_info_t * bootInfo);
 
 /**
+ * Frees pages marked as INIT
+ */
+void INIT MemFreeInitPages();
+
+/**
  * Page fault handler
  *
  * @param context interrupt context page faults occur in

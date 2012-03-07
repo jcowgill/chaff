@@ -16,9 +16,7 @@
 #
 
 # Targets:
-#  all 		= Build everything (using clang)
-#  all-clang= Build everything with clang
-#  all-gcc  = Build everything with gcc
+#  all 		= Build everything
 #  clean 	= Clean everything
 #  
 #  kernel	= Build kernel
@@ -50,7 +48,7 @@ AF_ALL		= -Xgnu -f elf32 -F dwarf
 
 # Compiling commands
 ASMCOMP		= $(ASM) $(AF_ALL) $(AF_TGT) -o $@ $<
-LINK		= $(LD) $(LF_ALL) $(LF_TGT) -o $@ $^
+LINK		= $(LD) $(LF_ALL) $(LF_TGT) -o $@ $(filter-out %.ld, $^)
 COMP		= $(CC) $(CF_ALL) $(CF_TGT) -MMD -o $@ -c $<
 
 # Main target
