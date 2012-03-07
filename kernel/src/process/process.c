@@ -547,7 +547,7 @@ void NORETURN ProcExitProcess(unsigned int exitCode)
 		ProcDisownChildren(ProcCurrProcess);
 
 		// Free memory context
-		if(ProcCurrProcess->memContext != NULL)
+		if(ProcCurrProcess->memContext)
 		{
 			MemContextSwitchTo(MemKernelContext);
 			MemContextDeleteReference(ProcCurrProcess->memContext);
@@ -556,7 +556,11 @@ void NORETURN ProcExitProcess(unsigned int exitCode)
 		}
 
 		// Free io context
-		IoContextDeleteReference(ProcCurrProcess->ioContext);
+		if(ProcCurrProcess->ioContext)
+		{
+			IoContextDeleteReference(ProcCurrProcess->ioContext);
+			ProcCurrProcess->ioContext = NULL;
+		}
 
 		// Zombieize
 		ProcCurrProcess->zombie = true;

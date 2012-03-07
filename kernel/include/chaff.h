@@ -185,7 +185,7 @@ void PrintLog(LogLevel level, const char * msg, ...);
  * @param maxLen maximum length to duplicate
  * @return a pointer to the new string
  */
-char * StrDup(const char * s, unsigned int maxLen);
+char * StrDup(const char * str, unsigned int maxLen);
 
 /**
  * Returns the length of a null-terminated string
