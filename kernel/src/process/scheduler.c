@@ -214,7 +214,7 @@ void NORETURN ProcIntSchedulerExitSelf()
 }
 
 //Exits the boot code to continue running threads as normal
-void NORETURN ProcExitBootMode()
+void INIT NORETURN ProcExitBootMode()
 {
 	//ProcDoSchedule requires a current thread
 	// We use the interrupts thread - shouldn't really be used but i don't care

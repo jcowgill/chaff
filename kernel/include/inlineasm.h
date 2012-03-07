@@ -94,16 +94,13 @@ static inline void invlpg(void * address)
 	asm volatile("invlpg %0"::"m"(address));
 }
 
-//Load interrupt descriptor table
-// This is not inline but implemented in interruptAsm.s
-
 /**
  * Load a pointer to the interrupt descriptor table
  *
  * @param len length of the descriptor table
  * @param ptr pointer to the table
  */
-void lidt(unsigned short len, void * ptr);
+void INIT lidt(unsigned short len, void * ptr);
 
 /**
  * Outputs one byte on the specified port

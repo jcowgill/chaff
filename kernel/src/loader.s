@@ -20,20 +20,15 @@
 global _loader
 global TssESP0
 global GdtTLS
-global kernelPageTable192
 extern kMain
-extern kernelPageDirectory
+extern MemKernelPageDirectory
 
 ;Constants
 STACK_SIZE equ 0x4000
 KERNEL_VIRTUAL_BASE equ 0xC0000000	;Position kernel is loaded into
 KERNEL_PAGE_OFFSET equ (KERNEL_VIRTUAL_BASE >> 20)	;Offset of kernel 4MB area in page directory
 
-section .bss nobits alloc noexec write align=4096
-align 4096
-startupStack:
-	resb STACK_SIZE		;Allocate 16k of startup stack
-
+section .bss
 ;Global TSS
 TssStart:
 	resb 4
@@ -48,15 +43,6 @@ TssSS0:
 	resb 94				;Total size = 104 bytes
 
 section .data
-align 4096
-kernelPageTable192:
-	;Identity maps first 4MB to base of physical memory
-	%assign i 0
-	%rep 1024
-		dd (i << 12) | 0x103
-		%assign i (i + 1)
-	%endrep
-
 align 8
 gdt:
 	;Global Descriptor Table
@@ -105,13 +91,26 @@ section .text
 	dd 25						;Number of Rows
 	dd 0						;Depth / Bits per pixel (or 0 for text mode)
 
+section .init
+align 4096
+startupStack:
+	resb STACK_SIZE		;Allocate 16k of startup stack
+
+align 4096
+kernelPageTable192:
+	;Identity maps first 4MB to base of physical memory
+	%assign i 0
+	%rep 1024
+		dd (i << 12) | 0x103
+		%assign i (i + 1)
+	%endrep
 
 _loader:
 	;Before we setup paging, we must offset any symbols with the KERNEL_VIRTUAL_BASE
 	; Also, DO NOT USE EAX OR EBX HERE - it contains the multiboot pointer
 
 	; Setup boot page directory
-	mov ecx, (kernelPageDirectory - KERNEL_VIRTUAL_BASE)
+	mov ecx, (MemKernelPageDirectory - KERNEL_VIRTUAL_BASE)
 	mov edx, (kernelPageTable192 - KERNEL_VIRTUAL_BASE)
 	or edx, 0x3
 	mov dword [ecx], edx
@@ -157,7 +156,7 @@ _loader:
 
 highLoader:
 	;Unmap first identity page
-	mov dword [kernelPageDirectory], 0x00000000
+	mov dword [MemKernelPageDirectory], 0x00000000
 	mov ecx, cr3
 	mov cr3, ecx
 

@@ -31,8 +31,8 @@ SOURCES_$(d) := $(foreach DIR, $(DIRS_$(d)), $(wildcard $(DIR)/*.c)) \
 TGTS_$(d) := bin/chaff.elf
 
 #  - Extra build options
-$(TGTS_$(d)):	CF_TGT := -Ikernel/include -fno-builtin -ffreestanding -fno-stack-protector
-$(TGTS_$(d)):	LF_TGT := -T kernel/linker.ld
+$(TGTS_$(d)):	CF_TGT := -I$(d)/include -fno-builtin -ffreestanding -fno-stack-protector
+$(TGTS_$(d)):	LF_TGT := -T $(d)/linker.ld
 
 #  - Common rules
 OBJS_$(d) 	:= $(addprefix obj/,$(addsuffix .o,$(basename $(SOURCES_$(d)))))
@@ -40,7 +40,7 @@ DEPS_$(d) 	:= $(OBJS_$(d):.o=.d)
 
 TGT_BIN		:= $(TGT_BIN) $(TGTS_$(d))
 
-$(TGTS_$(d)):	$(OBJS_$(d))
+$(TGTS_$(d)):	$(OBJS_$(d)) $(d)/linker.ld
 				$(LINK)
 
 # Pop Directory

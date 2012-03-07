@@ -37,7 +37,12 @@
  *
  * @param bootInfo memory information from boot loader
  */
-void MemManagerInit(multiboot_info_t * bootInfo);
+void INIT MemManagerInit(multiboot_info_t * bootInfo);
+
+/**
+ * Frees pages marked as INIT
+ */
+void INIT MemFreeInitPages();
 
 /**
  * Page fault handler
@@ -45,22 +50,5 @@ void MemManagerInit(multiboot_info_t * bootInfo);
  * @param context interrupt context page faults occur in
  */
 void MemPageFaultHandler(IntrContext * context);
-
-/**
- * MAlloc initializer
- */
-void MAllocInit();
-
-/**
- * Create a new region from static (non allocated) memory
- *
- * This is used to create fundamental regions before MAlloc has been setup.
- *
- * Drivers SHOULD NOT use this since the created regions cannot be deleted by MemRegionDelete().
- *
- * @see MemRegionCreate
- */
-bool MemRegionCreateStatic(MemContext * context, void * startAddress,
-		unsigned int length, MemRegionFlags flags, MemRegion * newRegion);
 
 #endif

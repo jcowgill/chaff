@@ -26,12 +26,14 @@
 #include "mm/misc.h"
 #include "mm/physical.h"
 #include "mm/pagingInt.h"
+#include "mm/kmemory.h"
 
 //Page fault handler
 void MemPageFaultHandler(IntrContext * intContext)
 {
 	//Get address causing fault
 	void * faultAddress = getCR2();
+	unsigned int addr = (unsigned int) faultAddress;
 	unsigned int errorCode = intContext->intrError;
 
 	//Check which error and handle accordingly
@@ -48,16 +50,7 @@ void MemPageFaultHandler(IntrContext * intContext)
 	}
 
 	//Get region of address
-	MemRegion * region;
-
-	if(faultAddress >= KERNEL_VIRTUAL_BASE)
-	{
-		region = MemRegionFind(MemKernelContext, faultAddress);
-	}
-	else
-	{
-		region = MemRegionFind(MemCurrentContext, faultAddress);
-	}
+	MemRegion * region = MemRegionFind(MemCurrentContext, faultAddress);
 
 	//If null, out of valid area
 	if(region != NULL)
@@ -68,22 +61,21 @@ void MemPageFaultHandler(IntrContext * intContext)
 			//Protection violation (user mode accessed supervisor)
 			// Or a write to a read-only page
 
-			MemPageTable * table = THIS_PAGE_TABLES + ((unsigned int) faultAddress >> 12);
+			MemPageTable * table = MemGetPageTable(MemGetPageDirectory(MemCurrentContext, addr), addr);
 
 			//Check if copy-on-write
 			if(!(table->writable) && (region->flags & MEM_WRITABLE))
 			{
 				//Test if page need duplicating
-				// Fixed pages are shared and are not duplicated
-				if(!(region->flags & MEM_FIXED) && MemPhysicalRefCount(table->pageID) > 1)
+				if(MemPhysicalRefCount(table->pageID) > 1)
 				{
 					//Duplicate page first
-					unsigned int * basePageAddr = (unsigned int *) ((unsigned int) faultAddress & 0xFFFFF000);
-					MemPhysPage newPage = MemPhysicalAlloc(1);
+					unsigned int * basePageAddr = (unsigned int *) (addr & 0xFFFFF000);
+					MemPhysPage newPage = MemPhysicalAlloc(1, MEM_HIGHMEM);
 
-					MemIntMapTmpPage(MEM_TEMPPAGE2, newPage);
-						MemCpy(MEM_TEMPPAGE2, basePageAddr, 4096);
-					MemIntUnmapTmpPage(MEM_TEMPPAGE2);
+					MemMapPage(MEM_TEMPPAGE3, newPage);
+						MemCpy(MEM_TEMPPAGE3, basePageAddr, 4096);
+					MemUnmapPage(MEM_TEMPPAGE3);
 
 					//Update page id and old page's count
 					MemPhysicalDeleteRef(table->pageID, 1);
@@ -98,18 +90,16 @@ void MemPageFaultHandler(IntrContext * intContext)
 		}
 		else
 		{
-			//Non-present page
-			// Allocate new page for memory if not fixed
-			if(!(region->flags & MEM_FIXED))
-			{
-				//Map page
-				unsigned int * basePageAddr = (unsigned int *) ((unsigned int) faultAddress & 0xFFFFF000);
-				MemIntMapPage(basePageAddr, MemPhysicalAlloc(1), region->flags);
+			//Non-present page - allocate new page (demand paging)
 
-				//Wipe page
-				MemSet(basePageAddr, 0, 4096);
-				return;
-			}
+			// Map page
+			unsigned int * basePageAddr = (unsigned int *) (addr & 0xFFFFF000);
+			MemIntMapUserPage(MemCurrentContext, basePageAddr,
+					MemPhysicalAlloc(1, MEM_HIGHMEM), region->flags);
+
+			// Wipe page
+			MemSet(basePageAddr, 0, 4096);
+			return;
 		}
 	}
 
@@ -122,7 +112,7 @@ void MemPageFaultHandler(IntrContext * intContext)
 	else
 	{
 		//Kernel mode fault
-		if((unsigned int) faultAddress < 4096)
+		if(addr < 0x1000 || addr > 0xFFFFC000)
 		{
 			Panic("MemPageFaultHandler: Unable to handle kernel NULL pointer dereference");
 		}

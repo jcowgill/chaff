@@ -21,6 +21,7 @@
 
 #include "chaff.h"
 #include "list.h"
+#include "mm/kmemory.h"
 
 //Utility functions
 //
@@ -143,25 +144,33 @@ int memcmp(const void * ptr1, const void * ptr2, size_t length)
 	return 0;
 }
 
-//Strdup implementation
-char * strdup(const char * s)
+//Secure strdup implementation
+char * StrDup(const char * s, unsigned int maxLen)
 {
 	//Get string length
-	unsigned int lenWithNull = StrLen(s) + 1;
+	unsigned int lenWithNull = StrLen(s, maxLen) + 1;
 
-	//Allocate memory, copy and return string
-	return MemCpy(MAlloc(lenWithNull), s, lenWithNull);
+	//Allocate memory and copy
+	char * newData = MemKAlloc(lenWithNull);
+	MemCpy(newData, s, lenWithNull);
+
+	//Set last character to null
+	newData[lenWithNull - 1] = '\0';
+
+	//Return new string
+	return newData;
 }
 
-//Strlen implementation
-unsigned int strlen(const char * s)
+//Secure strlen implementation
+unsigned int StrLen(const char * s, unsigned int maxLen)
 {
 	const char * strStart = s;
 
 	//Loop until NULL character
-	while(*s)
+	while(maxLen > 0 && *s)
 	{
 		++s;
+		--maxLen;
 	}
 
 	//Return pointer difference

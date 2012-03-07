@@ -42,13 +42,15 @@ SECTIONS {
    }
 
    .bss : AT(ADDR(.bss) - 0xC0000000) {
-       _sbss = .;
        *(COMMON*)
        *(.bss)
-       *(.gnu.linkonce.b*)
-       _ebss = .;
+   }
+   
+   _kernel_init_start_page = (ALIGN(0x1000) - 0xC0000000) >> 12;
+
+   .init ALIGN(0x1000) : AT(ADDR(.init) - 0xC0000000) {
+       *(.init)
    }
 
-   _kernel_end = .;
    _kernel_end_page = (ALIGN(0x1000) - 0xC0000000) >> 12;
 }

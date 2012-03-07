@@ -27,8 +27,10 @@
 #include "timer.h"
 #include "io/device.h"
 #include "cpu.h"
+#include "mm/kmemory.h"
+#include "io/bcache.h"
 
-void NORETURN kMain(unsigned int mBootCode, multiboot_info_t * mBootInfo)
+void INIT NORETURN kMain(unsigned int mBootCode, multiboot_info_t * mBootInfo)
 {
 	//Kernel C Entry Point
 	// Check boot code
@@ -37,28 +39,21 @@ void NORETURN kMain(unsigned int mBootCode, multiboot_info_t * mBootInfo)
 		Panic("kMain: OS must be loaded by a multiboot bootloader");
 	}
 
-	// Initialize memory manager
-	MemManagerInit(mBootInfo);
-
-	// Initialize CPU specific instructions
-	CpuInit();
-
-	// Initialize interrupts
+	// Core Initialization (most other stuff depends on this)
 	IntrInit();
+	CpuInit();
+	MemManagerInit(mBootInfo);
+	MemSlabInit();
 
-	//Malloc must be initialized after interrupts (to allow page faults)
-	MAllocInit();
-
-	// Initialize timer system
+	// Other Initializations
+	CpuInitLate();
 	TimerInit();
-
-	// Initialize process manager and scheduler
 	ProcInit();
-
-	// Initialize devfs
+	IoBlockCacheInit();
 	IoDevFsInit();
 
 	// Exit boot mode
+	MemFreeInitPages();
 	ProcExitBootMode();
 }
 

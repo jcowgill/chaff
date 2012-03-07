@@ -2,7 +2,7 @@
  * @file
  * Memory region and context manager
  *
- * Regions are contiguous areas of virtual memory
+ * Regions are contiguous areas of virtual memory used for user mode memory managment.
  *
  * @date February 2012
  * @author James Cowgill
@@ -41,10 +41,9 @@ typedef enum MemRegionFlags
 	MEM_READABLE = 1,     ///< Memory is readable (currently ignored - all memory is readable)
 	MEM_WRITABLE = 2,     ///< Memory is writable
 	MEM_EXECUTABLE = 4,   ///< Memory is executable
-	MEM_FIXED = 8,        ///< Memory is allocated by caller and does not use copy-on-write
-	MEM_CACHEDISABLE = 16,///< Disables cache lookups for the region
+	MEM_CACHEDISABLE = 8, ///< Disables cache lookups for the region
 
-	MEM_ALLFLAGS = 31     ///< All previous flags (used internally)
+	MEM_ALLFLAGS = 15     ///< All previous flags (used internally)
 
 } MemRegionFlags;
 
@@ -63,7 +62,6 @@ typedef struct MemRegion
 
 	unsigned int start;				///< Pointer to start of region
 	unsigned int length;			///< Length of region in pages
-	MemPhysPage firstPage;			///< First page - used only for fixed regions
 
 } MemRegion;
 
@@ -73,10 +71,9 @@ typedef struct MemRegion
 typedef struct MemContext
 {
 	ListHead regions;				///< List of regions in this context
-	unsigned int kernelVersion;		///< Version of kernel page directory for this context
 	MemPhysPage physDirectory;		///< Page directory physical page
 
-	unsigned int refCount;			///< Memory contex reference counter
+	unsigned int refCount;			///< Memory context reference counter
 
 } MemContext;
 
@@ -90,7 +87,9 @@ MemContext * MemContextInit();
 /**
  * Clones the current memory context
  *
- * The reference count will be 0
+ * The reference count will be 0.
+ *
+ * Do not clone the kernel context with this. MemContextInit() has the same effect and is faster.
  */
 MemContext * MemContextClone();
 
@@ -105,9 +104,6 @@ void MemContextSwitchTo(MemContext * context);
  * You probably want MemContextDeleteReference() instead of this
  *
  * The context passed must not be the current context.
- *
- * #MEM_FIXED regions are deleted by this once it runs out of references
- *  if you want to "save" it, keep some references to it
  *
  * @param context memory context to delete
  */
@@ -128,8 +124,6 @@ static inline void MemContextAddReference(MemContext * context)
  *
  * The context passed must not be the current context.
  *
- * #MEM_FIXED regions are deleted by this
- *
  * @param context memory context to delete
  */
 void MemContextDeleteReference(MemContext * context);
@@ -140,14 +134,12 @@ void MemContextDeleteReference(MemContext * context);
  * @param context context to add region to
  * @param startAddress address of the start of the region (must be page aligned)
  * @param length length of the region in bytes (must be page aligned)
- * @param firstPage (MEM_FIXED only) first page of the region.
- *                  All the pages in the region must be in contiguous space.
  * @param flags flags to assign to the region
  * @retval NULL if an error occurs (logged using PrintLog())
  * @retval region on success
  */
 MemRegion * MemRegionCreate(MemContext * context, void * startAddress,
-		unsigned int length, MemPhysPage firstPage, MemRegionFlags flags);
+		unsigned int length, MemRegionFlags flags);
 
 /**
  * Frees the pages associated with a given region of memory without destroying the region
@@ -167,8 +159,6 @@ void MemRegionFreePages(MemRegion * region, void * address, unsigned int length)
 
 /**
  * Finds the region which contains the given address
- *
- * @note To check for kernel addresses you must use the kernel context
  *
  * @param context memory context to search
  * @param address address to search for
@@ -201,6 +191,11 @@ extern MemContext MemKernelContextData;
 
 /**
  * Pointer to the kernel memory context
+ *
+ * The kernel context is special and can only be passed to MemContextSwitchTo(),
+ * MemContextAddReference() and MemContextDeleteReference().
+ *
+ * You MUST NOT pass it to any other memory manager function.
  */
 #define MemKernelContext (&MemKernelContextData)
 

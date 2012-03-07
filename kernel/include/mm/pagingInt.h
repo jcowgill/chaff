@@ -134,114 +134,82 @@ typedef union
 } MemPageTable;
 
 /**
+ * Gets a pointer to the page directory for the given address
+ *
+ * @param context memory context to use
+ * @param addr address to lookup
+ */
+static inline MemPageDirectory * MemGetPageDirectory(MemContext * context, unsigned int addr)
+{
+	return &((MemPageDirectory *) MemPhys2Virt(context->physDirectory))[addr >> 22];
+}
+
+/**
+ * Gets a pointer to the page table entry for the given address
+ *
+ * @param dir directory entry (from MemGetPageDirectory())
+ * @param addr address to lookup
+ */
+static inline MemPageTable * MemGetPageTable(MemPageDirectory * dir, unsigned int addr)
+{
+	return &((MemPageTable *) MemPhys2Virt(dir->pageID))[(addr >> 12) & 0xFFF];
+}
+
+/**
  * Kernel page directory
  */
-extern MemPageDirectory kernelPageDirectory[1024];
+extern MemPageDirectory MemKernelPageDirectory[1024];
 
 /**
- * 254th Kernel page directory
+ * Page tables for virtual region of kernel memory (>= 0xF0000000)
  */
-extern MemPageTable kernelPageTable254[1024];
+extern MemPageTable MemVirtualPageTables[64 * 1024];
 
 /**
- * 253rd Kernel page directory
- */
-extern MemPageTable kernelPageTable253[1024];
-
-/**
- * Maps a page to a particular address
+ * Maps a user mode page to a particular address
  *
+ * @param context memory context to map in
  * @param address address of page to map (must be page aligned)
  * @param page physical page to map
  * @param flags flags to assign to page (must be same as region flags)
  */
-void MemIntMapPage(void * address, MemPhysPage page, MemRegionFlags flags);
+void MemIntMapUserPage(MemContext * context, void * address, MemPhysPage page, MemRegionFlags flags);
 
 /**
- * Unmaps a page
+ * Unmaps a user mode page
  *
+ * @param context memory context to unmap from
  * @param address address of page to unmap (must be page aligned)
+ * @return the page which was unmapped (can be #INVALID_PAGE)
  */
-void MemIntUnmapPage(void * address);
+MemPhysPage MemIntUnmapUserPage(MemContext * context, void * address);
 
 /**
- * Combined MemIntUnmapPage() and MemIntFreePageOrDecRefs()
+ * Combined MemIntUnmapUserPage() and MemPhysicalDeleteRef()
  *
+ * @param context memory context to unmap from
  * @param address address of unmap and free (must be page aligned)
  */
-void MemIntUnmapPageAndFree(void * address);
+static inline void MemIntUnmapUserPageAndFree(MemContext * context, void * address)
+{
+	MemPhysPage page = MemIntUnmapUserPage(context, address);
 
-/**
- * Maps a temporary page
- *
- * This function does fewer checks but can ONLY be used for pages in the temporary region.
- *
- * Do NOT use the other page mappers for temporary pages.
- *
- * @param address address to map at
- * @param page physical page to map
- */
-void MemIntMapTmpPage(void * address, MemPhysPage page);
-
-/**
- * Unmaps a temporary page mapped with MemIntMapTmpPage()
- *
- * @param address address to unmap from
- */
-void MemIntUnmapTmpPage(void * address);
-
-/**
- * Location of page directory for the current memory context
- *
- * This is automatically updated and ALWAYS has the table for the current context
- */
-#define THIS_PAGE_DIRECTORY ((MemPageDirectory *) 0xFFFFF000)
-
-/**
- * Location of page tables for the current memory context
- *
- * This is automatically updated and ALWAYS has the table for the current context
- */
-#define THIS_PAGE_TABLES ((MemPageTable *) 0xFFC00000)
-
-/**
- * Temporary page 1
- *
- * Must be unmapped while outside memory functions
- */
-#define MEM_TEMPPAGE1 ((void *) 0xFF400000)
-
-/**
- * Temporary page 2
- *
- * Must be unmapped while outside memory functions
- */
-#define MEM_TEMPPAGE2 ((void *) 0xFF401000)
-
-/**
- * Temporarily changes memory context
- *
- * Example:
- * @code
- * ...
- * CONTEXT_SWAP(newContext)
- *
- *     someCodeHere();
- *
- * CONTEXT_SWAP_END
- * ...
- * @endcode
- */
-#define CONTEXT_SWAP(context) \
-{ \
-	unsigned int _oldCR3 = getCR3(); \
-	MemContextSwitchTo(context);
-
-/**
- * Ends temporary change of context
- */
-#define CONTEXT_SWAP_END \
-	setCR3(_oldCR3); \
+	if(page != INVALID_PAGE)
+	{
+	    MemPhysicalDeleteRef(page, 1);
+	}
 }
+
+/**
+ * @name Temporary pages
+ *
+ * Temporary virtual memory addresses used by the memory manager.
+ *
+ * @{
+ */
+
+#define MEM_TEMPPAGE1 ((void *) 0xFFFF0000)		///< Temporary page 1
+#define MEM_TEMPPAGE2 ((void *) 0xFFFF4000)		///< Temporary page 2
+#define MEM_TEMPPAGE3 ((void *) 0xFFFF8000)		///< Temporary page 3 (used in page fault handler)
 
 #endif

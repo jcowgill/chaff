@@ -25,6 +25,7 @@
 #include "list.h"
 #include "htable.h"
 #include "errno.h"
+#include "mm/kmemory.h"
 
 //Filesystem list
 static ListHead fsTypeHead = LIST_INLINE_INIT(fsTypeHead);
@@ -104,8 +105,7 @@ static int IoFilesystemMountInternal(IoFilesystemType * type, IoDevice * device,
 	type->refCount++;
 
 	//Allocate fs
-	IoFilesystem * newFs = MAlloc(sizeof(IoFilesystem));
-	MemSet(newFs, 0, sizeof(IoFilesystem));
+	IoFilesystem * newFs = MemKZAlloc(sizeof(IoFilesystem));
 
 	//Setup filesystem information
 	newFs->fsType = type;
@@ -119,7 +119,7 @@ static int IoFilesystemMountInternal(IoFilesystemType * type, IoDevice * device,
 	if(res != 0)
 	{
 		//Free fs and unlock stuff
-		MFree(newFs);
+		MemKFree(newFs);
 		type->refCount--;
 		device->mounted = false;
 	}
@@ -248,6 +248,6 @@ int IoFilesystemUnMount(IoFilesystem * fs)
 	fs->device->mounted = false;
 
 	//Free filesystem
-	MFree(fs);
+	MemKFree(fs);
 	return 0;
 }

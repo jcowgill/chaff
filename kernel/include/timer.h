@@ -33,7 +33,7 @@
  *
  * @private
  */
-void TimerInit();
+void INIT TimerInit();
 
 /**
  * Time representation

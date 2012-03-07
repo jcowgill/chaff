@@ -28,6 +28,7 @@
 #include "io/iocontext.h"
 #include "mm/region.h"
 #include "cpu.h"
+#include "mm/kmemory.h"
 
 //Process management functions
 
@@ -65,9 +66,17 @@ ProcProcess ProcKernelProcessData;
 ProcThread * ProcIdleThread;
 ProcThread * ProcInterruptsThread;
 
+//Process and thread caches
+static MemCache * cacheProcess;
+static MemCache * cacheThread;
+
 //Initialise global processes and threads
-void ProcInit()
+void INIT ProcInit()
 {
+	//Create SLAB caches
+	cacheProcess = MemSlabCreate(sizeof(ProcProcess), 0);
+	cacheThread = MemSlabCreate(sizeof(ProcThread), 0);
+
 	//Create kernel process
 	// Malloc need this so we must do it with no dynamic memory
 	ProcKernelProcessData.pid = 0;
@@ -127,11 +136,8 @@ ProcThread * ProcGetThreadByID(unsigned int tid)
 //Creates a completely empty process from nothing
 ProcProcess * ProcCreateProcess(const char * name, ProcProcess * parent)
 {
-	//Allocate process
-	ProcProcess * process = MAlloc(sizeof(ProcProcess));
-
-	//Zero out
-	MemSet(process, 0, sizeof(ProcProcess));
+	//Allocate process (and zero out)
+	ProcProcess * process = MemSlabZAlloc(cacheProcess);
 
 	//Allocate process id
 	do
@@ -159,7 +165,7 @@ ProcProcess * ProcCreateProcess(const char * name, ProcProcess * parent)
 	ListHeadInit(&process->threads);
 
 	//Set name
-	process->name = StrDup(name);
+	process->name = StrDup(name, 255);
 
 	//Other properties are zeroed out above
 
@@ -169,11 +175,8 @@ ProcProcess * ProcCreateProcess(const char * name, ProcProcess * parent)
 //Creates new thread with the given name and process
 static ProcThread * ProcCreateRawThread(const char * name, ProcProcess * parent, bool withStack)
 {
-	//Allocate thread
-	ProcThread * thread = MAlloc(sizeof(ProcThread));
-
-	//Zero out
-	MemSet(thread, 0, sizeof(ProcThread));
+	//Allocate thread (and zero out)
+	ProcThread * thread = MemSlabZAlloc(cacheThread);
 
 	//Allocate thread id
 	do
@@ -188,7 +191,7 @@ static ProcThread * ProcCreateRawThread(const char * name, ProcProcess * parent,
 	ListHeadAddLast(&thread->threadSibling, &parent->threads);
 
 	//Set thread name
-	thread->name = StrDup(name);
+	thread->name = StrDup(name, 255);
 
 	//Set startup state
 	thread->state = PTS_STARTUP;
@@ -203,7 +206,7 @@ static ProcThread * ProcCreateRawThread(const char * name, ProcProcess * parent,
 	//Allocate kernel stack
 	if(withStack)
 	{
-		thread->kStackBase = MAlloc(PROC_KSTACK_SIZE);
+		thread->kStackBase = MemPhys2Virt(MemPhysicalAlloc(1, MEM_KERNEL));
 		MemSet(thread->kStackBase, 0, PROC_KSTACK_SIZE);
 	}
 
@@ -612,10 +615,10 @@ void ProcIntReapProcess(ProcProcess * process)
 	HashTableRemoveItem(&hTableProcess, &process->hItem);
 
 	//Free name
-	MFree(process->name);
+	MemKFree(process->name);
 
 	//Free process
-	MFree(process);
+	MemSlabFree(cacheProcess, process);
 }
 
 //Disowns this process's children
@@ -697,11 +700,11 @@ void ProcIntReapThread(ProcThread * thread)
 	ListDelete(&thread->threadSibling);
 
 	//Free kernel stack
-	MFree(thread->kStackBase);
+	MemPhysicalFree(MemVirt2Phys(thread->kStackBase), 1);
 
 	//Free thread name
-	MFree(thread->name);
+	MemKFree(thread->name);
 
 	//Free thread structure
-	MFree(thread);
+	MemSlabFree(cacheThread, thread);
 }
