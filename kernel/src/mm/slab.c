@@ -364,6 +364,11 @@ void MemSlabFree(MemCache * cache, void * ptr)
 		return;
 	}
 
+	//When debugging, wipe slab
+#ifdef DEBUG
+	MemSet(ptr, 0xFE, cache->objectSize);
+#endif
+
 	//Update free pointer
 	*((unsigned int **) ptr) = slab->freePtr;
 	slab->freePtr = ptr;
