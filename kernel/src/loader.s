@@ -91,11 +91,12 @@ section .text
 	dd 25						;Number of Rows
 	dd 0						;Depth / Bits per pixel (or 0 for text mode)
 
-section .init
-align 4096
+section .initbss nobits alloc noexec write
 startupStack:
+	align 4
 	resb STACK_SIZE		;Allocate 16k of startup stack
 
+section .init
 align 4096
 kernelPageTable192:
 	;Identity maps first 4MB to base of physical memory

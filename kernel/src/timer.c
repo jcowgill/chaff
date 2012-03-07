@@ -33,13 +33,13 @@
 #define PIT_OSCILLATOR_RATE 1193182
 
 //Current time
-TimerTime currentTime;
+static TimerTime currentTime;
 
 //System boot time
-TimerTime startupTime;
+static TimerTime startupTime;
 
 //Time beep is schedule to end / 0 = unused
-TimerTime beepEndTime = 0;
+static TimerTime beepEndTime = 0;
 
 //Current timer quantum
 unsigned int TimerQuantum = TIMER_INITIAL_QUANTUM;

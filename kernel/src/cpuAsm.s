@@ -54,12 +54,13 @@ CpuHasDenormalsAreZero:
 	;Has DAZ flag (bit 6) in MXCSR register
 	dd 0
 
-section .init
+section .initbss nobits alloc noexec write
 CpuTmpFxSave:
 	;Temporary space to store fxsave result
 	align 16
-	times 512 db 0
+	resb 512
 
+section .init
 Cpu386ErrMsg:
 	db "CpuInit: You are running a 386 processor which Chaff does not support.", 0
 

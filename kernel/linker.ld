@@ -52,5 +52,9 @@ SECTIONS {
        *(.init)
    }
 
+   .initbss : AT(ADDR(.initbss) - 0xC0000000) {
+       *(.initbss)
+   }
+
    _kernel_end_page = (ALIGN(0x1000) - 0xC0000000) >> 12;
 }
