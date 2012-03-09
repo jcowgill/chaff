@@ -1,5 +1,5 @@
 ;
-; loader.s
+; start.s
 ;
 ;  Copyright 2012 James Cowgill
 ;
@@ -17,8 +17,7 @@
 ;
 ;
 
-
-global _loader:function hidden
+global _start:function hidden
 global TssESP0:data hidden
 global GdtTLS:data hidden
 extern kMain
@@ -107,7 +106,7 @@ kernelPageTable192:
 		%assign i (i + 1)
 	%endrep
 
-_loader:
+_start:
 	;Before we setup paging, we must offset any symbols with the KERNEL_VIRTUAL_BASE
 	; Also, DO NOT USE EAX OR EBX HERE - it contains the multiboot pointer
 
