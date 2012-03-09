@@ -49,6 +49,6 @@ void INIT MemFreeInitPages();
  *
  * @param context interrupt context page faults occur in
  */
-void MemPageFaultHandler(IntrContext * context);
+void PRIVATE MemPageFaultHandler(IntrContext * context);
 
 #endif

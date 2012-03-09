@@ -17,9 +17,10 @@
 ;
 ;
 
-global _loader
-global TssESP0
-global GdtTLS
+
+global _loader:function hidden
+global TssESP0:data hidden
+global GdtTLS:data hidden
 extern kMain
 extern MemKernelPageDirectory
 

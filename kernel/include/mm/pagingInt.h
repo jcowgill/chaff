@@ -173,7 +173,7 @@ extern MemPageTable MemVirtualPageTables[64 * 1024];
  * @param page physical page to map
  * @param flags flags to assign to page (must be same as region flags)
  */
-void MemIntMapUserPage(MemContext * context, void * address, MemPhysPage page, MemRegionFlags flags);
+void PRIVATE MemIntMapUserPage(MemContext * context, void * address, MemPhysPage page, MemRegionFlags flags);
 
 /**
  * Unmaps a user mode page
@@ -182,7 +182,7 @@ void MemIntMapUserPage(MemContext * context, void * address, MemPhysPage page, M
  * @param address address of page to unmap (must be page aligned)
  * @return the page which was unmapped (can be #INVALID_PAGE)
  */
-MemPhysPage MemIntUnmapUserPage(MemContext * context, void * address);
+MemPhysPage PRIVATE MemIntUnmapUserPage(MemContext * context, void * address);
 
 /**
  * Combined MemIntUnmapUserPage() and MemPhysicalDeleteRef()

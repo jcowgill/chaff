@@ -53,11 +53,16 @@
 #define STDCALL __attribute__((stdcall))
 
 /**
+ * Function or variable is "hidden" from other modules (not placed in global symbol table)
+ */
+#define PRIVATE __attribute__((visibility("hidden")))
+
+/**
  * Function / Variable is used in init code only
  *
  * Drivers MUST NOT use / call any function marked with this
  */
-#define INIT __attribute__((section(".init")))
+#define INIT PRIVATE __attribute__((section(".init")))
 
 /**
  * Ignores an unused paremeter

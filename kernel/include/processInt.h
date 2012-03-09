@@ -38,48 +38,48 @@
  * @param newStackPtr new kernel stack pointer
  * @param oldStackPtr pointer to place to store the old stack pointer
  */
-void STDCALL ProcIntSchedulerSwap(void * newStackPtr, void ** oldStackPtr);
+void PRIVATE STDCALL ProcIntSchedulerSwap(void * newStackPtr, void ** oldStackPtr);
 
 /**
  * Completely removes the current thread from the scheduler
  */
-void NORETURN ProcIntSchedulerExitSelf();
+void PRIVATE NORETURN ProcIntSchedulerExitSelf();
 
 /**
  * User mode entry point
  *
  * This function prepares the stack for user mode and then transfers control into user mode
  */
-void ProcIntUserThreadEntry();
+void PRIVATE ProcIntUserThreadEntry();
 
 /**
  * Idle thread
  */
-int NORETURN ProcIntIdleThread(void *);
+int PRIVATE NORETURN ProcIntIdleThread(void *);
 
 /**
  * Function which kernel threads return to when they exit
  */
-void NORETURN ProcIntKernelThreadReturn(int);
+void PRIVATE NORETURN ProcIntKernelThreadReturn(int);
 
 /**
  * Reaps a process (frees all kernel structures)
  *
  * @param process process to reap
  */
-void ProcIntReapProcess(ProcProcess * process);
+void PRIVATE ProcIntReapProcess(ProcProcess * process);
 
 /**
  * Reaps a thread (frees all kernel structures)
  *
  * @param thread thread to reap
  */
-void ProcIntReapThread(ProcThread * thread);
+void PRIVATE ProcIntReapThread(ProcThread * thread);
 
 /**
  * Initializes the reaper thread
  */
-void ProcIntReaperInit();
+void PRIVATE ProcIntReaperInit();
 
 /**
  * Adds a thread and process to be automatically reaped at a later time
@@ -90,6 +90,6 @@ void ProcIntReaperInit();
  *
  * @param thread thread to reap (parent process will also be reaped)
  */
-void ProcIntReaperAdd(ProcThread * thread);
+void PRIVATE ProcIntReaperAdd(ProcThread * thread);
 
 #endif /* PROCESSINT_H_ */

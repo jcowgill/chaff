@@ -46,7 +46,7 @@ SECTIONS {
        *(.bss)
    }
    
-   _kernel_init_start_page = (ALIGN(0x1000) - 0xC0000000) >> 12;
+   PROVIDE_HIDDEN(_kernel_init_start_page = (ALIGN(0x1000) - 0xC0000000) >> 12);
 
    .init ALIGN(0x1000) : AT(ADDR(.init) - 0xC0000000) {
        *(.init)
@@ -56,5 +56,5 @@ SECTIONS {
        *(.initbss)
    }
 
-   _kernel_end_page = (ALIGN(0x1000) - 0xC0000000) >> 12;
+   PROVIDE_HIDDEN(_kernel_end_page = (ALIGN(0x1000) - 0xC0000000) >> 12);
 }

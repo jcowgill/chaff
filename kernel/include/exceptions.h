@@ -40,7 +40,7 @@
  *
  * @param iContext context of this exception
  */
-void IntrExceptMathFault(IntrContext * iContext);
+void PRIVATE IntrExceptMathFault(IntrContext * iContext);
 
 /**
  * Normal math exception
@@ -52,7 +52,7 @@ void IntrExceptMathFault(IntrContext * iContext);
  *
  * @param iContext context of this exception
  */
-void IntrExceptMathTrap(IntrContext * iContext);
+void PRIVATE IntrExceptMathTrap(IntrContext * iContext);
 
 /**
  * Debug exception
@@ -64,7 +64,7 @@ void IntrExceptMathTrap(IntrContext * iContext);
  *
  * @param iContext context of this exception
  */
-void IntrExceptDebugTrap(IntrContext * iContext);
+void PRIVATE IntrExceptDebugTrap(IntrContext * iContext);
 
 /**
  * invalid opcode exception
@@ -73,7 +73,7 @@ void IntrExceptDebugTrap(IntrContext * iContext);
  *
  * @param iContext context of this exception
  */
-void IntrExceptIllOpcodeFault(IntrContext * iContext);
+void PRIVATE IntrExceptIllOpcodeFault(IntrContext * iContext);
 
 /**
  * General protection exception
@@ -89,7 +89,7 @@ void IntrExceptIllOpcodeFault(IntrContext * iContext);
  * @param iContext context of this exception
  * @see MemPageFaultHandler()
  */
-void IntrExceptProtectionFault(IntrContext * iContext);
+void PRIVATE IntrExceptProtectionFault(IntrContext * iContext);
 
 /**
  * Alignment exception
@@ -98,7 +98,7 @@ void IntrExceptProtectionFault(IntrContext * iContext);
  *
  * @param iContext context of this exception
  */
-void IntrExceptAlignmentFault(IntrContext * iContext);
+void PRIVATE IntrExceptAlignmentFault(IntrContext * iContext);
 
 /**
  * Undefined exception
@@ -107,6 +107,6 @@ void IntrExceptAlignmentFault(IntrContext * iContext);
  *
  * @param iContext context of this exception
  */
-void IntrExceptError(IntrContext * iContext);
+void PRIVATE IntrExceptError(IntrContext * iContext);
 
 #endif /* EXCEPTIONS_H_ */

@@ -19,10 +19,10 @@
 ;      Author: James
 ;
 
-global ProcIntSchedulerSwap
-global ProcIntUserThreadEntry
-global ProcIntIdleThread
-global ProcIntKernelThreadReturn
+global ProcIntSchedulerSwap:function hidden
+global ProcIntUserThreadEntry:function hidden
+global ProcIntIdleThread:function hidden
+global ProcIntKernelThreadReturn:function hidden
 
 extern ProcDoSchedule
 extern ProcExitThread

@@ -17,13 +17,13 @@
 ;
 ;
 
-global CpuInit
-global CpuHasCpuId
-global CpuIdVendor
-global CpuIdSignature
-global CpuFeaturesEDX
-global CpuFeaturesECX
-global CpuHasDenormalsAreZero
+global CpuInit:function hidden
+global CpuHasCpuId:data
+global CpuIdVendor:data
+global CpuIdSignature:data
+global CpuFeaturesEDX:data
+global CpuFeaturesECX:data
+global CpuHasDenormalsAreZero:data
 extern Panic
 
 section .data

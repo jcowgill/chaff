@@ -23,9 +23,9 @@
 ; The main interrupt code is in interrupt.c
 
 extern IntrHandler
-global IntrISRList
-global Isr66
-global lidt
+global IntrISRList:data hidden
+global Isr66:data hidden
+global lidt:function hidden
 
 section .init
 
