@@ -31,8 +31,9 @@ bool MemMapPage(void * address, MemPhysPage page)
 {
 	//Validate address
 	unsigned int addr = ((unsigned int) address) & 0xFFFFF000;
-	if(addr < MEM_KFIXED_MAX || addr == 0xFFFFC000)
+	if(addr < MEM_KFIXED_MAX || addr == 0xFFFFF000)
 	{
+		PrintLog(Error, "MemMapPage: Invalid virtual address passed");
 		return false;
 	}
 
@@ -65,6 +66,7 @@ MemPhysPage MemUnmapPage(void * address)
 	unsigned int addr = ((unsigned int) address) & 0xFFFFF000;
 	if(addr < MEM_KFIXED_MAX)
 	{
+		PrintLog(Error, "MemUnmapPage: Invalid virtual address passed");
 		return INVALID_PAGE;
 	}
 

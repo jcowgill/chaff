@@ -208,8 +208,8 @@ static inline void MemIntUnmapUserPageAndFree(MemContext * context, void * addre
  * @{
  */
 
-#define MEM_TEMPPAGE1 ((void *) 0xFFFF0000)		///< Temporary page 1
-#define MEM_TEMPPAGE2 ((void *) 0xFFFF4000)		///< Temporary page 2
-#define MEM_TEMPPAGE3 ((void *) 0xFFFF8000)		///< Temporary page 3 (used in page fault handler)
+#define MEM_TEMPPAGE1 ((void *) 0xFFFFC000)		///< Temporary page 1
+#define MEM_TEMPPAGE2 ((void *) 0xFFFFD000)		///< Temporary page 2
+#define MEM_TEMPPAGE3 ((void *) 0xFFFFE000)		///< Temporary page 3 (used in page fault handler)
 
 #endif
