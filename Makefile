@@ -70,10 +70,6 @@ endif
 obj/%.o : %.s
 	@mkdir -p $(dir $@)
 	$(ASMCOMP)
-
-bin/% : %.o
-	@mkdir -p $(dir $@)
-	$(LINK)
 	
 # Top-level make rules
 #  Add top-level tagrets to TGT_BIN
