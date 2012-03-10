@@ -26,6 +26,7 @@
 #include "mm/pagingInt.h"
 #include "cpu.h"
 #include "inlineasm.h"
+#include "loader/elf.h"
 
 //Kernel page directory
 MemPageDirectory MemKernelPageDirectory[1024] __attribute__((aligned(4096)));
@@ -40,6 +41,9 @@ MemPage * MemPageStateTableEnd;
 //Kernel end symbols
 extern char _kernel_end_page[];
 extern char _kernel_init_start_page[];
+
+//End of INIT region
+static INIT MemPhysPage endOfInitRegion;
 
 //Performs a bounds check
 // We check if the start of either ranges is within the other
@@ -56,7 +60,13 @@ extern char _kernel_init_start_page[];
 
 //Alignes given variable to the next page boundary
 #define PAGE_ALIGN(var) \
-	((var) += ((4096 - ((tableLength) % 4096)) % 4096))
+	((var) += (4096 - ((var) % 4096)))
+
+//Very unlikely to generated except by us
+#define INIT_REFCOUNT 0xDEADBEEF
+
+//Returns maximum of 2 inputs
+#define MAX(a,b) ((a) > (b) ? (a) : (b))
 
 //Gets the location of the physical page references table and its length
 static inline INIT void GetPhysicalTableLocation(multiboot_info_t * bootInfo,
@@ -64,7 +74,7 @@ static inline INIT void GetPhysicalTableLocation(multiboot_info_t * bootInfo,
 {
 	unsigned int highestAddr;
 
-	//1st Pass - find highest memory location to get size of array
+	//Find highest memory location to get size of array
 	MMAP_FOREACH(mmapEntry, bootInfo->mmap_addr, bootInfo->mmap_length)
 	{
 	    //Only map available regions
@@ -109,44 +119,61 @@ static inline INIT void GetPhysicalTableLocation(multiboot_info_t * bootInfo,
 		PAGE_ALIGN(tableLength);
 	}
 
-	//2nd pass - find space for it
+	//Find lowest address for table
+	unsigned int position = ((unsigned int) _kernel_end_page) * 4096;
+
+	//Boot modules
+	if(bootInfo->flags & MULTIBOOT_INFO_MODS)
+	{
+		MODULES_FOREACH(module, bootInfo->mods_addr, bootInfo->mods_count)
+		{
+			//Higher?
+			position = MAX(position, module->mod_end);
+		}
+	}
+
+	//ELF Symbols
+	if(bootInfo->flags & MULTIBOOT_INFO_ELF_SHDR)
+	{
+		LdrElfSection * section = (LdrElfSection *) (bootInfo->u.elf_sec.addr + KERNEL_VIRTUAL_BASE);
+
+		for(unsigned int i = 0; i < bootInfo->u.elf_sec.num; i++)
+		{
+			//Skip string table and symbol table sections
+			if(section->type == LDR_ELF_SHT_STRTAB || section->type == LDR_ELF_SHT_SYMTAB)
+			{
+				//Higher?
+				position = MAX(position, section->size + section->addr);
+			}
+
+			section = (LdrElfSection *) ((char *) section + bootInfo->u.elf_sec.size);
+		}
+	}
+
+	//Mark end of init region
+	endOfInitRegion = (position + 4095) / 4096;
+
+	//Validate in memory map
 	MMAP_FOREACH(mmapEntry, bootInfo->mmap_addr, bootInfo->mmap_length)
 	{
 		//Only check available regions
 		if(mmapEntry->type == MULTIBOOT_MEMORY_AVAILABLE && (mmapEntry->addr >> 32) == 0)
 		{
-			//Get a position and check that it works
-			unsigned int position = (mmapEntry->addr + 4095) & ~0xFFF;
-			unsigned int endPosition = position + (mmapEntry->len - (mmapEntry->addr - position));
+			unsigned long long endOfBlock = mmapEntry->addr + mmapEntry->len;
 
-			//Enter checking loop
-			// Ensure block is large enough
-		boundsCheckLoop:
-			while(position < endPosition && (endPosition - position >= tableLength))
+			//Advance position to start of block
+			if(position < mmapEntry->addr)
 			{
-				//Is block invading any of these zones?
-				//The end position of zones should be page aligned
+				position = mmapEntry->addr;
+			}
 
-#warning Bit of a hack for handling memory manager position
-				// HACK: Reserved entire lower region since this is usually
-				//  where the multiboot record is placed (this also reserves ROM area)
-				BOUNDS_CHECK(1, 0x100000);
+			//Page align position
+			PAGE_ALIGN(position);
 
-				// Kernel area (0x100000 - kernel end page * 4096)
-				BOUNDS_CHECK(0x100000, ((unsigned int) _kernel_end_page) * 4096);
-
-				//Boot modules
-				if(bootInfo->flags & MULTIBOOT_INFO_MODS)
-				{
-					MODULES_FOREACH(module, bootInfo->mods_addr, bootInfo->mods_count)
-					{
-						//Check module
-						unsigned int end = (module->mod_end + 4095) & ~0xFFF;
-						BOUNDS_CHECK(module->mod_start, end);
-					}
-				}
-
-				//OK - if we get here, we've found a valid place!
+			//Ensure block is large enough
+			if(position >= mmapEntry->addr && position + tableLength < endOfBlock)
+			{
+				//OK, save this
 				*tablePage = position / 4096;
 				return;
 			}
@@ -155,6 +182,33 @@ static inline INIT void GetPhysicalTableLocation(multiboot_info_t * bootInfo,
 
 	//If we're here, a section hasn't been found
 	Panic("Out of memory for physical memory table");
+}
+
+//Reserves an area of memory
+// If permanent is false, MemFreeInitPages frees the memory again
+static inline INIT void ReserveMemoryArea(MemPhysPage start, MemPhysPage end, bool permanent, bool decrementFree)
+{
+	//Reserve everything
+	for(; start < end; ++start)
+	{
+		if(permanent)
+		{
+			MemPageStateTable[start].refCount = 1;
+		}
+		else
+		{
+			//Do not overwrite a permanent page
+			if(MemPageStateTable[start].refCount == 0)
+			{
+				MemPageStateTable[start].refCount = INIT_REFCOUNT;
+
+				if(decrementFree)
+				{
+					MemPhysicalFreePages--;
+				}
+			}
+		}
+	}
 }
 
 //Memory manager initialisation
@@ -274,53 +328,22 @@ void INIT MemManagerInit(multiboot_info_t * bootInfo)
 			MemPhysicalTotalPages -= (endPages - startPages);
 
 			// Set ref counts
-			for(; startPages < endPages; ++startPages)
-			{
-				MemPageStateTable[startPages].refCount = 1;
-			}
+			ReserveMemoryArea(startPages, endPages, true, false);
 		}
 	}
 
 	// Allocate ROM and Kernel area
 	//  (Total not updated for kernel area)
-	for(MemPhysPage page = 0xA0; page < ((int) _kernel_end_page); ++page)
-	{
-		MemPageStateTable[page].refCount = 1;
-	}
+	ReserveMemoryArea(0xA0, (int) _kernel_end_page, true, false);
 
 	//All other pages are initially free
 	MemPhysicalFreePages = MemPhysicalTotalPages;
 
-	// Allocate boot module area
-	//  (Total not updated for modules area)
-	if(bootInfo->flags & MULTIBOOT_INFO_MODS)
-	{
-		MODULES_FOREACH(module, bootInfo->mods_addr, bootInfo->mods_count)
-		{
-			//Allocate
-			MemPhysPage startPages = module->mod_start / 4096;
-			MemPhysPage endPages = (module->mod_end + 4095) / 4096;
-
-			for(; startPages < endPages; ++startPages)
-			{
-				if(MemPageStateTable[startPages].refCount == 0)
-				{
-					MemPageStateTable[startPages].refCount = 1;
-					MemPhysicalFreePages--;
-				}
-			}
-		}
-	}
-
 	// Allocate page state table and initial page tables
-	for(MemPhysPage page = tableLocation; page < endOfAllocedTable; ++page)
-	{
-		if(MemPageStateTable[page].refCount == 0)
-		{
-			MemPageStateTable[page].refCount = 1;
-			MemPhysicalFreePages--;
-		}
-	}
+	ReserveMemoryArea(tableLocation, endOfAllocedTable, true, true);
+
+	// Allocate the entire area up to endOfMultiboot as INIT pages
+	ReserveMemoryArea(0, endOfInitRegion, false, true);
 
 	//Setup physical manager zones
 	MemPhysicalInit();
@@ -329,6 +352,15 @@ void INIT MemManagerInit(multiboot_info_t * bootInfo)
 //Frees INIT pages
 void INIT MemFreeInitPages()
 {
+	//Free INIT pages
+	for(MemPhysPage i = 0; i < endOfInitRegion; i++)
+	{
+		if(MemPhysicalRefCount(i) == INIT_REFCOUNT)
+		{
+			MemPhysicalFree(i, 1);
+		}
+	}
+
 	//Free all pages between kernel_init_start_page and kernel_end_page
 	MemPhysicalFree((MemPhysPage) _kernel_init_start_page,
 			(unsigned int) _kernel_end_page - (unsigned int) _kernel_init_start_page);
