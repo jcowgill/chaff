@@ -12,7 +12,7 @@
 ==Kernel Mode==
 C0000000   Mapped to first physical memory
 F0000000   Mapped to custom virtual memory
-FFFF0000   Memory manager temporary mappings (memory manager use only)
-FFFFC000   Reserved (cannot be mapped)
+FFFFC000   Memory manager temporary mappings (memory manager use only)
+FFFFF000   Reserved (cannot be mapped)
 @endverbatim
  */
