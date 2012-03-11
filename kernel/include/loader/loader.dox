@@ -1,0 +1,8 @@
+/**
+ * @defgroup Loader Executable and Kernel Module Loader
+ *
+ * Handles:
+ * - Loading of executables through the @b exec syscall
+ * - Loading of kernel modules
+ * - The kernel symbol table
+ */

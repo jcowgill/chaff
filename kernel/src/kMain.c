@@ -29,6 +29,7 @@
 #include "cpu.h"
 #include "mm/kmemory.h"
 #include "io/bcache.h"
+#include "loader/ksymbols.h"
 
 void INIT NORETURN kMain(unsigned int mBootCode, multiboot_info_t * mBootInfo)
 {
@@ -49,6 +50,7 @@ void INIT NORETURN kMain(unsigned int mBootCode, multiboot_info_t * mBootInfo)
 	CpuInitLate();
 	TimerInit();
 	ProcInit();
+	LdrReadKernelSymbols(mBootInfo);
 	IoBlockCacheInit();
 	IoDevFsInit();
 
