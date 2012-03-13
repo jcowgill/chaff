@@ -88,7 +88,7 @@ static inline bool LdrElfValidateHeader(LdrElfHeader * header)
  * @name Special section numbers
  * @{
  */
-#define LDR_ELF_SHN_UNDEF 	0		///< Undefined Section
+#define LDR_ELF_SHN_UNDEF 	0		///< Undefined Section (do not confuse with #LDR_ELF_STN_UNDEF)
 #define LDR_ELF_SHN_ABS 	0xFFF1	///< Absolute Value
 #define LDR_ELF_SHN_COMMON 	0xFFF2	///< COMMON symbols
 
@@ -140,6 +140,34 @@ typedef struct LdrElfSection
 
 } LdrElfSection;
 
+
+/**
+ * @name Symbol flags
+ * @{
+ */
+
+#define LDR_ELF_STN_UNDEF	0	///< Undefined Symbol (do not confuse with #LDR_ELF_SHN_UNDEF)
+
+#define LDR_ELF_STB_LOCAL	0	///< Locally bound symbols (not avaliable to other modules)
+#define LDR_ELF_STB_GLOBAL	1	///< Global symbols avaliable to others
+#define LDR_ELF_STB_WEAK	2	///< Weak global symbols which will exist globally if they don't already exist
+
+#define LDR_ELF_STT_NOTYPE	0	///< No type
+#define LDR_ELF_STT_OBJECT	1	///< Data
+#define LDR_ELF_STT_FUNC	2	///< Function
+#define LDR_ELF_STT_SECTION	3	///< ELF Section (points to beginning of section)
+#define LDR_ELF_STT_FILE	4	///< Source code file (ignored)
+
+///Gets the symbol binding type from the info field
+#define LDR_ELF_ST_BIND(info) ((info) >> 4)
+
+///Gets the symbol type from the info field
+#define LDR_ELF_ST_TYPE(info) ((info) & 0xF)
+
+/**
+ * @}
+ */
+
 /**
  * Information about an ELF symbol
  */
@@ -153,5 +181,34 @@ typedef struct LdrElfSymbol
 	unsigned int section;	///< Section index of the section this symbol belongs in
 
 } LdrElfSymbol;
+
+/**
+ * @name Relocation flags
+ * @{
+ */
+
+#define LDR_ELF_REL_NONE	0	///< No relocation
+#define LDR_ELF_REL_32		1	///< Copy symbol address + addend into offsert
+#define LDR_ELF_REL_PC32	2	///< Symbol copy relative to virtual address (symbol address + addend - virtual offset)
+
+///Gets the symbol number used in a relocation
+#define LDR_ELF_REL_SYM(info)	((info) >> 8)
+
+///Gets the type of relocation to be done
+#define LDR_ELF_REL_TYPE(info)	((unsigned char) (info))
+
+/**
+ * @}
+ */
+ 
+/**
+ * Information about a relocation entry
+ */
+typedef struct LdrElfRelocation
+{
+	unsigned int offset;	///< Offset of the relocation relative to the start of the section
+	unsigned int info;		///< Relocation information
+	
+} LdrElfRelocation;
 
 #endif
