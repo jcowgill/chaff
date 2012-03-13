@@ -28,6 +28,61 @@
 
 #include "chaff.h"
 
+/**
+ * @name ELF File Types
+ * @{
+ */
+#define LDR_ELF_ET_NONE	0	///< No file type
+#define LDR_ELF_ET_REL	1	///< Relocatable object
+#define LDR_ELF_ET_EXEC	2	///< Executable object
+#define LDR_ELF_ET_DYN	3	///< Shared object
+#define LDR_ELF_ET_CORE	4	///< Core dump
+/**
+ * @}
+ */
+
+///ELF 386 machine code
+#define LDR_ELF_EM_386 3
+
+/**
+ * The ELF header (occurs at the start of every ELF file)
+ */
+typedef struct LdrElfHeader
+{
+	unsigned char ident[16];	///< ELF identification
+	unsigned short type;		///< File type
+	unsigned short machine;		///< Machine architecture
+	unsigned int version;		///< ELF version number
+	unsigned int entry;			///< Entry point
+	unsigned int phOff;			///< Offset of program header (or 0 if there isn't one)
+	unsigned int shOff;			///< Offset of section header (or 0 if there isn't one)
+	unsigned int flags;			///< File flags
+	unsigned short headerSize;	///< ELF header size
+	unsigned short phEntSize;	///< Size of each entry in the program header
+	unsigned short phNumber;	///< Number of entries in the program header
+	unsigned short shEntSize;	///< Size of each entry in the section header
+	unsigned short shNumber;	///< Number of entries in the section header
+	unsigned short shStrNdx;	///< Section number which holds the string table for the section names
+
+} LdrElfHeader;
+
+/**
+ * Validates the identification bytes of the ELF header to ensure this is an ELF file
+ *
+ * @param header header to validate
+ * @retval true if this is an ELF file
+ * @retval false if thie is not a valid ELF file
+ */
+static inline bool LdrElfValidateHeader(LdrElfHeader * header)
+{
+	return header->ident[0] == 0x7F &&
+			header->ident[1] == 'E' &&
+			header->ident[2] == 'L' &&
+			header->ident[3] == 'F' &&
+			header->ident[4] == 1 &&
+			header->ident[5] == 1 &&
+			header->ident[6] == 1;
+}
 
 /**
  * @name Special section numbers

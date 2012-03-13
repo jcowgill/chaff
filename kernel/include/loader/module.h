@@ -30,6 +30,11 @@
 #include "list.h"
 
 /**
+ * Maximum module size (16 MB)
+ */
+#define LDR_MAX_MODULE_SIZE (16 * 1024 * 1024)
+
+/**
  * Information stored about a kernel module
  *
  * Modules must declare a variable called "ModuleInfo" with this type once in their module.
@@ -50,16 +55,11 @@ typedef struct LdrModule
 	 * This is a list of other modules which must be loaded before this module can be loaded
 	 * (and cannot be unloaded while this module is loaded).
 	 *
-	 * The list contains commas to separate modules or a blank string if there are no modules.
-	 * Do not use spaces.
-	 *
-	 * @code
-	 * "" - No dependencies
-	 * "abc" - Dependent on module "abc"
-	 * "abc,def" - Dependent on modules "abc" and "def"
-	 * @endcode
+	 * This is an array of strings containing the dependencies.
+	 * The array itself can be NULL to indicate no dependencies.
+	 * If an array is given, NULL inidcates the end of the list.
 	 */
-	const char * deps;
+	const char ** deps;
 
 	/**
 	 * Function to call after the module has been loaded
@@ -67,19 +67,28 @@ typedef struct LdrModule
 	 * The arguments given is a NULL terminated string but has no particular format.
 	 *
 	 * @param args arguments given to module
-	 * @retval true module loaded successfully
-	 * @retval false module failed to load. the module must put
+	 * @retval 0 module loaded successfully
+	 * @retval errorcode module failed to load. the module must put
 	 * 	everything back the way it was before returning this.
 	 */
-	bool (* init)(const char * args);
+	int (* init)(const char * args);
 
 	/**
 	 * Called when a module is unloaded to cleanup what it has done
 	 *
-	 * @retval true module successfully cleaned up
-	 * @retval false module cannot be unloaded
+	 * @retval 0 module successfully cleaned up
+	 * @retval errorcode module cannot be unloaded
 	 */
-	bool (* cleanup)();
+	int (* cleanup)();
+
+	/**
+	 * Number of modules dependent on this module (must be 0 to unload)
+	 *
+	 * Modules should ignore this field.
+	 *
+	 * @private
+	 */
+	unsigned int depRefCount;
 
 	/**
 	 * Head of the list of symbols owned by this module.
@@ -99,6 +108,45 @@ typedef struct LdrModule
 	 */
 	void * dataStart;
 
+	/**
+	 * Entry in the global list of modules
+	 *
+	 * Modules should ignore this field.
+	 *
+	 * @private
+	 */
+	ListHead modules;
+
 } LdrModule;
+
+/**
+ * Loads a module into the kernel
+ *
+ * This does not block (unless init is run), so you can pass a user mode pointer to it.
+ *
+ * @param data pointer to raw data to load
+ * @param len length of data given
+ * @param runInit true if LdrModule::init should be run
+ * @param args arguments for LdrModule::init
+ * @retval 0 loaded successfully
+ */
+int LdrLoadModule(const void * data, unsigned int len, bool runInit, const char * args);
+
+/**
+ * Looks up a module structure by name
+ *
+ * @param name name of module
+ * @return the module structure or NULL if it doesn't exist
+ */
+LdrModule * LdrLookupModule(const char * name);
+
+/**
+ * Unloads the given module
+ *
+ * @param module module reference to unload
+ * @retval 0 unloaded successfully
+ * @retval -EBUSY module in use
+ */
+int LdrUnloadModule(LdrModule * module);
 
 #endif

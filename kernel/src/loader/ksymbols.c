@@ -75,6 +75,9 @@ void LdrKSymbolRemoveModule(LdrModule * module)
 		MemSlabFree(symbolCache, symbol);
 	}
 
+	//Clear list
+	ListHeadInit(&module->symbols);
+
 	//Print warning if symbols could not be removed
 	if(failedRemove)
 	{
