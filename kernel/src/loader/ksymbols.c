@@ -83,6 +83,7 @@ void LdrKSymbolRemoveModule(LdrModule * module)
 	if(failedRemove)
 	{
 #warning Print module name here
+		//Note name may be NULL here if the module was in the process of being loaded
 		PrintLog(Warning, "LdrKSymbolRemoveModule: failed to remove some symbols for module ");
 	}
 }

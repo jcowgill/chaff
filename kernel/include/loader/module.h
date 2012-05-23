@@ -39,17 +39,20 @@
  */
 #define LDR_MAX_DEPENDENCIES 8
 
+struct LdrModule;
+
 /**
  * Function to call after the module has been loaded
  *
  * The arguments given is a NULL terminated string but has no particular format.
  *
+ * @param module the module structure of your module
  * @param args arguments given to module
  * @retval 0 module loaded successfully
  * @retval errorcode module failed to load. the module must put
  * 	everything back the way it was before returning this.
  */
-typedef int (* LdrModuleInitFunc)(const char * args);
+typedef int (* LdrModuleInitFunc)(struct LdrModule * module, const char * args);
 
 /**
  * Called when a module is unloaded to cleanup what it has done
@@ -104,15 +107,16 @@ typedef struct LdrModule
 /**
  * Loads a module into the kernel
  *
- * This does not block (unless init is run), so you can pass a user mode pointer to it.
+ * You may pass a user mode pointer to this function.
  *
  * @param data pointer to raw data to load
  * @param len length of data given
  * @param runInit true if LdrModule::init should be run
  * @param args arguments for LdrModule::init
  * @retval 0 loaded successfully
+ * @retval -EINVAL invalid module data (actual error printed to log)
  */
-int LdrLoadModule(const void * data, unsigned int len, bool runInit, const char * args);
+int LdrLoadModule(const void * data, unsigned int len, const char * args);
 
 /**
  * Adds a dependency from one module to another

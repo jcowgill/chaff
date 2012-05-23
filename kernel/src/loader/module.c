@@ -50,8 +50,9 @@ typedef union LdrSectionAddress
 static int AddDependencyNoCheck(LdrModule * from, LdrModule * to);
 
 //Loads a module into the kernel
-int LdrLoadModule(const void * data, unsigned int len, bool runInit, const char * args)
+int LdrLoadModule(const void * data, unsigned int len, const char * args)
 {
+	int retVal = -EINVAL;
 	LdrElfHeader * elfHeader = (LdrElfHeader *) data;
 
 	//Validate ELF header
@@ -103,7 +104,7 @@ int LdrLoadModule(const void * data, unsigned int len, bool runInit, const char 
 		{
 			//Not long enough
 			PrintLog(Error, "LdrLoadModule: Module has invalid section table");
-			goto error1;
+			goto finally;
 		}
 
 		//Test if to be allocated?
@@ -121,7 +122,7 @@ int LdrLoadModule(const void * data, unsigned int len, bool runInit, const char 
 			else if(!IS_POWER_OF_2(alignment))
 			{
 				PrintLog(Error, "LdrLoadModule: section alignments must be powers of 2");
-				goto error1;
+				goto finally;
 			}
 			else if(alignment == 0)
 			{
@@ -143,14 +144,14 @@ int LdrLoadModule(const void * data, unsigned int len, bool runInit, const char 
 			if(section->entSize != sizeof(LdrElfSymbol))
 			{
 				PrintLog(Error, "LdrLoadModule: Module has invalid symbol table entry size");
-				goto error1;
+				goto finally;
 			}
 
 			//Get string table entry
 			if(section->link >= elfHeader->shNumber)
 			{
 				PrintLog(Error, "LdrLoadModule: Module has invalid section table");
-				goto error1;
+				goto finally;
 			}
 
 			LdrElfSection * strTabSection = &firstSection[section->link];
@@ -159,7 +160,7 @@ int LdrLoadModule(const void * data, unsigned int len, bool runInit, const char 
 			if(strTabSection->type != LDR_ELF_SHT_STRTAB)
 			{
 				PrintLog(Error, "LdrLoadModule: Module has invalid section table");
-				goto error1;
+				goto finally;
 			}
 
 			//Store gathered information
@@ -174,14 +175,14 @@ int LdrLoadModule(const void * data, unsigned int len, bool runInit, const char 
 			if(section->entSize != sizeof(LdrElfRelocation))
 			{
 				PrintLog(Error, "LdrLoadModule: Module has invalid relocation table entry size");
-				goto error1;
+				goto finally;
 			}
 
 			//Ensure remote section is valid
 			if(section->link >= elfHeader->shNumber)
 			{
 				PrintLog(Error, "LdrLoadModule: Module has invalid section table");
-				goto error1;
+				goto finally;
 			}
 		}
 	}
@@ -190,12 +191,13 @@ int LdrLoadModule(const void * data, unsigned int len, bool runInit, const char 
 	if(symTab == NULL || allocBytes + strTabLen > LDR_MAX_MODULE_SIZE)
 	{
 		PrintLog(Error, "LdrLoadModule: Module has invalid section table");
-		goto error1;
+		goto finally;
 	}
 
 	//Allocate data for module and module info structure
 	LdrModule * moduleInfo = MemKZAlloc(sizeof(LdrModule));
 	ListHeadInit(&moduleInfo->symbols);
+	ListHeadInit(&moduleInfo->modules);
 	moduleInfo->dataStart = MemVirtualAlloc(allocBytes + strTabLen);
 
 	//Copy string table to end
@@ -297,7 +299,7 @@ int LdrLoadModule(const void * data, unsigned int len, bool runInit, const char 
 								{
 									//Use symbol value
 									symValue = (unsigned int) kernSymbol->value;
-									
+
 									//Add dependency on the module
 									int depRetVal = AddDependencyNoCheck(moduleInfo, kernSymbol->module);
 									if(depRetVal != 0 && depRetVal != -EEXIST)
@@ -324,7 +326,7 @@ int LdrLoadModule(const void * data, unsigned int len, bool runInit, const char 
 
 						case LDR_ELF_SHN_COMMON:
 							//We do not handle this
-							PrintLog(Error, "LdrLoadModule: Module has COMMON symbol");
+							PrintLog(Error, "LdrLoadModule: Modules cannot be loaded with COMMON symbols (hint: pass -d to ld)");
 							goto error2;
 
 						default:
@@ -370,17 +372,142 @@ int LdrLoadModule(const void * data, unsigned int len, bool runInit, const char 
 		section = (LdrElfSection *) ((char *) section + elfHeader->shEntSize);
 	}
 
-#error TODO
-	//Load my symbol table
-	//Find ModuleInfo structure and set it up
+	//Load global and special symbols from the symbol table
+	bool displayedWeakWarning = false;
+	LdrModuleInitFunc initFunc = NULL;
+
+	for(unsigned int i = 0; i < symTabCount; i++)
+	{
+		const char * symbolName;
+		void * symbolValue;
+
+		//Ignore section, file and undefined symbols
+		if(LDR_ELF_ST_TYPE(symTab[i].info) == LDR_ELF_STT_SECTION ||
+			LDR_ELF_ST_TYPE(symTab[i].info) == LDR_ELF_STT_FILE ||
+			symTab[i].section == LDR_ELF_SHN_UNDEF)
+		{
+			continue;
+		}
+
+		//No common symbols
+		if(symTab[i].section == LDR_ELF_SHN_COMMON)
+		{
+			PrintLog(Error, "LdrLoadModule: Modules cannot be loaded with COMMON symbols (hint: pass -d to ld)");
+			goto error3;
+		}
+
+		//Only interpret global and weak symbols
+		switch(LDR_ELF_ST_BIND(symTab[i].info))
+		{
+			case LDR_ELF_STB_WEAK:
+				//Display warning
+				if(!displayedWeakWarning)
+				{
+					PrintLog(Warning, "LdrLoadModule: Weak symbols are treated as globals");
+					displayedWeakWarning = true;
+				}
+
+				//Fallthrough
+
+			case LDR_ELF_STB_GLOBAL:
+				//Global symbol
+				// Calculate symbol value
+				switch(symTab[i].section)
+				{
+					case LDR_ELF_SHN_ABS:
+						//Absolute symbol
+						symbolValue = (void *) symTab[i].value;
+						break;
+
+					default:
+						//Link relative to start of given section
+						if(symTab[i].section < elfHeader->shNumber)
+						{
+							symbolValue = sectionAddrs[symTab[i].section].vAddr + symTab[i].value;
+						}
+						else
+						{
+							PrintLog(Error, "LdrLoadModule: Module has corrupt symbol table");
+							goto error3;
+						}
+
+						break;
+				}
+
+				// Get symbol name
+				if(symTab[i].name >= strTabLen)
+				{
+					//Invalid name
+					PrintLog(Error, "LdrLoadModule: Symbol has invalid name");
+					goto error3;
+				}
+
+				symbolName = &strTabPtr[symTab[i].name];
+
+				// Is it a special symbol?
+				if(StrCmp(symbolName, "ModuleInit"))
+				{
+					//Init function
+					initFunc = symbolValue;
+				}
+				else if(StrCmp(symbolName, "ModuleCleanup"))
+				{
+					//Cleanup function
+					moduleInfo->cleanup = symbolValue;
+				}
+				else if(StrCmp(symbolName, "ModuleName"))
+				{
+					//Module name
+					// The symbol is an indirect pointer and needs to be dereferenced again
+					moduleInfo->name = *((const char **) symbolValue);
+				}
+				else
+				{
+					// Normal symbol to be added to the symbol table
+					if(!LdrKSymbolAdd(symbolName, symbolValue, moduleInfo))
+					{
+	#warning Print symbol name
+						PrintLog(Error, "LdrLoadModule: Exported symbol is already defined");
+						goto error3;
+					}
+				}
+
+				break;
+		}
+	}
+
+	//Modules must have a name
+	if(moduleInfo->name == NULL)
+	{
+		PrintLog(Error, "LdrLoadModule: Modules must define a ModuleName variable containing a string");
+		goto error3;
+	}
+
+	//Add module to global modules list
+	ListHeadAddLast(&moduleInfo->modules, &moduleList);
+
+	//Execute init function
+	if(initFunc)
+	{
+		initFunc(moduleInfo, args);
+	}
+
+	retVal = 0;
+	goto finally;
+
+error3:
+	//Free symbols
+	LdrKSymbolRemoveModule(moduleInfo);
 
 error2:
+	//Free module memory
 	MemVirtualFree(moduleInfo->dataStart);
 	MemKFree(moduleInfo);
 
-error1:
+finally:
+	//Free section addresses
 	MemKFree(sectionAddrs);
-	return -EINVAL;
+	return retVal;
 }
 
 //Adds a dependency
