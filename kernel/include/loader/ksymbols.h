@@ -32,6 +32,7 @@
 #include "loader/module.h"
 
 struct multiboot_info;
+struct LdrModule;
 
 /**
  * A kernel symbol
@@ -39,19 +40,24 @@ struct multiboot_info;
 typedef struct LdrKSymbol
 {
 	/**
+	 * Item in the global symbol table
+	 */
+	HashItem tableItem;
+	
+	/**
 	 * Value of the symbol (variable or function call)
 	 */
 	void * value;
 
 	/**
+	 * The module this symbol belongs to
+	 */
+	struct LdrModule * module;
+	
+	/**
 	 * Item in the module list (owning module)
 	 */
 	ListHead moduleList;
-
-	/**
-	 * Item in the global symbol table
-	 */
-	HashItem tableItem;
 
 } LdrKSymbol;
 

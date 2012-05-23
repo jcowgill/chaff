@@ -77,7 +77,7 @@ typedef struct LdrModule
 	/**
 	 * List of dependencies (ends with NULL if less than 8 being used)
 	 */
-	LdrModule * deps[8];
+	struct LdrModule * deps[8];
 
 	/**
 	 * Number of modules dependent on this module (must be 0 to unload)

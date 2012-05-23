@@ -38,6 +38,7 @@ bool LdrKSymbolAdd(const char * name, void * value, LdrModule * module)
 	LdrKSymbol * symbol = MemSlabAlloc(symbolCache);
 
 	symbol->value = value;
+	symbol->module = module;
 	ListHeadInit(&symbol->moduleList);
 
 	//Add to hash table

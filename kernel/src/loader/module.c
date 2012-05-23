@@ -25,6 +25,7 @@
 #include "loader/elf.h"
 #include "errno.h"
 #include "mm/kmemory.h"
+#include "list.h"
 
 //Determines if a value is a power of 2
 #define IS_POWER_OF_2(val) (((val) & ((val) - 1)) == 0)
@@ -46,7 +47,7 @@ typedef union LdrSectionAddress
 } LdrSectionAddress;
 
 //Adds a dependency without the circular dependency check
-static void AddDependencyNoCheck(LdrModule * from, LdrModule * to);
+static int AddDependencyNoCheck(LdrModule * from, LdrModule * to);
 
 //Loads a module into the kernel
 int LdrLoadModule(const void * data, unsigned int len, bool runInit, const char * args)
@@ -192,17 +193,19 @@ int LdrLoadModule(const void * data, unsigned int len, bool runInit, const char 
 		goto error1;
 	}
 
-	//Allocate data for module
-	void * moduleData = MemVirtualAlloc(allocBytes + strTabLen);
+	//Allocate data for module and module info structure
+	LdrModule * moduleInfo = MemKZAlloc(sizeof(LdrModule));
+	ListHeadInit(&moduleInfo->symbols);
+	moduleInfo->dataStart = MemVirtualAlloc(allocBytes + strTabLen);
 
 	//Copy string table to end
-	const char * strTabPtr = (const char *) moduleData + allocBytes;
+	const char * strTabPtr = (const char *) moduleInfo->dataStart + allocBytes;
 	MemCmp(strTabPtr, strTab, strTabLen);
 
 	//Calculate load addresses for each section
 	for(unsigned int i = 0; i < elfHeader->shNumber; i++)
 	{
-		sectionAddrs[i].vAddr = (char *) (moduleData + sectionAddrs[i].loadOff);
+		sectionAddrs[i].vAddr = (char *) (moduleInfo->dataStart + sectionAddrs[i].loadOff);
 	}
 
 	//Load all sections into memory
@@ -294,11 +297,18 @@ int LdrLoadModule(const void * data, unsigned int len, bool runInit, const char 
 								{
 									//Use symbol value
 									symValue = (unsigned int) kernSymbol->value;
+									
+									//Add dependency on the module
+									int depRetVal = AddDependencyNoCheck(moduleInfo, kernSymbol->module);
+									if(depRetVal != 0 && depRetVal != -EEXIST)
+									{
+										PrintLog(Error, "LdrLoadModule: Too many module dependencies");
+										goto error2;
+									}
 								}
 								else
 								{
 									//Undefined symbol
-#warning Must check dependencies before relocations
 #warning Which symbol is undefined?
 									PrintLog(Error, "LdrLoadModule: Undefined symbol ...");
 									goto error2;
@@ -365,7 +375,8 @@ int LdrLoadModule(const void * data, unsigned int len, bool runInit, const char 
 	//Find ModuleInfo structure and set it up
 
 error2:
-	MemVirtualFree(moduleData);
+	MemVirtualFree(moduleInfo->dataStart);
+	MemKFree(moduleInfo);
 
 error1:
 	MemKFree(sectionAddrs);
@@ -378,14 +389,13 @@ int LdrAddDependency(LdrModule * from, LdrModule * to)
 	//Do circular dependency check
 	for(int i = 0; i < LDR_MAX_DEPENDENCIES; i++)
 	{
-		//Circular?
-		if(to->deps[i] == from)
-		{
-			return -ELOOP;
-		}
-		else if(to->deps[i] == NULL)
+		if(to->deps[i] == NULL)
 		{
 			break;
+		}
+		else if(to->deps[i] == from)
+		{
+			return -ELOOP;
 		}
 	}
 
@@ -394,8 +404,14 @@ int LdrAddDependency(LdrModule * from, LdrModule * to)
 }
 
 //Adds a dependency without the circular dependency check
-static void AddDependencyNoCheck(LdrModule * from, LdrModule * to)
+static int AddDependencyNoCheck(LdrModule * from, LdrModule * to)
 {
+	//Ignore requests for the NULL module (ie the kernel)
+	if(to == NULL)
+	{
+		return 0;
+	}
+
 	//Already have a reference?
 	int arrayPos = 0;
 
