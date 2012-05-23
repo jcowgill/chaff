@@ -38,9 +38,9 @@ ASM			= nasm
 
 # Global flags (apply to kernel and user mode)
 ifeq ($(CC),clang)
-CF_ALL		= -ccc-host-triple i386-pc-unknown-gnu -g -m32 -Wall -Wextra -DDEBUG -std=gnu99
+CF_ALL		= -ccc-host-triple i386-pc-unknown-gnu -g -m32 -Wall -Wextra -DDEBUG -std=gnu99 -fno-common
 else
-CF_ALL		= -gdwarf-2 -m32 -Wall -Wextra -DDEBUG -std=gnu99
+CF_ALL		= -gdwarf-2 -m32 -Wall -Wextra -DDEBUG -std=gnu99 -fno-common
 endif
 
 LF_ALL		= -x -m elf_i386
