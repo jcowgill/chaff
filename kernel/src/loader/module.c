@@ -45,6 +45,9 @@ typedef union LdrSectionAddress
 
 } LdrSectionAddress;
 
+//Adds a dependency without the circular dependency check
+static void AddDependencyNoCheck(LdrModule * from, LdrModule * to);
+
 //Loads a module into the kernel
 int LdrLoadModule(const void * data, unsigned int len, bool runInit, const char * args)
 {
@@ -221,7 +224,7 @@ int LdrLoadModule(const void * data, unsigned int len, bool runInit, const char 
 			}
 		}
 	}
-	
+
 	//Relocate all sections
 	section = firstSection;
 	for(unsigned int i = 0; i < elfHeader->shNumber; i++)
@@ -233,7 +236,7 @@ int LdrLoadModule(const void * data, unsigned int len, bool runInit, const char 
 			LdrElfSection * remoteSection = &firstSection[section->link];
 			LdrElfRelocation * rel = (LdrElfRelocation *) (data + section->offset);
 			unsigned int itemCount = section->size / sizeof(LdrElfRelocation);
-			
+
 			//Only perform relocations for allocated sections
 			if((remoteSection->flags & LDR_ELF_SHF_ALLOC) == 0)
 			{
@@ -305,7 +308,7 @@ int LdrLoadModule(const void * data, unsigned int len, bool runInit, const char 
 							break;
 
 						case LDR_ELF_SHN_ABS:
-							//Use abolute value of symbol
+							//Use absolute value of symbol
 							symValue = symbol->value;
 							break;
 
@@ -369,6 +372,55 @@ error1:
 	return -EINVAL;
 }
 
+//Adds a dependency
+int LdrAddDependency(LdrModule * from, LdrModule * to)
+{
+	//Do circular dependency check
+	for(int i = 0; i < LDR_MAX_DEPENDENCIES; i++)
+	{
+		//Circular?
+		if(to->deps[i] == from)
+		{
+			return -ELOOP;
+		}
+		else if(to->deps[i] == NULL)
+		{
+			break;
+		}
+	}
+
+	//Forward to other adder
+	return AddDependencyNoCheck(from, to);
+}
+
+//Adds a dependency without the circular dependency check
+static void AddDependencyNoCheck(LdrModule * from, LdrModule * to)
+{
+	//Already have a reference?
+	int arrayPos = 0;
+
+	while(arrayPos < LDR_MAX_DEPENDENCIES)
+	{
+		//What is this module?
+		if(from->deps[arrayPos] == to)
+		{
+			return -EEXIST;
+		}
+		else if(from->deps[arrayPos] == NULL)
+		{
+			//Insert here at the end of the list
+			from->deps[arrayPos] = to;
+			to->depRefCount++;
+			return 0;
+		}
+	}
+
+	//No space left in array
+#warning TODO print module name here
+	PrintLog(Warning, "LdrAddDependency: no space left in dependency array");
+	return -ENOSPC;
+}
+
 //Looks up a module structure by name
 LdrModule * LdrLookupModule(const char * name)
 {
@@ -403,16 +455,18 @@ int LdrUnloadModule(LdrModule * module)
 	}
 
 	//Decrement ref counts in this module's dependancies
-	if(module->deps)
+	for(int i = 0; i < LDR_MAX_DEPENDENCIES; i++)
 	{
-		for(int i = 0; module->deps[i]; i++)
+		//Is there a module?
+		if(module->deps[i] == NULL)
 		{
-			LdrModule * depMod = LdrLookupModule(module->deps[i]);
-
-			if(depMod)
-			{
-				depMod->depRefCount--;
-			}
+			//No - end check
+			break;
+		}
+		else
+		{
+			//Decrement ref count
+			module->deps[i]->depRefCount--;
 		}
 	}
 

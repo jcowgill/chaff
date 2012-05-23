@@ -35,85 +35,67 @@
 #define LDR_MAX_MODULE_SIZE (16 * 1024 * 1024)
 
 /**
- * Information stored about a kernel module
+ * Maximum number of dependencies
+ */
+#define LDR_MAX_DEPENDENCIES 8
+
+/**
+ * Function to call after the module has been loaded
  *
- * Modules must declare a variable called "ModuleInfo" with this type once in their module.
- * It contains information about loading the module required by the module loader.
+ * The arguments given is a NULL terminated string but has no particular format.
+ *
+ * @param args arguments given to module
+ * @retval 0 module loaded successfully
+ * @retval errorcode module failed to load. the module must put
+ * 	everything back the way it was before returning this.
+ */
+typedef int (* LdrModuleInitFunc)(const char * args);
+
+/**
+ * Called when a module is unloaded to cleanup what it has done
+ *
+ * @retval 0 module successfully cleaned up
+ * @retval errorcode module cannot be unloaded
+ */
+typedef int (* LdrModuleCleanupFunc)();
+
+/**
+ * Persistent information stored about a kernel module
  */
 typedef struct LdrModule
 {
 	/**
 	 * Module name
-	 *
-	 * Names must not contain commas
 	 */
 	const char * name;
 
 	/**
-	 * Module dependencies
-	 *
-	 * This is a list of other modules which must be loaded before this module can be loaded
-	 * (and cannot be unloaded while this module is loaded).
-	 *
-	 * This is an array of strings containing the dependencies.
-	 * The array itself can be NULL to indicate no dependencies.
-	 * If an array is given, NULL inidcates the end of the list.
+	 * Function to call when module is cleaned up
 	 */
-	const char ** deps;
+	LdrModuleCleanupFunc cleanup;
 
 	/**
-	 * Function to call after the module has been loaded
-	 *
-	 * The arguments given is a NULL terminated string but has no particular format.
-	 *
-	 * @param args arguments given to module
-	 * @retval 0 module loaded successfully
-	 * @retval errorcode module failed to load. the module must put
-	 * 	everything back the way it was before returning this.
+	 * List of dependencies (ends with NULL if less than 8 being used)
 	 */
-	int (* init)(const char * args);
-
-	/**
-	 * Called when a module is unloaded to cleanup what it has done
-	 *
-	 * @retval 0 module successfully cleaned up
-	 * @retval errorcode module cannot be unloaded
-	 */
-	int (* cleanup)();
+	LdrModule * deps[8];
 
 	/**
 	 * Number of modules dependent on this module (must be 0 to unload)
-	 *
-	 * Modules should ignore this field.
-	 *
-	 * @private
 	 */
 	unsigned int depRefCount;
 
 	/**
 	 * Head of the list of symbols owned by this module.
-	 *
-	 * Modules should ignore this field.
-	 *
-	 * @private
 	 */
 	ListHead symbols;
 
 	/**
 	 * Load address of the module.
-	 *
-	 * Modules should ignore this field.
-	 *
-	 * @private
 	 */
 	void * dataStart;
 
 	/**
 	 * Entry in the global list of modules
-	 *
-	 * Modules should ignore this field.
-	 *
-	 * @private
 	 */
 	ListHead modules;
 
@@ -131,6 +113,25 @@ typedef struct LdrModule
  * @retval 0 loaded successfully
  */
 int LdrLoadModule(const void * data, unsigned int len, bool runInit, const char * args);
+
+/**
+ * Adds a dependency from one module to another
+ *
+ * Creating a dependency prevents a module from being unloaded until all the modules that
+ * use it are unloaded.
+ *
+ * The module loader will automatically add dependencies if a module uses a function
+ * declared in another module. You only need to use this function for dependencies where
+ * you don't use any functions in the module or for optional dependencies.
+ *
+ * @param from the module using the functionality
+ * @param to the module being used
+ * @retval 0 dependency added
+ * @retval -ELOOP circular dependency detected
+ * @retval -EEXIST the dependency already exists
+ * @retval -ENOSPC too many dependencies (see #LDR_MAX_DEPENDENCIES)
+ */
+int LdrAddDependency(LdrModule * from, LdrModule * to);
 
 /**
  * Looks up a module structure by name

@@ -85,6 +85,9 @@ static inline unsigned int LdrKSymbolNameLen(LdrKSymbol * symbol)
 /**
  * Looks up a kernel symbol with the given name
  *
+ * If the symbol is owned by a module, you should use LdrAddDependency to add a
+ * dependency so that the module is prevented from being unloaded.
+ *
  * @param name name of symbol
  * @param nameLen length of name
  * @retval NULL symbol does not exist
