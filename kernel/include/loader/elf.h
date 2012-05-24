@@ -176,9 +176,9 @@ typedef struct LdrElfSymbol
 	unsigned int name;		///< Symbol name (index in string table)
 	unsigned int value;		///< Symbol value (depends on type)
 	unsigned int size;		///< Symbol size (depends on type)
-	unsigned int info;		///< Symbol type and attributes
-	unsigned int other;		///< Unused
-	unsigned int section;	///< Section index of the section this symbol belongs in
+	unsigned char info;		///< Symbol type and attributes
+	unsigned char other;	///< Unused
+	unsigned short section;	///< Section index of the section this symbol belongs in
 
 } LdrElfSymbol;
 

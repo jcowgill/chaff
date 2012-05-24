@@ -205,7 +205,7 @@ typedef struct multiboot_mod_list multiboot_module_t;
 // <entryVar> is a multiboot_memory_map_t
 // All other vars MUST be unsigned longs
 // This will add KERNEL_VIRTUAL_BASE to the address
-#define MMAP_FOREACH(entryVar, in, len) _MMAP_FOREACH(entryVar, in + 0xC0000000, len)
+#define MMAP_FOREACH(entryVar, in, len) _MMAP_FOREACH(entryVar, (in) + 0xC0000000, (len))
 
 #define _MMAP_FOREACH(entryVar, in, len) \
 	for(multiboot_memory_map_t * entryVar = (multiboot_memory_map_t *) (in); \
@@ -217,8 +217,11 @@ typedef struct multiboot_mod_list multiboot_module_t;
 // The number of boot modules is passed in <len>
 // <entryVar> is a multiboot_module_t
 // All other vars MUST be unsigned longs
-#define MODULES_FOREACH(entryVar, in, len) \
-	for(multiboot_module_t * entryVar = (multiboot_module_t *) in; \
+// This will add KERNEL_VIRTUAL_BASE to the address
+#define MODULES_FOREACH(entryVar, in, len) _MODULES_FOREACH(entryVar, (in) + 0xC0000000, (len))
+
+#define _MODULES_FOREACH(entryVar, in, len) \
+	for(multiboot_module_t * entryVar = (multiboot_module_t *) (in); \
 		((unsigned long) entryVar) < (in) + ((len) * sizeof(multiboot_module_t)); \
 		++entryVar)
 

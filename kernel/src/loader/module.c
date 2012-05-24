@@ -201,8 +201,8 @@ LdrModule * LdrLoadModule(const void * data, unsigned int len, const char * args
 	moduleInfo->dataStart = MemVirtualAlloc(allocBytes + strTabLen);
 
 	//Copy string table to end
-	const char * strTabPtr = (const char *) moduleInfo->dataStart + allocBytes;
-	MemCmp(strTabPtr, strTab, strTabLen);
+	char * strTabPtr = (char *) moduleInfo->dataStart + allocBytes;
+	MemCpy(strTabPtr, strTab, strTabLen);
 
 	//Calculate load addresses for each section
 	for(unsigned int i = 0; i < elfHeader->shNumber; i++)
@@ -211,6 +211,7 @@ LdrModule * LdrLoadModule(const void * data, unsigned int len, const char * args
 	}
 
 	//Load all sections into memory
+	section = firstSection;
 	for(unsigned int i = 0; i < elfHeader->shNumber; i++, section++)
 	{
 		//Test if to be allocated?
@@ -232,13 +233,13 @@ LdrModule * LdrLoadModule(const void * data, unsigned int len, const char * args
 
 	//Relocate all sections
 	section = firstSection;
-	for(unsigned int i = 0; i < elfHeader->shNumber; i++)
+	for(unsigned int i = 0; i < elfHeader->shNumber; i++, section++)
 	{
 		//Relocation?
 		if(section->type == LDR_ELF_SHT_REL)
 		{
 			//Process section
-			LdrElfSection * remoteSection = &firstSection[section->link];
+			LdrElfSection * remoteSection = &firstSection[section->info];
 			LdrElfRelocation * rel = (LdrElfRelocation *) (data + section->offset);
 			unsigned int itemCount = section->size / sizeof(LdrElfRelocation);
 
@@ -367,9 +368,6 @@ LdrModule * LdrLoadModule(const void * data, unsigned int len, const char * args
 				}
 			}
 		}
-
-		//Advance section
-		section = (LdrElfSection *) ((char *) section + elfHeader->shEntSize);
 	}
 
 	//Load global and special symbols from the symbol table
@@ -445,17 +443,17 @@ LdrModule * LdrLoadModule(const void * data, unsigned int len, const char * args
 				symbolName = &strTabPtr[symTab[i].name];
 
 				// Is it a special symbol?
-				if(StrCmp(symbolName, "ModuleInit"))
+				if(StrCmp(symbolName, "ModuleInit") == 0)
 				{
 					//Init function
 					initFunc = symbolValue;
 				}
-				else if(StrCmp(symbolName, "ModuleCleanup"))
+				else if(StrCmp(symbolName, "ModuleCleanup") == 0)
 				{
 					//Cleanup function
 					moduleInfo->cleanup = symbolValue;
 				}
-				else if(StrCmp(symbolName, "ModuleName"))
+				else if(StrCmp(symbolName, "ModuleName") == 0)
 				{
 					//Module name
 					// The symbol is an indirect pointer and needs to be dereferenced again
