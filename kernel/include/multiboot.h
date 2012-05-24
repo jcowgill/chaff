@@ -215,7 +215,7 @@ typedef struct multiboot_mod_list multiboot_module_t;
 
 //Iterates over each boot module entry in <in> and stores them in <entryVar>
 // The number of boot modules is passed in <len>
-// <entryVar> is a multiboot_memory_map_t
+// <entryVar> is a multiboot_module_t
 // All other vars MUST be unsigned longs
 #define MODULES_FOREACH(entryVar, in, len) \
 	for(multiboot_module_t * entryVar = (multiboot_module_t *) in; \

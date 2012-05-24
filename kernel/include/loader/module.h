@@ -112,11 +112,11 @@ typedef struct LdrModule
  * @param data pointer to raw data to load
  * @param len length of data given
  * @param runInit true if LdrModule::init should be run
- * @param args arguments for LdrModule::init
- * @retval 0 loaded successfully
- * @retval -EINVAL invalid module data (actual error printed to log)
+ * @param args arguments for LdrModule::init (may be NULL to pass an empty string)
+ * @retval module loaded successfully
+ * @retval NULL invalid module data (actual error printed to log)
  */
-int LdrLoadModule(const void * data, unsigned int len, const char * args);
+LdrModule * LdrLoadModule(const void * data, unsigned int len, const char * args);
 
 /**
  * Adds a dependency from one module to another

@@ -20,4 +20,29 @@
  */
 
 #include "chaff.h"
+#include "loader/module.h"
+#include "multiboot.h"
 
+//Load boot modules
+void INIT LdrLoadBootModules(struct multiboot_info * mHeader)
+{
+	//Process each module in the list
+	if(mHeader->flags & MULTIBOOT_INFO_MODS)
+	{
+		MODULES_FOREACH(multibootMod, mHeader->mods_addr, mHeader->mods_count)
+		{
+			//Attempt to load module
+			LdrModule * module = LdrLoadModule(
+					multibootMod->mod_start + KERNEL_VIRTUAL_BASE,
+					multibootMod->mod_end - multibootMod->mod_start,
+					multibootMod->cmdline + KERNEL_VIRTUAL_BASE
+				);
+
+			//Success?
+			if(!module)
+			{
+				Panic("LdrLoadBootModules: Some boot modules failed to load");
+			}
+		}
+	}
+}

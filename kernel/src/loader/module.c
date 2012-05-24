@@ -50,9 +50,9 @@ typedef union LdrSectionAddress
 static int AddDependencyNoCheck(LdrModule * from, LdrModule * to);
 
 //Loads a module into the kernel
-int LdrLoadModule(const void * data, unsigned int len, const char * args)
+LdrModule * LdrLoadModule(const void * data, unsigned int len, const char * args)
 {
-	int retVal = -EINVAL;
+	bool loaded = false;
 	LdrElfHeader * elfHeader = (LdrElfHeader *) data;
 
 	//Validate ELF header
@@ -60,7 +60,7 @@ int LdrLoadModule(const void * data, unsigned int len, const char * args)
 			elfHeader->type != LDR_ELF_ET_REL || elfHeader->machine != LDR_ELF_EM_386)
 	{
 		PrintLog(Error, "LdrLoadModule: Module has invalid ELF header");
-		return -EINVAL;
+		return NULL;
 	}
 
 	//Get section header pointer
@@ -69,21 +69,21 @@ int LdrLoadModule(const void * data, unsigned int len, const char * args)
 	if(elfHeader->shEntSize != sizeof(LdrElfSection))
 	{
 		PrintLog(Error, "LdrLoadModule: Module has invalid section table entry size");
-		return -EINVAL;
+		return NULL;
 	}
 
 	if(elfHeader->shOff + elfHeader->shNumber * sizeof(LdrElfSection) > len)
 	{
 		//Not long enough
 		PrintLog(Error, "LdrLoadModule: Module has invalid section table");
-		return -EINVAL;
+		return NULL;
 	}
 
 	//Maximum of 1024 sections
 	if(elfHeader->shNumber > 1024)
 	{
 		PrintLog(Error, "LdrLoadModule: Module has too many sections (maximum of 1024)");
-		return -EINVAL;
+		return NULL;
 	}
 
 	//Find size to allocate for module
@@ -489,10 +489,10 @@ int LdrLoadModule(const void * data, unsigned int len, const char * args)
 	//Execute init function
 	if(initFunc)
 	{
-		initFunc(moduleInfo, args);
+		initFunc(moduleInfo, args ? args : "");
 	}
 
-	retVal = 0;
+	loaded = true;
 	goto finally;
 
 error3:
@@ -507,7 +507,9 @@ error2:
 finally:
 	//Free section addresses
 	MemKFree(sectionAddrs);
-	return retVal;
+
+	//Return correct value
+	return loaded ? moduleInfo : NULL;
 }
 
 //Adds a dependency
