@@ -32,6 +32,9 @@
 #include "loader/ksymbols.h"
 #include "loader/bootmodule.h"
 
+//INIT code residing in a threaded context
+static int INIT ThreadedInit(void * mBootInfo);
+
 void INIT NORETURN kMain(unsigned int mBootCode, multiboot_info_t * mBootInfo)
 {
 	//Kernel C Entry Point
@@ -53,14 +56,26 @@ void INIT NORETURN kMain(unsigned int mBootCode, multiboot_info_t * mBootInfo)
 	ProcInit();
 	IoBlockCacheInit();
 	IoDevFsInit();
-
-	// Initialize boot modules
 	LdrReadKernelSymbols(mBootInfo);
-	LdrLoadBootModules(mBootInfo);
+
+	// Modules are loaded in a kernel thread so that they can
+	//  do things requiring a thread context
+	ProcThread * initThread = ProcCreateKernelThread("init", ThreadedInit, mBootInfo);
+	ProcWakeUp(initThread);
 
 	// Exit boot mode
-	MemFreeInitPages();
 	ProcExitBootMode();
+}
+
+//INIT code residing in a threaded context
+static int INIT ThreadedInit(void * mBootInfo)
+{
+	// Initialize boot modules
+	LdrLoadBootModules((multiboot_info_t *) mBootInfo);
+
+	// Free init pages
+	MemFreeInitPages();
+	return 0;
 }
 
 void NORETURN Panic(const char * msg, ...)

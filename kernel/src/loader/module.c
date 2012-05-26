@@ -33,8 +33,6 @@
 //Head of the list of modules
 static ListHead moduleList = LIST_INLINE_INIT(moduleList);
 
-#warning Add return codes to doxygen listings
-
 //Stores addresses of sections
 typedef union LdrSectionAddress
 {
@@ -340,7 +338,6 @@ LdrModule * LdrLoadModule(const void * data, unsigned int len, const char * args
 							}
 							else
 							{
-#warning Consistent (and meaningful to sysadmins) error messages
 								PrintLog(Error, "LdrLoadModule: Module has corrupt symbol table");
 								goto error2;
 							}
