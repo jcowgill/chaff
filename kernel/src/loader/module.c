@@ -92,6 +92,7 @@ LdrModule * LdrLoadModule(const void * data, unsigned int len, const char * args
 
 	LdrElfSymbol * symTab = NULL;
 	char * strTab;
+	unsigned int symTabFirstGlobal;
 	unsigned int symTabCount;
 	unsigned int strTabLen;
 
@@ -168,6 +169,7 @@ LdrModule * LdrLoadModule(const void * data, unsigned int len, const char * args
 			strTab = (char *) (data + strTabSection->offset);
 			symTabCount = section->size / sizeof(LdrElfSymbol);
 			strTabLen = strTabSection->size;
+			symTabFirstGlobal = section->info;
 		}
 		else if(section->type == LDR_ELF_SHT_REL)
 		{
@@ -374,7 +376,7 @@ LdrModule * LdrLoadModule(const void * data, unsigned int len, const char * args
 	bool displayedWeakWarning = false;
 	LdrModuleInitFunc initFunc = NULL;
 
-	for(unsigned int i = 0; i < symTabCount; i++)
+	for(unsigned int i = symTabFirstGlobal; i < symTabCount; i++)
 	{
 		const char * symbolName;
 		void * symbolValue;
