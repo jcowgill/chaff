@@ -64,7 +64,8 @@ obj/%.o : %.c
 	@mkdir -p $(dir $@)
 	$(COMP)
 ifeq ($(WINDOWS),1)
-	sed -i 's/:\//\\:\//g' $(addsuffix .d,$(basename $@))
+# - This changes \ to / unless it is at the end of the line
+	@sed -i 's#\\\\\\(.\\)#/\\1#g' $(addsuffix .d,$(basename $@))
 endif
 
 obj/%.o : %.s
