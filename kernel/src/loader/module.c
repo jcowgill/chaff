@@ -456,8 +456,7 @@ LdrModule * LdrLoadModule(const void * data, unsigned int len, const char * args
 				else if(StrCmp(symbolName, "ModuleName") == 0)
 				{
 					//Module name
-					// The symbol is an indirect pointer and needs to be dereferenced again
-					moduleInfo->name = *((const char **) symbolValue);
+					moduleInfo->name = (const char *) symbolValue;
 				}
 				else
 				{
