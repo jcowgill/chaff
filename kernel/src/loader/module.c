@@ -31,7 +31,7 @@
 #define IS_POWER_OF_2(val) (((val) & ((val) - 1)) == 0)
 
 //Head of the list of modules
-static ListHead moduleList;
+static ListHead moduleList = LIST_INLINE_INIT(moduleList);
 
 #warning Add return codes to doxygen listings
 
@@ -358,7 +358,7 @@ LdrModule * LdrLoadModule(const void * data, unsigned int len, const char * args
 				{
 					//Add symbol value minus section offset to memory location
 					*((unsigned int *) (sectionAddrs[section->link].vAddr + rel->offset)) +=
-							(unsigned int) symValue - sectionAddrs[section->link].loadOff;
+							(unsigned int) symValue - (sectionAddrs[section->link].loadOff + rel->offset);
 				}
 				else
 				{
