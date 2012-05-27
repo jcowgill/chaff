@@ -29,6 +29,7 @@
 #include "cpu.h"
 #include "mm/kmemory.h"
 #include "io/bcache.h"
+#include "processInt.h"
 
 void INIT NORETURN kMain(unsigned int mBootCode, multiboot_info_t * mBootInfo)
 {
@@ -54,7 +55,7 @@ void INIT NORETURN kMain(unsigned int mBootCode, multiboot_info_t * mBootInfo)
 
 	// Exit boot mode
 	MemFreeInitPages();
-	ProcExitBootMode();
+	ProcIntSelfExit();
 }
 
 void NORETURN Panic(const char * msg, ...)

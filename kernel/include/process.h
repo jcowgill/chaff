@@ -451,41 +451,12 @@ extern ProcProcess ProcKernelProcessData;
 extern ProcThread * ProcIdleThread;
 
 /**
- * Pointer to interrupts thread
- *
- * @bug this is not currently used
- */
-extern ProcThread * ProcInterruptsThread;
-
-/**
  * Pointer kernel process
  */
 #define ProcKernelProcess (&ProcKernelProcessData)
 
 /**
  * @}
- * @name Kernel Initialization
- * @privatesection
- * @{
- */
-
-/**
- * Initializes global processes and threads
- *
- * @private
- */
-void INIT ProcInit();
-
-/**
- * Exits boot mode and starts running threads as normal
- *
- * @private
- */
-void INIT NORETURN ProcExitBootMode();
-
-/**
- * @}
- * @publicsection
  * @name Thread Local Storage
  *
  * TLS is implemented by changing the base pointer of the gs
