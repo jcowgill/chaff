@@ -31,6 +31,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdarg.h>
+#include <limits.h>
 
 /**
  * Version of chaff being used
@@ -81,12 +82,17 @@
 #define IGNORE_PARAM (void)
 
 /**
+ * @name Formatted Output
+ * @{
+ */
+
+/**
  * Brings down the operating system as the result of an unrecoverable error
  *
- * @param msg format of message to display before halting the system
+ * @param format format of message to display before halting the system
  * @param ... any extra parameters used by the message
  */
-void NORETURN Panic(const char * msg, ...);
+void NORETURN Panic(const char * format, ...);
 
 /**
  * Levels of logging which can be passed to PrintLog()
@@ -131,13 +137,99 @@ typedef enum
 } LogLevel;
 
 /**
- * Prints a message to the kernel log
+ * Prints a message to the kernel log using a va_list
+ *
+ * See PrintLog() for the format of the @b format argument
  *
  * @param level significance of the message
- * @param msg format of message to display
- * @param ... any extra parameters used by the message
+ * @param format format of message to display
+ * @param args a va_list containing the format arguments
  */
-void PrintLog(LogLevel level, const char * msg, ...);
+void PrintLogVarArgs(LogLevel level, const char * format, va_list args)
+	__attribute__((format(printf, 2, 0)));
+
+/**
+ * Prints a message to the kernel log
+ *
+ * The @b format argument is similar to the standard C printf however
+ * you cannot use the floating point formats.
+ *
+ * %[flags][width][.precision]type
+ *
+ * Flags:
+ * 	- @b +		numbers always start with a + or minus
+ * 	- @b space	print a space infront of positive numbers
+ * 	- @b -		left align
+ * 	- @b #		Alternate form - prints 0, 0x or 0X infront of types o,x,X
+ * 	- @b 0		Pad with zeros instead of spaces
+ *
+ * Width:
+ * 	Minimum width
+ *
+ * Precision:
+ * 	Strings - Maximum width
+ * 	Numbers - Minimum width (does not include signs like width does)
+ *
+ * Type:
+ * 	- @b d/i	signed int
+ * 	- @b u		unsigned int
+ * 	- @b x/X	unsigned int in hexadecimal
+ * 	- @b o		unsigned int in octal
+ * 	- @b s		null-terminated string
+ * 	- @b c		character
+ * 	- @b p		pointer (eg 0x01234ABCD)
+ * 	- @b %		literal percent sign
+ *
+ * @param level significance of the message
+ * @param format format of message to display
+ * @param ... format arguments
+ */
+static inline void PrintLog(LogLevel level, const char * format, ...)
+	__attribute__((format(printf, 2, 3)));
+static inline void PrintLog(LogLevel level, const char * format, ...)
+{
+	//Pass to varargs version
+	va_list args;
+	va_start(args, format);
+	PrintLogVarArgs(level, format, args);
+	va_end(args);
+}
+
+/**
+ * Generates a formatted string using a va_list
+ *
+ * See PrintLog() for the format of the @b format argument
+ *
+ * @param buffer buffer to store final string to
+ * @param bufSize size of the buffer passed
+ * @param format format of the message
+ * @param args a va_list containing the format arguments
+ */
+void SPrintFVarArgs(char * buffer, int bufSize, const char * format, va_list args)
+	__attribute__((format(printf, 3, 0)));
+
+/**
+ * Generates a formatted string
+ *
+ * See PrintLog() for the format of the @b format argument
+ *
+ * @param buffer buffer to store final string to
+ * @param bufSize size of the buffer passed
+ * @param format format of the message
+ * @param ... format arguments
+ */
+static inline void SPrintF(char * buffer, int bufSize, const char * format, ...)
+	__attribute__((format(printf, 3, 4)));
+static inline void SPrintF(char * buffer, int bufSize, const char * format, ...)
+{
+	//Pass to varargs version
+	va_list args;
+	va_start(args, format);
+	SPrintFVarArgs(buffer, bufSize, format, args);
+	va_end(args);
+}
+
+/** @} */
 
 /**
  * Sets @a count bytes of @a data to the specified value
