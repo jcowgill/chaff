@@ -59,7 +59,6 @@ static void SuspendSelf()
 		if(!ProcYieldBlock(true))
 		{
 			PrintLog(Error, "ProcSignalHandler: Process woken up while not waiting");
-			#warning TODO print pid
 		}
 
 		//Ignore SIGSTOP
