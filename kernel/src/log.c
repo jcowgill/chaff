@@ -21,89 +21,24 @@
 
 #include "chaff.h"
 
-#define TO_STRING_LEN 12
+#define MAX_STR_LEN 1024
 
-#define HEX_ABASE_UPPER ('A' - 10)
-#define HEX_ABASE_LOWER ('a' - 10)
+#define TO_STRING_LEN 12
 
 //Flags
 #define LEFT_ALIGN	1
 #define ZERO_PAD	2
 #define ALTERNATE	4
 
-static char printLogBuffer[1024];
+#define PRECISION	8
+#define HEX_UPPER	16
+
+//To string result
 static char toStringResult[TO_STRING_LEN];
 
-//Converts decimal number to string and stores in toStringResult
-// Returns the index where the string starts
-static char * toDecimalString(unsigned int num)
-{
-	char * resultAddr = &toStringResult[TO_STRING_LEN - 1];
-
-	//Do iteration
-	do
-	{
-		//Store char
-		*--resultAddr = '0' + num % 10;
-
-		//Next number
-		num /= 10;
-	}
-	while(num > 0);
-
-	//Return initial location
-	return resultAddr;
-}
-
-//Converts decimal number to string and stores in toStringResult
-// Returns the index where the string starts
-static char * toOctalString(unsigned int num)
-{
-	char * resultAddr = &toStringResult[TO_STRING_LEN - 1];
-
-	//Do iteration
-	do
-	{
-		//Store char
-		*--resultAddr = '0' + num % 8;
-
-		//Next number
-		num /= 8;
-	}
-	while(num > 0);
-
-	//Return initial location
-	return resultAddr;
-}
-
-//Converts hex number to string and stores in toStringResult
-// aBase should be HEX_ABASE_UPPER or HEX_ABASE_LOWER for upper or lower case
-// Returns the index where the string starts (NOT null-terminated)
-static char * toHexString(unsigned int num, char aBase)
-{
-	char * resultAddr = &toStringResult[TO_STRING_LEN - 1];
-
-	//Do iteration
-	do
-	{
-		//Hex?
-		if(num % 16 >= 10)
-		{
-			*--resultAddr = aBase + num % 16;
-		}
-		else
-		{
-			*--resultAddr = '0' + num % 16;
-		}
-
-		//Next number
-		num /= 16;
-	}
-	while(num > 0);
-
-	//Return initial location
-	return resultAddr;
-}
+//String buffer variables
+static char * strBuffer;
+static int strBufferSize;
 
 //Converts the string at *format to an unsigned int
 // Stops at the first non-numeric character and sets *format to this char
@@ -115,25 +50,17 @@ static unsigned int stringToNumber(const char ** format)
 	while(**format >= '0' && **format <= '9')
 	{
 		//The shifts multiply num by 10
-		num = (num << 3 + num << 1) + **format - '0';
+		num = (num << 3) + (num << 1) + **format - '0';
 		(*format)++;
 	}
 
 	return num;
 }
 
-//Prints a message to the kernel log
-void PrintLogVarArgs(LogLevel level, const char * format, va_list args)
-{
-}
-
 //Generates a formatted string
-void SPrintFVarArgs(char * buffer, int bufSize, const char * format, va_list args)
+// if emitChar returns true, the function exits immediately
+static void DoStringFormat(bool (* emitChar)(char), const char * format, va_list args)
 {
-	//Ignore for blank buffer size
-	if(bufSize <= 0)
-		return;
-
 	//Process the format string
 	while(*format)
 	{
@@ -144,26 +71,32 @@ void SPrintFVarArgs(char * buffer, int bufSize, const char * format, va_list arg
 			format++;
 
 			//Data
-			char sign = '\0';		//+, - or <space>
-			char * rawStr = NULL;	//Final raw string
-			int flags = 0;			//On off flags
-			unsigned int width;		//Minimum width of element
-			unsigned int precision;	//Precision of data
+			char prefix[2] = {0, 0};	//Number prefix (+, -, <space> or 0x)
+			char * rawStr = NULL;		//Final raw string
+			unsigned int rawStrLen;		//Length of raw string
+			int flags = 0;				//On off flags
+			unsigned int width = 0;		//Minimum width of element
+			unsigned int precision = 1;	//Precision of data
+			unsigned int absValue;		//Absolute numeric value
+			unsigned short base;		//Numeric base (8, 10 or 16)
+			int extraZeros = 0;			//Number of extra zeros to add
+			int spaces;					//Spaces to add at the end
 
 			//Start control character loop
-			while(!rawStr)
+			// Exit of this loop are gotos to stringHandler and numberHandler
+			for(;;)
 			{
 				switch(*format++)
 				{
 					case '+':
 						//Set plus flag
-						sign = '+';
+						prefix[0] = '+';
 						break;
 
 					case ' ':
 						//Set space flag if not plus already
-						if(!sign)
-							sign = ' ';
+						if(!prefix[0])
+							prefix[0] = ' ';
 						break;
 
 					case '#':
@@ -183,6 +116,8 @@ void SPrintFVarArgs(char * buffer, int bufSize, const char * format, va_list arg
 
 					case '.':
 						//Precision
+						flags &= ~ZERO_PAD;
+						flags |= PRECISION;
 						precision = stringToNumber(&format);
 						break;
 
@@ -190,99 +125,336 @@ void SPrintFVarArgs(char * buffer, int bufSize, const char * format, va_list arg
 					case '6': case '7': case '8': case '9':
 						//Width
 						format--;
-						precision = stringToNumber(&format);
+						width = stringToNumber(&format);
 						break;
+
+					//##########################################
 
 					case 'd':
 					case 'i':
 						{
 							//Print signed integer
 							int signedValue = va_arg(args, int);
-							unsigned int absValue;
 
 							//Calculate absolute value (keeping INT_MIN working)
-							if(signedValue == INT_MIN)
+							if(signedValue < 0)
 							{
-								absValue = (unsigned int) INT_MAX + 1;
-							}
-							else if(signedValue < 0)
-							{
-								absValue = -signedValue;
-								sign = '-';
+								if(signedValue == INT_MIN)
+									absValue = (unsigned int) INT_MAX + 1;
+								else
+									absValue = (unsigned int) -signedValue;
+
+								prefix[0] = '-';
 							}
 							else
 							{
-								absValue = signedValue;
+								absValue = (unsigned int) signedValue;
 							}
 
-							//Get unsigned value
-							rawStr = toDecimalString(absValue);
-							break;
+							//Setup numer parameters
+							base = 10;
+							goto numberHandler;
 						}
 
 					case 'u':
 						//Get unsigned int
-						rawStr = toDecimalString(va_arg(args, unsigned int));
-						break;
-
-					case 'x':
-						//Get unsigned int as hex
-						rawStr = toHexString(va_arg(args, unsigned int), HEX_ABASE_LOWER);
-						break;
-
-					case 'X':
-						//Get unsigned int as hex
-						rawStr = toHexString(va_arg(args, unsigned int), HEX_ABASE_UPPER);
-						break;
+						absValue = va_arg(args, unsigned int);
+						prefix[0] = '\0';
+						base = 10;
+						goto numberHandler;
 
 					case 'o':
 						//Get unsigned int as octal
-						rawStr = toOctalString(va_arg(args, unsigned int));
-						break;
+						absValue = va_arg(args, unsigned int);
+						base = 8;
+
+						if(absValue != 0 && flags & ALTERNATE)
+							prefix[0] = '0';
+						else
+							prefix[0] = '\0';
+
+						goto numberHandler;
+
+					case 'p':
+						//Pointer
+						absValue = va_arg(args, unsigned int);
+						flags |= HEX_UPPER;
+						base = 16;
+						precision = 8;
+						width = 0;
+						prefix[0] = '0';
+						prefix[1] = 'x';
+
+						goto numberHandler;
+
+					case 'x':
+						//Get unsigned int as hex
+						absValue = va_arg(args, unsigned int);
+						base = 16;
+
+						if(absValue != 0 && flags & ALTERNATE)
+						{
+							prefix[0] = '0';
+							prefix[1] = 'x';
+						}
+						else
+						{
+							prefix[0] = '\0';
+						}
+
+						goto numberHandler;
+
+					case 'X':
+						//Get unsigned int as hex
+						absValue = va_arg(args, unsigned int);
+						base = 16;
+						flags |= HEX_UPPER;
+
+						if(absValue != 0 && flags & ALTERNATE)
+						{
+							prefix[0] = '0';
+							prefix[1] = 'X';
+						}
+						else
+						{
+							prefix[0] = '\0';
+						}
+
+						goto numberHandler;
 
 					case 's':
 						//String
 						rawStr = va_arg(args, char *);
-						break;
+
+						//Null?
+						if(rawStr == NULL)
+						{
+							rawStr = "(null)";
+							rawStrLen = precision = 6;
+						}
+						else
+						{
+							//Find length of string and store as the precision
+							unsigned int maxLen = (flags & PRECISION) ? precision : UINT_MAX;
+							rawStrLen = precision = StrLen(rawStr, maxLen);
+						}
+
+						goto stringHandler;
 
 					case 'c':
 						//Character
-						toStringResult[TO_STRING_LEN - 1] = (char) va_arg(args, int);
-						rawStr = &toStringResult[TO_STRING_LEN - 1];
-						break;
-
-					case 'p':
-						//Pointer
-#error Set some flags here
-						rawStr = toHexString(va_arg(args, unsigned int), HEX_ABASE_UPPER);
-						break;
+						toStringResult[0] = (char) va_arg(args, int);
+						rawStr = &toStringResult[0];
+						rawStrLen = precision = 1;
+						goto stringHandler;
 
 					case '%':
 						//Literal %
-						toStringResult[TO_STRING_LEN - 1] = '%';
-						rawStr = &toStringResult[TO_STRING_LEN - 1];
-						break;
+						toStringResult[0] = '%';
+						rawStr = &toStringResult[0];
+						rawStrLen = precision = 1;
+						goto stringHandler;
 
 					default:
 						//Invalid char
-						PrintLog(Error, "SPrintF: Invalid character in format string / premature end of format");
-						*buffer = '\0';
 						return;
 				}
 			}
 
-			//
-#error TODO Do the printing
+		numberHandler:
+			//Convert number to string
+			rawStr = &toStringResult[TO_STRING_LEN - 1];
+			rawStrLen = 0;
+
+			//Iterate over each character to generate
+			while(absValue > 0)
+			{
+				//Decrement pointer
+				rawStr--;
+
+				//Hex?
+				if(absValue % base >= 10)
+					*rawStr = ((flags & HEX_UPPER) ? 'A' : 'a') - 10 + absValue % base;
+				else
+					*rawStr = '0' + absValue % base;
+
+				//Next number
+				absValue /= base;
+
+				//Increment length
+				rawStrLen++;
+			}
+
+			//Calculate number of extra 0s to add
+			int prefixLen = prefix[0] ? (prefix[1] ? 2 : 1) : 0;
+
+			if(flags & ZERO_PAD && !(flags & LEFT_ALIGN))
+			{
+				extraZeros = width - rawStrLen - prefixLen;
+			}
+			else
+			{
+				extraZeros = precision - rawStrLen;
+			}
+
+			//Ensure extraZeros is positive
+			if(extraZeros < 0)
+				extraZeros = 0;
+
+			//Set precision to correct "inner" length
+			precision = rawStrLen + extraZeros + prefixLen;
+
+		stringHandler:
+			//Calculate number of padding spaces to add
+			spaces = width - precision;
+
+			//Add left padding
+			if(!(flags & LEFT_ALIGN))
+			{
+				for(; spaces > 0; spaces--)
+				{
+					emitChar(' ');
+				}
+			}
+
+			//Print prefix
+			if(prefix[0])
+			{
+				emitChar(prefix[0]);
+
+				if(prefix[1])
+					emitChar(prefix[1]);
+			}
+
+			//Print extra zeros
+			for(; extraZeros > 0; extraZeros--)
+			{
+				emitChar('0');
+			}
+
+			//Print string
+			for(; rawStrLen > 0; rawStrLen--)
+			{
+				emitChar(*rawStr);
+				rawStr++;
+			}
+
+			//Add right padding
+			if(flags & LEFT_ALIGN)
+			{
+				for(; spaces > 0; spaces--)
+				{
+					emitChar(' ');
+				}
+			}
 		}
 		else
 		{
 			//Print character
-#warning Print char
+			emitChar(*format);
 			format++;
 		}
 	}
 }
 
+//Emit character to string
+static bool SPrintEmitChar(char c)
+{
+	//Emit char
+	*strBuffer++ = c;
+	strBufferSize--;
+	
+	//Exit if only 1 char left
+	return (strBufferSize <= 1);
+}
+
+//Generates a formatted string
+void SPrintFVarArgs(char * buffer, int bufSize, const char * format, va_list args)
+{
+	//Only do the formatting if the buffer is large enough
+	if(bufSize > 0)
+	{
+		if(bufSize > 1)
+		{
+			//Format string
+			strBuffer = buffer;
+			strBufferSize = bufSize;
+			DoStringFormat(SPrintEmitChar, format, args);
+		}
+		
+		//Append null character
+		*strBuffer = '\0';
+	}
+}
+
+//Emit character to string
+static bool PrintLogEmitChar(char c)
+{
+	//Print character
+	static char * nextPos = (char *) 0xC00B8000;
+	
+	//Newline?
+	if(c == '\n')
+	{
+		//Next line
+		nextPos += 160 - ((((unsigned int) nextPos) - 0xC00B8000) % 160);
+	}
+	else
+	{
+		//Just print character
+		*nextPos++ = c;
+		*nextPos++ = 7;
+	}
+
+	//Wrap around if reached the end
+	if((unsigned int) nextPos >= 0xC00B8FA0)
+	{
+		nextPos = (char *) 0xC00B8000;
+	}
+	
+	return false;
+}
+
+//Prints a message to the kernel log
+void PrintLogVarArgs(LogLevel level, const char * format, va_list args)
+{
+	//Log strings
+	static const char * logLevelStrings[] =
+	{
+		[Fatal] 	= "Panic",
+		[Critical] 	= "Critical",
+		[Error] 	= "Error",
+		[Warning] 	= "Warning",
+		[Notice] 	= "Notice",
+		[Info] 		= "Info",
+		[Debug] 	= "Debug",
+	};
+	
+	//Validate level
+	if(level < Fatal || level > Debug)
+	{
+		//Change to notice
+		level = Notice;
+	}
+
+	//Print level
+	const char * levelStr = logLevelStrings[level];
+	
+	do
+	{
+		PrintLogEmitChar(*levelStr++);
+	}
+	while(*levelStr);
+	
+	//Print space
+	PrintLogEmitChar(':');
+	PrintLogEmitChar(' ');
+	
+	//Print formatted message
+	DoStringFormat(PrintLogEmitChar, format, args);
+}
+
+//Fatal error
 void NORETURN Panic(const char * format, ...)
 {
 	//Print message
@@ -298,68 +470,3 @@ void NORETURN Panic(const char * format, ...)
 					 "hlt\n");
 	}
 }
-
-static char * nextPos = (char *) 0xC00B8000;
-
-void PrintStr(const char * msg)
-{
-	//Prints a string to the video output
-	while(*msg)
-	{
-		*nextPos++ = *msg++;
-		*nextPos++ = 7;
-
-		//Wrap around if reached the end
-		if((unsigned int) nextPos >= 0xC00B8FA0)
-		{
-			nextPos = (char *)0xC00B8000;
-		}
-	}
-}
-
-/*
-void PrintLog(LogLevel level, const char * msg, ...)
-{
-	//Print level
-	switch(level)
-	{
-	case Fatal:
-		PrintStr("Panic: ");
-		break;
-
-	case Critical:
-		PrintStr("Critical: ");
-		break;
-
-	case Error:
-		PrintStr("Error: ");
-		break;
-
-	case Warning:
-		PrintStr("Warning: ");
-		break;
-
-	case Notice:
-		PrintStr("Notice: ");
-		break;
-
-	case Info:
-		PrintStr("Info: ");
-		break;
-
-	case Debug:
-		PrintStr("Debug: ");
-		break;
-	}
-
-	//Print message
-	PrintStr(msg);
-
-	//New line + wrap around
-	nextPos += 160 - ((((unsigned int) nextPos) - 0xC00B8000) % 160);
-	if((unsigned int) nextPos >= 0xC00B8FA0)
-	{
-		nextPos = (char *)0xC00B8000;
-	}
-}
-*/

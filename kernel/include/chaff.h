@@ -218,7 +218,7 @@ void SPrintFVarArgs(char * buffer, int bufSize, const char * format, va_list arg
  * @param format format of the message
  * @param ... format arguments
  */
-static inline void SPrintF(char * buffer, int bufSize, const char * format, ...)
+static void SPrintF(char * buffer, int bufSize, const char * format, ...)
 	__attribute__((format(printf, 3, 4)));
 static inline void SPrintF(char * buffer, int bufSize, const char * format, ...)
 {
