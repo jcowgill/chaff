@@ -96,10 +96,6 @@ void INIT ProcInit()
 
 	//Create Orphan Reaper Thread
 	ProcIntReaperInit();
-
-	//Setup initial current threadsa
-	ProcCurrProcess = ProcKernelProcess;
-	ProcCurrThread = ProcIdleThread;
 }
 
 //Gets a process from the given ID or returns NULL if the process doesn't exist

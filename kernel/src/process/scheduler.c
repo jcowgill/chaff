@@ -28,9 +28,12 @@
 
 //Scheduler functions
 
+//Dummy thread for init purposes
+static ProcThread dummyInitThread = { .parent = ProcKernelProcess };
+
 //Currently running process and thread
-ProcProcess * ProcCurrProcess;
-ProcThread * ProcCurrThread;
+ProcProcess * ProcCurrProcess = ProcKernelProcess;
+ProcThread * ProcCurrThread = &dummyInitThread;
 
 //Thread queue
 static ListHead threadQueue = LIST_INLINE_INIT(threadQueue);
