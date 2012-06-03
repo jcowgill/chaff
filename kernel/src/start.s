@@ -20,6 +20,7 @@
 global _start:function hidden
 global TssESP0:data hidden
 global GdtTLS:data hidden
+global ProcStartupStackTop:data hidden
 extern kMain
 extern MemKernelPageDirectory
 
@@ -95,6 +96,7 @@ section .initbss nobits alloc noexec write
 startupStack:
 	align 4
 	resb STACK_SIZE		;Allocate 16k of startup stack
+ProcStartupStackTop:
 
 section .init
 align 4096

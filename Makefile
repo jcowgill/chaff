@@ -38,9 +38,9 @@ ASM			= nasm
 
 # Global flags (apply to kernel and user mode)
 ifeq ($(CC),clang)
-CF_ALL		= -ccc-host-triple i386-pc-unknown-gnu -g -m32 -Wall -Wextra -DDEBUG -std=gnu99
+CF_ALL		= -ccc-host-triple i386-pc-unknown-gnu -g -m32 -Wall -Wextra -DDEBUG -std=gnu99 -fno-common
 else
-CF_ALL		= -gdwarf-2 -m32 -Wall -Wextra -DDEBUG -std=gnu99
+CF_ALL		= -gdwarf-2 -m32 -Wall -Wextra -DDEBUG -std=gnu99 -fno-common
 endif
 
 LF_ALL		= -x -m elf_i386
@@ -64,7 +64,8 @@ obj/%.o : %.c
 	@mkdir -p $(dir $@)
 	$(COMP)
 ifeq ($(WINDOWS),1)
-	sed -i 's/:\//\\:\//g' $(addsuffix .d,$(basename $@))
+# - This changes \ to / unless it is at the end of the line
+	@sed -i 's#\\\\\\(.\\)#/\\1#g' $(addsuffix .d,$(basename $@))
 endif
 
 obj/%.o : %.s

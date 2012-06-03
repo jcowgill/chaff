@@ -64,7 +64,6 @@ static ProcThread * ProcCreateRawThread(const char * name, ProcProcess * parent,
 //Global processes and threads
 ProcProcess ProcKernelProcessData;
 ProcThread * ProcIdleThread;
-ProcThread * ProcInterruptsThread;
 
 //Process and thread caches
 static MemCache * cacheProcess;
@@ -94,10 +93,6 @@ void INIT ProcInit()
 
 	//Create idle thread
 	ProcIdleThread = ProcCreateKernelThread("idle", ProcIntIdleThread, NULL);
-
-	//Create interrupts thread
-	// This needs no stack since it isn't run
-	ProcInterruptsThread = ProcCreateRawThread("interrupts", ProcKernelProcess, false);
 
 	//Create Orphan Reaper Thread
 	ProcIntReaperInit();
@@ -564,6 +559,7 @@ void NORETURN ProcExitProcess(unsigned int exitCode)
 
 		// Zombieize
 		ProcCurrProcess->zombie = true;
+		ProcCurrThread->state = PTS_ZOMBIE;
 
 		// If the owner is the kernel, auto-reap
 		if(ProcCurrProcess->parent == ProcKernelProcess)
@@ -588,7 +584,7 @@ void NORETURN ProcExitProcess(unsigned int exitCode)
 		}
 
 		// Exit thread
-		ProcIntSchedulerExitSelf();
+		ProcIntSelfExit();
 	}
 }
 
@@ -650,6 +646,9 @@ void NORETURN ProcExitThread(unsigned int exitCode)
 	else
 	{
 		//Exit this thread
+		// Zombieize
+		ProcCurrThread->state = PTS_ZOMBIE;
+		
 		// Set exit code
 		ProcCurrThread->exitCode = exitCode;
 
@@ -675,7 +674,7 @@ void NORETURN ProcExitThread(unsigned int exitCode)
 		//!!! If we do other stuff here, review ProcExitProcess
 
 		// Exit thread - other stuff is freed when the thread is reaped
-		ProcIntSchedulerExitSelf();
+		ProcIntSelfExit();
 	}
 }
 

@@ -28,9 +28,12 @@
 
 //Scheduler functions
 
+//Dummy thread for init purposes
+static ProcThread dummyInitThread = { .parent = ProcKernelProcess };
+
 //Currently running process and thread
-ProcProcess * ProcCurrProcess;
-ProcThread * ProcCurrThread;
+ProcProcess * ProcCurrProcess = ProcKernelProcess;
+ProcThread * ProcCurrThread = &dummyInitThread;
 
 //Thread queue
 static ListHead threadQueue = LIST_INLINE_INIT(threadQueue);
@@ -40,7 +43,7 @@ extern void * TssESP0;				//Kernel stack
 extern unsigned long long GdtTLS;	//Current TLS descriptor
 
 //Chooses another thread and runs it
-void ProcDoSchedule()
+void PRIVATE ProcDoSchedule()
 {
 	//Pop next thread from list
 	ProcThread * newThread;
@@ -200,30 +203,12 @@ void ProcWakeUpSig(ProcThread * thread, bool isSignal)
 	ListHeadAddLast(&thread->schedQueueEntry, &threadQueue);
 }
 
-//Removes the current thread from scheduler existence
-void NORETURN ProcIntSchedulerExitSelf()
+//Exits myself
+void PRIVATE NORETURN ProcIntSelfExit()
 {
-	//Set as zombie
-	ProcCurrThread->state = PTS_ZOMBIE;
-
 	//Reschedule
 	ProcDoSchedule();
 
-	//If we get here, something's gone very wrong
-	Panic("ProcIntSchedulerExitSelf: DoSchedule() returned");
-}
-
-//Exits the boot code to continue running threads as normal
-void INIT NORETURN ProcExitBootMode()
-{
-	//ProcDoSchedule requires a current thread
-	// We use the interrupts thread - shouldn't really be used but i don't care
-	// so there
-	ProcCurrThread = ProcInterruptsThread;
-
-	//Reschedule
-	ProcDoSchedule();
-
-	//If we get here, something's gone very wrong
-	Panic("ProcIntSchedulerExitSelf: DoSchedule() returned");
+	//If we get here, something's gone wrong
+	Panic("ProcIntSelfExit: ProcDoSchedule() returned");
 }

@@ -31,6 +31,11 @@
 #include "process.h"
 
 /**
+ * Initializes global processes and threads
+ */
+void INIT ProcInit();
+
+/**
  * Swaps the stack pointer
  *
  * Since this swaps the stack, this function will not return to the same location.
@@ -43,7 +48,7 @@ void PRIVATE STDCALL ProcIntSchedulerSwap(void * newStackPtr, void ** oldStackPt
 /**
  * Completely removes the current thread from the scheduler
  */
-void PRIVATE NORETURN ProcIntSchedulerExitSelf();
+void PRIVATE NORETURN ProcIntSelfExit();
 
 /**
  * User mode entry point
