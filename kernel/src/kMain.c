@@ -40,6 +40,9 @@ void INIT NORETURN kMain(unsigned int mBootCode, multiboot_info_t * mBootInfo)
 		Panic("kMain: OS must be loaded by a multiboot bootloader");
 	}
 
+	// Wipe screen
+	MemSet((void *) 0xC00B8000, 0, 0xFA0);
+
 	// Core Initialization (most other stuff depends on this)
 	IntrInit();
 	CpuInit();

@@ -20,6 +20,7 @@
  */
 
 #include "chaff.h"
+#include "process.h"
 
 #define MAX_STR_LEN 1024
 
@@ -39,6 +40,13 @@ static char toStringResult[TO_STRING_LEN];
 //String buffer variables
 static char * strBuffer;
 static int strBufferSize;
+
+//Top of the startup stack
+// Use &ProcStartupStackTop to get the pointer
+extern unsigned int ProcStartupStackTop;
+
+//Prints a stack trace
+static void PrintStackTrace() __attribute__ ((noinline));
 
 //Converts the string at *format to an unsigned int
 // Stops at the first non-numeric character and sets *format to this char
@@ -363,7 +371,7 @@ static bool SPrintEmitChar(char c)
 	//Emit char
 	*strBuffer++ = c;
 	strBufferSize--;
-	
+
 	//Exit if only 1 char left
 	return (strBufferSize <= 1);
 }
@@ -381,7 +389,7 @@ void SPrintFVarArgs(char * buffer, int bufSize, const char * format, va_list arg
 			strBufferSize = bufSize;
 			DoStringFormat(SPrintEmitChar, format, args);
 		}
-		
+
 		//Append null character
 		*strBuffer = '\0';
 	}
@@ -392,7 +400,7 @@ static bool PrintLogEmitChar(char c)
 {
 	//Print character
 	static char * nextPos = (char *) 0xC00B8000;
-	
+
 	//Newline?
 	if(c == '\n')
 	{
@@ -411,7 +419,7 @@ static bool PrintLogEmitChar(char c)
 	{
 		nextPos = (char *) 0xC00B8000;
 	}
-	
+
 	return false;
 }
 
@@ -429,7 +437,7 @@ void PrintLogVarArgs(LogLevel level, const char * format, va_list args)
 		[Info] 		= "Info",
 		[Debug] 	= "Debug",
 	};
-	
+
 	//Validate level
 	if(level < Fatal || level > Debug)
 	{
@@ -439,19 +447,66 @@ void PrintLogVarArgs(LogLevel level, const char * format, va_list args)
 
 	//Print level
 	const char * levelStr = logLevelStrings[level];
-	
+
 	do
 	{
 		PrintLogEmitChar(*levelStr++);
 	}
 	while(*levelStr);
-	
+
 	//Print space
 	PrintLogEmitChar(':');
 	PrintLogEmitChar(' ');
-	
+
 	//Print formatted message
 	DoStringFormat(PrintLogEmitChar, format, args);
+	PrintLogEmitChar('\n');
+}
+
+//Print a string without newline at the end
+static void RawPrint(const char * format, ...)
+{
+	va_list args;
+	va_start(args, format);
+	DoStringFormat(PrintLogEmitChar, format, args);
+	va_end(args);
+}
+
+//Prints a stack trace
+static void PrintStackTrace()
+{
+	//Print header
+	RawPrint("Call Stack:\n");
+
+	//Get base pointer
+	unsigned int * firstEbp;
+	unsigned int * ebp;
+	asm ("movl %%ebp, %0\n":"=g"(firstEbp));
+	ebp = firstEbp;
+
+	//Get base of the stack
+	unsigned int * stackBase;
+	if(ProcCurrThread->kStackBase == NULL)
+	{
+		//This is the init dummy thread, so use the top of the startup stack
+		stackBase = &ProcStartupStackTop;
+	}
+	else
+	{
+		stackBase = ProcCurrThread->kStackBase + PROC_KSTACK_SIZE;
+	}
+
+	//Process each call in the stack
+	while(ebp < stackBase && ebp >= firstEbp)
+	{
+		//Print the call
+		RawPrint(" %p\n", ebp[1]);
+
+#warning TODO print symbol for this function
+
+		//Move to next stack frame
+		ebp = (unsigned int *) ebp[0];
+	}
 }
 
 //Fatal error
@@ -462,6 +517,9 @@ void NORETURN Panic(const char * format, ...)
 	va_start(args, format);
 	PrintLogVarArgs(Fatal, format, args);
 	va_end(args);
+
+	//Print stack trace
+	PrintStackTrace();
 
 	//Hang
 	for(;;)
