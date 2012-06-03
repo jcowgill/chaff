@@ -118,8 +118,7 @@ void MemPageFaultHandler(IntrContext * intContext)
 		}
 		else
 		{
-			Panic("MemPageFaultHandler: Unable to handle kernel page fault");
-#warning ...at address...
+			Panic("MemPageFaultHandler: Unable to handle kernel page fault for %p", addr);
 		}
 	}
 }

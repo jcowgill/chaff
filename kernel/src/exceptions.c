@@ -96,5 +96,4 @@ void IntrExceptError(IntrContext * iContext)
 	//Error exceptions
 	IGNORE_PARAM iContext;
 	Panic("IntrExceptError: Fatal CPU error");
-#warning TODO extra info
 }
